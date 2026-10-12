@@ -54,6 +54,10 @@ jobs:
             iso/iso-profiles/wincraft-lite/common.yaml
           python3 -m json.tool data/plasma/look-and-feel/org.wincraft.desktop/metadata.json > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml
+      - name: Overlay links resolve
+        run: |
+          broken=$(find iso/iso-profiles -xtype l)
+          if [[ -n $broken ]]; then echo "Broken links:"; echo "$broken"; exit 1; fi
       - name: Desktop entries
         run: |
           sudo apt-get install -y -qq desktop-file-utils > /dev/null

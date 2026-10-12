@@ -90,6 +90,11 @@ for dir in "${targets[@]}"; do
     fi
 done
 
+# The Lite profile links to files of the full one; artools copies overlays
+# with cp -L, which fails late on a broken link.
+broken=$(find "$repo/iso/iso-profiles" -xtype l)
+[[ -z $broken ]] || die "broken links in iso/iso-profiles: $broken"
+
 # Stage the profiles so file modes can be fixed without touching the
 # checkout (git does not record modes such as 0440 for sudoers files).
 workspace=$artools_dir/wincraft-workspace
