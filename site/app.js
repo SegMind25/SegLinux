@@ -107,7 +107,7 @@ document.querySelectorAll(".tabs button").forEach((tab) => {
   tab.addEventListener("click", () => {
     const name = tab.dataset.shot;
     document.querySelectorAll(".tabs button").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
-    shot.src = `assets/${name}.webp`;
+    shot.src = `/assets/${name}.webp`;
     shot.alt = SHOTS[name][0];
     document.getElementById("shot-caption").textContent = SHOTS[name][1];
     document.getElementById("shot-name").textContent = `seglinux — ${tab.textContent.toLowerCase()}`;
@@ -195,10 +195,10 @@ function fileLinks(build, primary) {
   const nodes = [];
   build.parts.forEach((part, i) => {
     const label = build.parts.length > 1 ? `Part ${i + 1} · ${formatSize(part.size)}` : `Download · ${formatSize(part.size)}`;
-    nodes.push(el("a", { class: primary ? `btn ${i === 0 ? "btn-primary" : "btn-outline"} btn-small` : "", href: part.browser_download_url }, primary ? label : part.name.replace(/^.*\.(iso(\.part\d+)?)$/, "$1")));
+    nodes.push(el("a", { class: primary ? `btn ${i === 0 ? "btn-primary" : "btn-outline"} btn-small` : "", href: part.browser_download_url, download: part.name }, primary ? label : part.name.replace(/^.*\.(iso(\.part\d+)?)$/, "$1")));
   });
   if (build.checksum) {
-    nodes.push(el("a", { class: primary ? "btn btn-outline btn-small" : "", href: build.checksum.browser_download_url }, "SHA-256"));
+    nodes.push(el("a", { class: primary ? "btn btn-outline btn-small" : "", href: build.checksum.browser_download_url, download: build.checksum.name }, "SHA-256"));
   }
   return nodes;
 }
@@ -207,6 +207,7 @@ function renderEdition(card, build) {
   const field = (name) => card.querySelector(`[data-field="${name}"]`);
   if (!build) {
     field("meta").replaceChildren(el("li", {}, "No build published yet"));
+    field("files").replaceChildren(el("p", { class: "muted" }, "This edition is not available yet."));
     return;
   }
   field("size").textContent = formatSize(build.size);
@@ -234,7 +235,7 @@ function render(releases, source) {
       {},
       el("td", {}, dateFormat.format(build.date)),
       el("td", {}, build.edition === "lite" ? "Lite" : "Full", ...(build.previousName ? [el("span", { class: "tag", title: "Built before the project was renamed from Wincraft" }, "old name")] : [])),
-      el("td", {}, el("a", { href: build.page }, build.label)),
+      el("td", {}, build.label),
       el("td", {}, [build.init, build.kernel].filter(Boolean).join(" · ")),
       el("td", {}, formatSize(build.size)),
       el("td", {}, ...fileLinks(build, false)),
@@ -242,17 +243,14 @@ function render(releases, source) {
   );
   document.getElementById("builds").replaceChildren(...rows);
   const status = document.getElementById("builds-status");
-  status.replaceChildren(
-    `${builds.length} image${builds.length === 1 ? "" : "s"}${source === "github" ? ", up to date from GitHub" : ""} · `,
-    el("a", { href: RELEASES_PAGE }, "releases page"),
-  );
+  status.textContent = `${builds.length} image${builds.length === 1 ? "" : "s"} available · Select a file to download directly.`;
   return true;
 }
 
 async function loadReleases() {
   let shown = false;
   try {
-    const response = await fetch("releases.json", { cache: "no-cache" });
+    const response = await fetch("/releases.json", { cache: "no-cache" });
     if (response.ok) shown = render(await response.json(), "site");
   } catch (e) {
     // Opened from disk, or not deployed yet: try GitHub directly.
@@ -269,11 +267,10 @@ async function loadReleases() {
     // Offline or rate limited: keep the list from the site.
   }
   if (!shown) {
-    document.getElementById("builds-status").replaceChildren(
-      "The list of images could not be loaded. See the ",
-      el("a", { href: RELEASES_PAGE }, "releases page"),
-      ".",
-    );
+    document.getElementById("builds-status").textContent = "Downloads are temporarily unavailable. Please try again shortly.";
+    for (const card of document.querySelectorAll(".edition")) {
+      card.querySelector('[data-field="files"]').replaceChildren(el("p", { class: "muted" }, "Download unavailable — please try again shortly."));
+    }
   }
 }
 loadReleases();

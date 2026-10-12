@@ -5,7 +5,13 @@
       "root": "site",
       "installCommand": "true",
       "buildCommand": "python3 build.py --out _site",
-      "outputDirectory": "_site"
+      "outputDirectory": "_site",
+      "rewrites": [
+        {
+          "source": "/download",
+          "destination": "/download.html"
+        }
+      ]
     }
   },
   "rewrites": [

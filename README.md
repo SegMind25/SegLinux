@@ -98,6 +98,9 @@ To deploy it:
    for `main`, and add its URL to this repository as the Actions secret
    `VERCEL_DEPLOY_HOOK`. The ISO workflow calls it after publishing.
 
+The `/download` page provides direct ISO, split-part and checksum links; visitors
+do not need to open the GitHub releases page. The files are hosted by GitHub.
+
 The page also refreshes the list from GitHub in the visitor's browser,
 which works once the repository is public. Release files of a private
 repository cannot be downloaded by other people: make the repository

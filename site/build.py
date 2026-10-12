@@ -73,6 +73,13 @@ def main():
     os.makedirs(assets)
     for name in PAGES:
         shutil.copy2(os.path.join(HERE, name), args.out)
+    with open(os.path.join(HERE, "index.html")) as page:
+        download = page.read()
+    download = download.replace("<body", '<body data-page="download"', 1)
+    download = download.replace('href="#', 'href="/#')
+    download = download.replace("</head>", "<style>body[data-page=download] main > section:not(#download):not(#get-started), body[data-page=download] .section-index { display: none; }</style></head>")
+    with open(os.path.join(args.out, "download.html"), "w") as page:
+        page.write(download)
     shutil.copy2(os.path.join(ROOT, "data", "artwork", "seglinux.svg"), os.path.join(assets, "logo.svg"))
     images = os.path.join(ROOT, "docs", "images")
     for name in sorted(os.listdir(images)):
