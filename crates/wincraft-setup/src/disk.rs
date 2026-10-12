@@ -138,6 +138,9 @@ pub struct Layout {
     pub disk: String,
     pub filesystem: Filesystem,
     pub partitions: Vec<Partition>,
+    /// Size of the compressed swap device in RAM, when zram provides swap
+    /// instead of a partition.
+    pub zram: Option<u64>,
 }
 
 impl Layout {
@@ -185,6 +188,7 @@ impl Layout {
             disk: disk.to_string(),
             filesystem,
             partitions,
+            zram: None,
         }
     }
 
@@ -264,6 +268,10 @@ impl Layout {
                 "UUID={}  none  swap  defaults  0 0\n",
                 swap.uuid.as_deref().unwrap_or_default()
             ));
+        }
+        if self.zram.is_some() {
+            // Created and formatted by /etc/udev/rules.d/99-wincraft-zram.rules.
+            out.push_str("/dev/zram0  none  swap  defaults,discard,pri=100  0 0\n");
         }
         out
     }
@@ -377,6 +385,23 @@ mod tests {
         assert!(fstab.contains("/  btrfs  rw,noatime,compress=zstd:1,subvol=/@  0 0"));
         assert!(fstab.contains("/home  btrfs  rw,noatime,compress=zstd:1,subvol=/@home  0 0"));
         assert!(fstab.contains("none  swap  defaults  0 0"));
+    }
+
+    #[test]
+    fn fstab_with_zram_swap() {
+        let mut l = Layout::new(
+            "/dev/sda",
+            Filesystem::Ext4,
+            512 * MIB,
+            None,
+            &mut Sequential::default(),
+        );
+        l.zram = Some(4 * GIB);
+        assert!(l.get(Role::Swap).is_none());
+        assert!(
+            l.fstab()
+                .ends_with("/dev/zram0  none  swap  defaults,discard,pri=100  0 0\n")
+        );
     }
 
     #[test]

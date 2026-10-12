@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Wincraft Gaming Mode
+Comment=Steam Big Picture in gamescope, for controllers and TVs
+Exec=wincraft-gaming-session
+TryExec=gamescope
+Type=Application

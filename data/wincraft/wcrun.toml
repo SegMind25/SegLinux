@@ -15,7 +15,14 @@ vkd3d = "auto"
 esync = true
 fsync = true
 debug = false
+# Performance overlay: MangoHud when installed, otherwise DXVK's HUD.
 hud = false
+# Feral GameMode while a game runs: auto | always | never
+# (auto = programs that use Direct3D, OpenGL or Vulkan).
+gamemode = "auto"
+# Run programs inside gamescope (fullscreen, frame limiting, FSR upscaling).
+gamescope = false
+gamescope_args = ["-f"]
 
 # Environment for every Windows program.
 [env]
@@ -28,4 +35,6 @@ hud = false
 # dxvk = "never"
 # virtual_desktop = "1920x1080"
 # dll_overrides = ["d3dcompiler_47=n,b"]
+# gamescope = true
+# gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165", "--adaptive-sync"]
 # env = { MESA_GL_VERSION_OVERRIDE = "4.6" }

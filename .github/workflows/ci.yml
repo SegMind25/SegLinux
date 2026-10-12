@@ -44,26 +44,28 @@ jobs:
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/wincraft/wincraft.install
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart \
-            data/desktop/wincraft-session data/desktop/labwc/autostart
-      - name: YAML and JSON syntax
+            data/desktop/wincraft-session data/desktop/wincraft-gaming-session \
+            data/desktop/labwc/autostart
+      - name: YAML, JSON and XML syntax
         run: |
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
             iso/iso-profiles/common/common.yaml iso/iso-profiles/wincraft/profile.yaml
           python3 -m json.tool data/plasma/look-and-feel/org.wincraft.desktop/metadata.json > /dev/null
+          python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml
       - name: Desktop entries
         run: |
           sudo apt-get install -y -qq desktop-file-utils > /dev/null
-          desktop-file-validate data/applications/*.desktop data/desktop/wincraft.desktop \
+          desktop-file-validate data/applications/*.desktop data/desktop/*.desktop \
             iso/iso-profiles/wincraft/live-overlay/usr/share/applications/*.desktop
 
   packages:
-    name: Artix package names (${{ matrix.init }})
+    name: Artix package names (${{ matrix.init }}, linux-zen)
     runs-on: ubuntu-latest
     container: docker.io/artixlinux/artixlinux:base
     strategy:
       fail-fast: false
       matrix:
-        init: [openrc, dinit]
+        init: [openrc, runit, dinit]
     steps:
       - uses: actions/checkout@v4
       - name: Install pacman tooling
@@ -71,4 +73,4 @@ jobs:
           pacman-key --init
           pacman-key --populate artix
           pacman -Sy --noconfirm --needed go-yq
-      - run: iso/scripts/check-packages.sh -i ${{ matrix.init }}
+      - run: iso/scripts/check-packages.sh -i ${{ matrix.init }} -k linux-zen

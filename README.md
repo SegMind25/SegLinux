@@ -1,8 +1,9 @@
 # Wincraft
 
 **Wincraft** is a Linux distribution based on [Artix Linux](https://artixlinux.org)
-(Arch without systemd) that looks, installs and behaves like Windows and runs
-Windows programs. Its own tools are written in Rust.
+(Arch without systemd) for gaming: a lightweight desktop that looks, installs
+and behaves like Windows, runs Windows games and programs, and is tuned for
+low latency. Its own tools are written in Rust.
 
 * **Installs like Windows.** The ISO is built the way a Windows ISO is (see
   [how a Windows ISO works](docs/windows-iso-anatomy.md)): a live image
@@ -10,17 +11,21 @@ Windows programs. Its own tools are written in Rust.
   `wincraft-setup` plays `setup.exe`. It runs the same configuration passes
   (windowsPE, offlineServicing, specialize, oobeSystem, SetupComplete) and
   reads `autounattend.toml`, the counterpart of `autounattend.xml`.
-* **Looks like Windows.** A dark Wincraft shell written in Rust, with a searchable
-  application launcher, taskbar and desktop preferences. labwc provides
-  Wayland window management; KDE Plasma remains available as a fallback.
-  Familiar applications (File Explorer → Dolphin, Store →
-  Discover, Office → LibreOffice, ...).
+* **Lightweight, looks like Windows.** A dark Wincraft shell written in Rust,
+  with a searchable application launcher, taskbar and desktop preferences, on
+  the labwc Wayland compositor; KDE Plasma remains available as a fallback.
+  Familiar applications (File Explorer → Dolphin, Store → Discover, ...).
+* **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
+  GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable
+  refresh rate and tearing for fullscreen games; zram swap, NTSYNC, I/O
+  scheduler and sysctl tuning; NVIDIA's driver installed automatically on
+  GeForce GTX 16/RTX cards. See [docs/gaming.md](docs/gaming.md).
 * **Runs Windows programs.** Double-click an `.exe`, `.msi`, `.lnk` or
   `.bat`, or type `./setup.exe`: `wcrun` inspects the program, prepares a
   Wine prefix (with DXVK/VKD3D-Proton when the program uses Direct3D) and
-  starts it. Steam/Proton, NTSYNC and esync tuning are included.
-* **Artix underneath.** OpenRC or dinit instead of systemd, Artix and Arch
-  packages, rolling release.
+  starts it, under GameMode when it is a game.
+* **Artix underneath.** OpenRC by default (parallel boot), or runit or dinit,
+  instead of systemd; Artix and Arch packages, rolling release.
 
 ## Repository layout
 
@@ -47,7 +52,8 @@ docs/                 design notes and guides
 ## Build the ISO
 
 ```sh
-./iso/build.sh            # OpenRC; -i dinit for dinit
+./iso/build.sh                 # OpenRC + linux-zen (recommended)
+./iso/build.sh -i runit        # or runit / dinit; -k linux for the stock kernel
 ```
 
 Runs in a privileged Artix container (docker or podman) on any Linux host

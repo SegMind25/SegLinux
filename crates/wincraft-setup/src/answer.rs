@@ -36,6 +36,8 @@ pub struct Answer {
     pub users: Vec<UserSpec>,
     pub root: RootSection,
     pub bootloader: BootloaderSection,
+    pub performance: PerformanceSection,
+    pub drivers: DriversSection,
     pub services: ServicesSection,
     #[serde(rename = "run")]
     pub commands: Vec<RunCommand>,
@@ -77,7 +79,8 @@ pub struct DiskSection {
     /// Must be `true`: the whole disk is erased (`WillWipeDisk`).
     pub wipe: bool,
     pub filesystem: Filesystem,
-    /// Swap partition size (`8GiB`), `auto` or `none`.
+    /// `zram` (compressed swap in RAM, the default), a swap partition size
+    /// (`8GiB`), `auto` (a partition sized from RAM) or `none`.
     pub swap: String,
     /// EFI system partition size.
     pub esp_size: String,
@@ -89,7 +92,7 @@ impl Default for DiskSection {
             device: String::new(),
             wipe: false,
             filesystem: Filesystem::Ext4,
-            swap: "auto".into(),
+            swap: "zram".into(),
             esp_size: "512MiB".into(),
         }
     }
@@ -255,6 +258,42 @@ impl Default for BootloaderSection {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PerformanceSection {
+    /// OpenRC: start services in parallel (`rc_parallel`) for a faster boot.
+    pub parallel_boot: bool,
+    /// Kernel parameters added to Wincraft's defaults
+    /// (`loglevel=3 quiet nowatchdog nmi_watchdog=0`).
+    pub kernel_parameters: Vec<String>,
+}
+
+impl Default for PerformanceSection {
+    fn default() -> Self {
+        Self {
+            parallel_boot: true,
+            kernel_parameters: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DriversSection {
+    /// `auto` installs NVIDIA's driver (open kernel modules) when a GeForce
+    /// GTX 16 / RTX or newer GPU is present and the network is reachable.
+    /// Older NVIDIA GPUs keep the open-source nouveau/NVK driver.
+    pub nvidia: DriverChoice,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DriverChoice {
+    #[default]
+    Auto,
+    Never,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServicesSection {
@@ -302,6 +341,7 @@ pub const DEFAULT_SERVICES: &[&str] = &[
 /// Groups every user joins (missing ones are skipped).
 pub const DEFAULT_GROUPS: &[&str] = &[
     "users", "audio", "video", "input", "storage", "optical", "network", "lp", "scanner", "power",
+    "gamemode",
 ];
 
 const RESERVED_USERS: &[&str] = &[
@@ -438,6 +478,13 @@ impl Answer {
                     .into(),
             );
         }
+        for p in &self.performance.kernel_parameters {
+            if !valid_kernel_parameter(p) {
+                errors.push(format!(
+                    "[performance] kernel parameter `{p}` must be one word without quotes"
+                ));
+            }
+        }
         if !valid_simple_name(&self.bootloader.id) {
             errors.push(format!(
                 "[bootloader] id `{}` must be a simple name",
@@ -497,6 +544,9 @@ pub fn parse_size(s: &str) -> Result<u64> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Swap {
     None,
+    /// Compressed swap in RAM.
+    Zram,
+    /// A swap partition sized from the installed memory.
     Auto,
     Size(u64),
 }
@@ -504,6 +554,7 @@ pub enum Swap {
 pub fn parse_swap(s: &str) -> Result<Swap> {
     match s.trim().to_ascii_lowercase().as_str() {
         "none" | "0" | "off" | "" => Ok(Swap::None),
+        "zram" => Ok(Swap::Zram),
         "auto" => Ok(Swap::Auto),
         _ => {
             let size = parse_size(s)?;
@@ -542,6 +593,13 @@ fn valid_simple_name(s: &str) -> bool {
         && s.len() <= 64
         && s.chars()
             .all(|c| c.is_ascii_alphanumeric() || "-_.+".contains(c))
+}
+
+fn valid_kernel_parameter(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 256
+        && s.chars()
+            .all(|c| c.is_ascii_graphic() && !"\"'\\`$".contains(c))
 }
 
 fn valid_locale_name(s: &str) -> bool {
@@ -623,6 +681,9 @@ mod tests {
         assert_eq!(a.setup.finish, Finish::Reboot);
         assert!(a.users[0].admin);
         assert_eq!(a.computer.name, "auto");
+        assert_eq!(a.disk.swap, "zram");
+        assert!(a.performance.parallel_boot);
+        assert_eq!(a.drivers.nvidia, DriverChoice::Auto);
     }
 
     #[test]
@@ -652,6 +713,7 @@ mod tests {
         a.computer.name = "-bad-".into();
         a.region.timezone = "../etc/passwd".into();
         a.disk.swap = "12 parsecs".into();
+        a.performance.kernel_parameters = vec!["quiet\" init=/bin/sh".into()];
         let errors = a.validate();
         assert!(errors.iter().any(|e| e.contains("`Bob`")), "{errors:?}");
         assert!(errors.iter().any(|e| e.contains("reserved")));
@@ -659,6 +721,7 @@ mod tests {
         assert!(errors.iter().any(|e| e.contains("[computer]")));
         assert!(errors.iter().any(|e| e.contains("timezone")));
         assert!(errors.iter().any(|e| e.contains("swap")));
+        assert!(errors.iter().any(|e| e.contains("kernel parameter")));
     }
 
     #[test]
@@ -684,6 +747,7 @@ mod tests {
         assert!(parse_size("lots").is_err());
         assert!(parse_size("5 furlongs").is_err());
         assert_eq!(parse_swap("none").unwrap(), Swap::None);
+        assert_eq!(parse_swap("zram").unwrap(), Swap::Zram);
         assert_eq!(parse_swap("auto").unwrap(), Swap::Auto);
         assert_eq!(parse_swap("2GiB").unwrap(), Swap::Size(2 * GIB));
         assert!(parse_swap("1MiB").is_err());

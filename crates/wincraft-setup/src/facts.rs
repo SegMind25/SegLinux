@@ -29,6 +29,63 @@ impl std::fmt::Display for Firmware {
     }
 }
 
+/// A display controller on the PCI bus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct Gpu {
+    pub vendor: u16,
+    pub device: u16,
+}
+
+impl Gpu {
+    pub const NVIDIA: u16 = 0x10de;
+    pub const AMD: u16 = 0x1002;
+    pub const INTEL: u16 = 0x8086;
+
+    /// GeForce GTX 16, RTX 20 (Turing, device IDs from 0x1E00) and newer
+    /// run NVIDIA's open kernel modules; older generations do not.
+    pub fn nvidia_open_capable(&self) -> bool {
+        self.vendor == Self::NVIDIA && self.device >= 0x1e00
+    }
+}
+
+impl std::fmt::Display for Gpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let vendor = match self.vendor {
+            Self::NVIDIA => "NVIDIA",
+            Self::AMD => "AMD",
+            Self::INTEL => "Intel",
+            _ => "GPU",
+        };
+        write!(f, "{vendor} {:04x}:{:04x}", self.vendor, self.device)
+    }
+}
+
+/// Display controllers (PCI class 0x03) below `/sys/bus/pci/devices`.
+pub fn list_gpus(pci_devices: &Path) -> Vec<Gpu> {
+    let read_hex = |dir: &Path, name: &str| -> Option<u32> {
+        let text = fs::read_to_string(dir.join(name)).ok()?;
+        u32::from_str_radix(text.trim().trim_start_matches("0x"), 16).ok()
+    };
+    let Ok(entries) = fs::read_dir(pci_devices) else {
+        return Vec::new();
+    };
+    let mut gpus: Vec<(PathBuf, Gpu)> = entries
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter_map(|dir| {
+            let class = read_hex(&dir, "class")?;
+            (class >> 16 == 0x03).then_some(())?;
+            let gpu = Gpu {
+                vendor: read_hex(&dir, "vendor")? as u16,
+                device: read_hex(&dir, "device")? as u16,
+            };
+            Some((dir, gpu))
+        })
+        .collect();
+    gpus.sort_by(|a, b| a.0.cmp(&b.0));
+    gpus.into_iter().map(|(_, g)| g).collect()
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Facts {
     pub firmware: Firmware,
@@ -42,6 +99,7 @@ pub struct Facts {
     pub oem_dir: Option<PathBuf>,
     pub offline_packages: Vec<PathBuf>,
     pub memory: u64,
+    pub gpus: Vec<Gpu>,
     /// Known values for validation and pick lists; `None` = not checked.
     pub timezones: Option<BTreeSet<String>>,
     pub locales: Option<BTreeSet<String>>,
@@ -68,6 +126,7 @@ impl Facts {
             oem_dir: Some(boot.join("wincraft/oem")).filter(|p| p.is_dir()),
             offline_packages: list_packages(&boot.join("wincraft/packages")),
             memory: memory_bytes().unwrap_or(0),
+            gpus: list_gpus(Path::new("/sys/bus/pci/devices")),
             timezones: Some(list_timezones(Path::new("/usr/share/zoneinfo")))
                 .filter(|s| !s.is_empty()),
             locales: fs::read_to_string("/usr/share/i18n/SUPPORTED")
@@ -386,6 +445,35 @@ mod tests {
             found,
             vec!["a-1-1-any.pkg.tar.xz", "b-1-1-x86_64.pkg.tar.zst"]
         );
+    }
+
+    #[test]
+    fn gpus_from_sysfs() {
+        let dir = tempfile::tempdir().unwrap();
+        let dev = |slot: &str, class: &str, vendor: &str, device: &str| {
+            let d = dir.path().join(slot);
+            fs::create_dir_all(&d).unwrap();
+            fs::write(d.join("class"), format!("{class}\n")).unwrap();
+            fs::write(d.join("vendor"), format!("{vendor}\n")).unwrap();
+            fs::write(d.join("device"), format!("{device}\n")).unwrap();
+        };
+        dev("0000:00:02.0", "0x030000", "0x8086", "0x9a49"); // Intel iGPU
+        dev("0000:01:00.0", "0x030000", "0x10de", "0x2684"); // RTX 4090
+        dev("0000:01:00.1", "0x040300", "0x10de", "0x22ba"); // its HDMI audio
+        let gpus = list_gpus(dir.path());
+        assert_eq!(gpus.len(), 2);
+        assert!(!gpus[0].nvidia_open_capable());
+        assert!(gpus[1].nvidia_open_capable());
+        assert_eq!(gpus[1].to_string(), "NVIDIA 10de:2684");
+        // GTX 1080 (Pascal) needs the legacy driver.
+        assert!(
+            !Gpu {
+                vendor: Gpu::NVIDIA,
+                device: 0x1b80
+            }
+            .nvidia_open_capable()
+        );
+        assert!(list_gpus(&dir.path().join("missing")).is_empty());
     }
 
     #[test]

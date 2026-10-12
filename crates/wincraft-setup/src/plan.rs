@@ -12,8 +12,8 @@ use wincraft_core::cmd::{Cmd, shell_quote};
 use wincraft_core::init::InitSystem;
 
 use crate::answer::{
-    Answer, CommandPass, DEFAULT_GROUPS, DEFAULT_SERVICES, Filesystem, HardwareClock, Swap,
-    auto_swap_size, parse_size, parse_swap,
+    Answer, CommandPass, DEFAULT_GROUPS, DEFAULT_SERVICES, DriverChoice, Filesystem, HardwareClock,
+    MIB, Swap, auto_swap_size, parse_size, parse_swap,
 };
 use crate::disk::{self, Disk, Layout, Role, human_size};
 use crate::facts::{Facts, Firmware, list_packages};
@@ -258,6 +258,13 @@ impl fmt::Display for Plan {
             };
             writeln!(f, "    {:<16} {:<14} {what}", p.path, size)?;
         }
+        if let Some(size) = s.layout.zram {
+            writeln!(
+                f,
+                "  Swap:      {} compressed in RAM (zram)",
+                human_size(size)
+            )?;
+        }
         writeln!(f, "  Image:     {}", s.image.display())?;
         writeln!(f, "  Firmware:  {}, init system: {}", s.firmware, s.init)?;
         writeln!(f, "  Computer:  {}", s.hostname)?;
@@ -334,13 +341,15 @@ pub fn build(
         );
     }
 
-    let swap = match parse_swap(&answer.disk.swap)? {
-        Swap::None => None,
+    let swap_choice = parse_swap(&answer.disk.swap)?;
+    let swap = match swap_choice {
+        Swap::None | Swap::Zram => None,
         Swap::Auto => Some(auto_swap_size(facts.memory)),
         Swap::Size(n) => Some(n),
     };
     let esp_size = parse_size(&answer.disk.esp_size)?;
-    let layout = Layout::new(&disk.path, answer.disk.filesystem, esp_size, swap, ids);
+    let mut layout = Layout::new(&disk.path, answer.disk.filesystem, esp_size, swap, ids);
+    layout.zram = (swap_choice == Swap::Zram).then(|| auto_swap_size(facts.memory));
     let root_size = disk.size.saturating_sub(layout.fixed_size());
     if root_size < disk::MIN_ROOT_SIZE {
         bail!(
@@ -649,11 +658,6 @@ pub fn build(
                 region.keyboard
             ),
         ),
-        // Plasma reads the layout per user; seed new accounts from /etc/skel.
-        Action::write(
-            "/etc/skel/.config/kxkbrc",
-            format!("[Layout]\nLayoutList={}\nUse=true\n", region.keyboard),
-        ),
     ];
     if openrc {
         kb.push(Action::set_key(
@@ -690,12 +694,66 @@ pub fn build(
         actions: tz,
     });
 
+    if let Some(size) = layout.zram {
+        sp.push(Step {
+            description: format!("Setting up {} of compressed swap in RAM (zram)", human_size(size)),
+            actions: vec![
+                Action::write("/etc/modules-load.d/zram.conf", "zram\n"),
+                Action::write(
+                    "/etc/udev/rules.d/99-wincraft-zram.rules",
+                    format!(
+                        "# Compressed swap in RAM, written by Wincraft Setup.\n\
+                         ACTION==\"add\", KERNEL==\"zram0\", ATTR{{initstate}}==\"0\", ATTR{{comp_algorithm}}=\"zstd\", ATTR{{disksize}}=\"{}M\", RUN=\"/usr/bin/mkswap -U clear %N\"\n",
+                        size / MIB
+                    ),
+                ),
+                // Values recommended for swap on zram (ArchWiki, Fedora, Pop!_OS):
+                // swapping to compressed RAM is cheap, so swap early.
+                Action::write(
+                    "/etc/sysctl.d/90-wincraft-zram.conf",
+                    "vm.swappiness = 180\nvm.watermark_boost_factor = 0\nvm.watermark_scale_factor = 125\nvm.page-cluster = 0\n",
+                ),
+            ],
+        });
+    }
+    if openrc && answer.performance.parallel_boot {
+        sp.push(Step {
+            description: "Starting services in parallel for a faster boot".into(),
+            actions: vec![Action::set_key("/etc/rc.conf", "rc_parallel", "\"YES\"")],
+        });
+    }
+
     sp.push(Step {
         description: "Generating a machine ID".into(),
         actions: vec![Action::chroot_optional(
             Cmd::new("dbus-uuidgen").arg("--ensure=/etc/machine-id"),
         )],
     });
+    sp.push(Step {
+        description: "Preparing the package manager".into(),
+        actions: vec![
+            Action::chroot_optional(Cmd::new("pacman-key").arg("--init")),
+            Action::chroot_optional(Cmd::new("pacman-key").args(["--populate", "artix"])),
+        ],
+    });
+    if answer.drivers.nvidia == DriverChoice::Auto
+        && let Some(gpu) = facts.gpus.iter().find(|g| g.nvidia_open_capable())
+    {
+        sp.push(Step {
+            description: format!(
+                "Installing the NVIDIA driver for {gpu} (needs a network connection)"
+            ),
+            actions: vec![Action::chroot_optional(Cmd::new("pacman").args([
+                "-Syu",
+                "--noconfirm",
+                "--needed",
+                "nvidia-open-dkms",
+                "nvidia-utils",
+                "lib32-nvidia-utils",
+                "nvidia-settings",
+            ]))],
+        });
+    }
     sp.push(Step {
         description: "Building the boot image (initramfs)".into(),
         actions: vec![Action::chroot(Cmd::new("mkinitcpio").arg("-P"))],
@@ -714,6 +772,11 @@ pub fn build(
             "false",
         ));
     }
+    grub.push(Action::set_key(
+        "/etc/default/grub",
+        "GRUB_CMDLINE_LINUX_DEFAULT",
+        format!("\"{}\"", kernel_parameters(answer, &layout).join(" ")),
+    ));
     let efi_install = |extra: &[&str]| {
         Cmd::new("grub-install")
             .args(["--target=x86_64-efi", "--efi-directory=/boot/efi"])
@@ -791,6 +854,19 @@ pub fn build(
             mode: 0o440,
         }],
     }];
+    let autologin = answer.users.iter().find(|u| u.autologin);
+    if let Some(u) = autologin {
+        oobe.push(Step {
+            description: format!("Signing in {} automatically", u.name),
+            actions: vec![Action::write(
+                "/etc/sddm.conf.d/20-wincraft-autologin.conf",
+                format!(
+                    "[Autologin]\nUser={}\nSession=wincraft.desktop\nRelogin=false\n",
+                    u.name
+                ),
+            )],
+        });
+    }
     for u in &answer.users {
         let mut groups: Vec<String> = DEFAULT_GROUPS.iter().map(|g| g.to_string()).collect();
         if u.admin {
@@ -837,18 +913,6 @@ pub fn build(
             secret: root_secret,
         }],
     });
-    if let Some(u) = answer.users.iter().find(|u| u.autologin) {
-        oobe.push(Step {
-            description: format!("Signing in {} automatically", u.name),
-            actions: vec![Action::write(
-                "/etc/sddm.conf.d/20-wincraft-autologin.conf",
-                format!(
-                    "[Autologin]\nUser={}\nSession=wincraft.desktop\nRelogin=false\n",
-                    u.name
-                ),
-            )],
-        });
-    }
     phases.push(Phase {
         pass: Pass::OobeSystem,
         steps: oobe,
@@ -899,6 +963,26 @@ pub fn build(
         },
         phases,
     })
+}
+
+/// Kernel command line for the installed system: a quiet boot without the
+/// soft-lockup watchdogs (less background work and fewer interrupts while
+/// gaming), zswap off when zram provides the swap, then the answer file's
+/// own parameters.
+pub fn kernel_parameters(answer: &Answer, layout: &Layout) -> Vec<String> {
+    let mut params: Vec<String> = ["loglevel=3", "quiet", "nowatchdog", "nmi_watchdog=0"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    if layout.zram.is_some() {
+        params.push("zswap.enabled=0".into());
+    }
+    for p in &answer.performance.kernel_parameters {
+        if !params.contains(p) {
+            params.push(p.clone());
+        }
+    }
+    params
 }
 
 fn run_command_step(c: &crate::answer::RunCommand) -> Step {
@@ -963,6 +1047,7 @@ mod tests {
             oem_dir: None,
             offline_packages: vec![],
             memory: 4 * GIB,
+            gpus: vec![],
             timezones: None,
             locales: None,
             keyboards: None,
@@ -992,7 +1077,7 @@ mod tests {
     fn uefi_openrc_plan() {
         let plan = build_plan(&answer(""), &facts()).unwrap();
         assert_eq!(plan.summary.disk.path, "/dev/vda");
-        assert_eq!(plan.summary.hostname, "DESKTOP-0000004");
+        assert_eq!(plan.summary.hostname, "DESKTOP-0000003");
         let passes: Vec<Pass> = plan.phases.iter().map(|p| p.pass).collect();
         assert_eq!(
             passes,
@@ -1005,14 +1090,20 @@ mod tests {
         );
 
         let text = plan.to_string();
-        // Swap "auto" with 4 GiB of memory -> 4 GiB swap partition 3, root 4.
-        assert!(
-            text.contains("$ mkswap -L swap -U 00000000-0000-4000-8000-000000000002 /dev/vda3"),
-            "{text}"
-        );
+        // Default swap is zram: no swap partition, root is partition 3.
+        assert!(!text.contains("mkswap -L"), "{text}");
         assert!(text.contains(
-            "$ mkfs.ext4 -F -L Wincraft -U 00000000-0000-4000-8000-000000000003 /dev/vda4"
+            "$ mkfs.ext4 -F -L Wincraft -U 00000000-0000-4000-8000-000000000002 /dev/vda3"
         ));
+        assert!(text.contains("  Swap:      4.0 GiB compressed in RAM (zram)"));
+        assert!(text.contains("ATTR{comp_algorithm}=\"zstd\", ATTR{disksize}=\"4096M\""));
+        assert!(text.contains("| /dev/zram0  none  swap  defaults,discard,pri=100  0 0"));
+        assert!(text.contains("| vm.swappiness = 180"));
+        assert!(text.contains(
+            "set GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0 zswap.enabled=0\" in /etc/default/grub"
+        ));
+        assert!(text.contains("set rc_parallel=\"YES\" in /etc/rc.conf"));
+        assert!(text.contains("(new system) $ pacman-key --populate artix  # may fail"));
         assert!(text.contains("$ mkfs.fat -F 32 -n SYSTEM -i 00000001 /dev/vda1"));
         assert!(text.contains(
             "$ unsquashfs -f -no-progress -d /mnt/wincraft /run/artix/bootmnt/LiveOS/rootfs.img"
@@ -1020,22 +1111,92 @@ mod tests {
         assert!(text.contains("(new system) $ grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Wincraft"));
         assert!(text.contains("--removable"));
         assert!(text.contains("efivarfs"));
-        assert!(text.contains("set hostname=\"DESKTOP-0000004\" in /etc/conf.d/hostname"));
+        assert!(text.contains("set hostname=\"DESKTOP-0000003\" in /etc/conf.d/hostname"));
         assert!(text.contains("| UUID=0000-0001  /boot/efi  vfat"));
         assert!(text.contains("write /etc/sudoers.d/10-wincraft (mode 440)"));
-        assert!(text.contains("User=alice"));
-        assert!(text.contains("Session=wincraft.desktop"));
+        assert!(text.contains("| User=alice"));
+        assert!(text.contains("| Session=wincraft.desktop"));
         assert!(text.contains("== Setting up user accounts (oobeSystem)"));
+        // No NVIDIA GPU, no driver step.
+        assert!(!text.contains("nvidia"));
 
         let actions = all_actions(&plan);
         assert!(actions.contains(&&Action::EnableService("sddm".into())));
-        assert!(actions.iter().any(|a| matches!(a, Action::AddUser { name, groups, .. } if name == "alice" && groups.contains(&"wheel".to_string()))));
+        assert!(
+            actions
+                .iter()
+                .any(|a| matches!(a, Action::AddUser { name, groups, .. }
+            if name == "alice"
+                && groups.contains(&"wheel".to_string())
+                && groups.contains(&"gamemode".to_string())))
+        );
         assert!(actions.contains(&&Action::SetPassword {
             user: "root".into(),
             secret: Secret::Lock
         }));
         // The password never appears in the printed plan.
         assert!(!text.contains("s3cr3t-Pa55"));
+    }
+
+    #[test]
+    fn swap_partition_on_request() {
+        let mut a = answer("");
+        a.disk.swap = "auto".into();
+        let plan = build_plan(&a, &facts()).unwrap();
+        let text = plan.to_string();
+        // 4 GiB of memory -> 4 GiB swap partition 3, root 4, no zram.
+        assert!(
+            text.contains("$ mkswap -L swap -U 00000000-0000-4000-8000-000000000002 /dev/vda3"),
+            "{text}"
+        );
+        assert!(text.contains("/dev/vda4"));
+        assert!(!text.contains("zram"));
+        assert!(
+            text.contains(
+                "GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0\""
+            )
+        );
+    }
+
+    #[test]
+    fn nvidia_driver_for_turing_and_newer_only() {
+        use crate::facts::Gpu;
+        let mut f = facts();
+        f.gpus = vec![Gpu {
+            vendor: Gpu::NVIDIA,
+            device: 0x2684,
+        }];
+        let text = build_plan(&answer(""), &f).unwrap().to_string();
+        assert!(text.contains("Installing the NVIDIA driver for NVIDIA 10de:2684"));
+        assert!(text.contains("pacman -Syu --noconfirm --needed nvidia-open-dkms nvidia-utils lib32-nvidia-utils nvidia-settings  # may fail"));
+        // The driver is installed before the initramfs is built.
+        assert!(text.find("nvidia-open-dkms").unwrap() < text.find("mkinitcpio -P").unwrap());
+
+        let a = answer("[drivers]\nnvidia = \"never\"\n");
+        assert!(
+            !build_plan(&a, &f)
+                .unwrap()
+                .to_string()
+                .contains("nvidia-open")
+        );
+
+        f.gpus[0].device = 0x1b80; // GTX 1080
+        assert!(
+            !build_plan(&answer(""), &f)
+                .unwrap()
+                .to_string()
+                .contains("nvidia-open")
+        );
+    }
+
+    #[test]
+    fn extra_kernel_parameters() {
+        let a = answer(
+            "[performance]\nparallel_boot = false\nkernel_parameters = [\"amd_pstate=active\", \"quiet\"]\n",
+        );
+        let text = build_plan(&a, &facts()).unwrap().to_string();
+        assert!(text.contains("nmi_watchdog=0 zswap.enabled=0 amd_pstate=active\""));
+        assert!(!text.contains("rc_parallel"));
     }
 
     #[test]
@@ -1059,6 +1220,7 @@ mod tests {
         assert!(text.contains("XkbLayout\" \"gb\""));
         // OpenRC-only files are not written for dinit.
         assert!(!text.contains("/etc/conf.d/"));
+        assert!(!text.contains("rc_parallel"));
         assert_eq!(plan.summary.layout.root().path, "/dev/vda3");
     }
 

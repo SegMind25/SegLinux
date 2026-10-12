@@ -101,9 +101,15 @@ struct RunArgs {
     /// Run inside a window of this size, e.g. 1920x1080
     #[arg(long, value_name = "WxH")]
     virtual_desktop: Option<String>,
-    /// Show the DXVK performance overlay
+    /// Show the performance overlay (MangoHud, or DXVK's HUD)
     #[arg(long)]
     hud: bool,
+    /// Feral GameMode (auto: programs that use Direct3D, OpenGL or Vulkan)
+    #[arg(long, value_enum)]
+    gamemode: Option<Toggle>,
+    /// Run inside gamescope (fullscreen, frame limiting, upscaling)
+    #[arg(long)]
+    gamescope: bool,
     /// Keep Wine's debug output
     #[arg(long)]
     debug: bool,
@@ -339,6 +345,8 @@ fn run(config: &Config, args: RunArgs) -> Result<ExitCode> {
         virtual_desktop: args.virtual_desktop,
         hud: args.hud,
         debug: args.debug,
+        gamemode: args.gamemode,
+        gamescope: args.gamescope,
     };
     let settings = Settings::resolve(config, &file, &kind, &opts)?;
     let prefix_dir = prefix::dir(&settings.prefix)?;
@@ -396,6 +404,9 @@ fn info(config: &Config, file: &Path) -> Result<ExitCode> {
         println!("Subsystem: {}", pe.subsystem);
         if let Some(installer) = pe.installer {
             println!("Installer: {installer}");
+        }
+        if advice::is_game(pe) {
+            println!("Game:      yes (runs with GameMode when it is installed)");
         }
         if pe.overlay_size > 0 {
             println!("Payload:   {} bytes appended", pe.overlay_size);

@@ -142,6 +142,51 @@ pub fn run_checks(wine: &str) -> Vec<Check> {
         });
     }
 
+    for (program, what, package) in [
+        (
+            "gamemoderun",
+            "GameMode (CPU and GPU tuning while games run)",
+            "gamemode lib32-gamemode",
+        ),
+        (
+            "mangohud",
+            "MangoHud (FPS and frame-time overlay)",
+            "mangohud lib32-mangohud",
+        ),
+        ("gamescope", "gamescope (gaming compositor)", "gamescope"),
+    ] {
+        out.push(match which(program) {
+            Some(_) => check(Status::Ok, format!("{what} is installed"), ""),
+            None => check(
+                Status::Warn,
+                format!("{what} is missing"),
+                format!("sudo pacman -S {package}"),
+            ),
+        });
+    }
+
+    if let Ok(v) = fs::read_to_string("/proc/sys/kernel/split_lock_mitigate")
+        && v.trim() != "0"
+    {
+        out.push(check(
+            Status::Warn,
+            "Split lock mitigation is on",
+            "It slows down some games a lot; Wincraft turns it off in /etc/sysctl.d/80-wincraft-gaming.conf.",
+        ));
+    }
+
+    if let Ok(swaps) = fs::read_to_string("/proc/swaps") {
+        out.push(if swaps.contains("/dev/zram") {
+            check(Status::Ok, "Swap is compressed in RAM (zram)", "")
+        } else {
+            check(
+                Status::Ok,
+                "zram is not in use",
+                "Games with large memory needs run more smoothly with zram swap (Wincraft Setup's default).",
+            )
+        });
+    }
+
     let handlers = binfmt::mz_handlers(Path::new(binfmt::BINFMT_DIR)).unwrap_or_default();
     out.push(match handlers.iter().find(|h| h.enabled) {
         Some(h) => check(

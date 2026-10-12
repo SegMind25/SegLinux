@@ -54,7 +54,9 @@ Wincraft will run it with wine in prefix `default`:
    What was installed is recorded in `.wincraft-prefix.toml` in the prefix.
 4. **Start the program from its own folder**, as Windows does, with
    `WINEDEBUG=-all`, esync/fsync enabled, and your environment and DLL
-   overrides.
+   overrides. Games (programs that import Direct3D, OpenGL, Vulkan or
+   XInput) run under GameMode; `--hud` adds the MangoHud overlay and
+   `--gamescope` runs the program inside gamescope. See [gaming.md](gaming.md).
 
 `wcrun run --dry-run ...` prints all of this without running anything.
 
@@ -104,6 +106,7 @@ env = { MESA_GL_VERSION_OVERRIDE = "4.6" }
 | Command | Windows counterpart |
 |---------|---------------------|
 | `wcrun run FILE [ARGS]` (`install`, `open`) | Double-click |
+| `wcrun run --hud / --gamescope / --gamemode never FILE` | Game Bar overlay, fullscreen optimisations, Game Mode |
 | `wcrun info FILE` | File properties / compatibility tab |
 | `wcrun shortcut FILE [--name N]` | "Pin to Start" |
 | `wcrun prefix list / create / remove --yes / path / open` | Separate Windows installations, opening `C:\` |

@@ -6,8 +6,8 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=2
-pkgdesc="Wincraft: Rust desktop shell, Windows program launcher and installer"
+pkgrel=3
+pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
 # No license has been chosen for the Wincraft repository yet.
@@ -32,6 +32,9 @@ optdepends=(
     'polkit-gnome: authentication agent in the Wincraft session'
     'xdg-desktop-portal-wlr: screen sharing in the Rust desktop'
     'xdg-desktop-portal-gtk: desktop file and URI portals'
+    'gamemode: wcrun runs games under GameMode'
+    'mangohud: wcrun --hud performance overlay'
+    'gamescope: Wincraft Gaming Mode session and wcrun --gamescope'
 )
 backup=(
     'etc/wincraft/wcrun.toml'
@@ -82,6 +85,8 @@ package() {
     install -Dm755 target/release/wincraft-shell "$pkgdir/usr/bin/wincraft-shell"
     install -Dm755 "$data/desktop/wincraft-session" "$pkgdir/usr/bin/wincraft-session"
     install -Dm644 "$data/desktop/wincraft.desktop" "$pkgdir/usr/share/wayland-sessions/wincraft.desktop"
+    install -Dm755 "$data/desktop/wincraft-gaming-session" "$pkgdir/usr/bin/wincraft-gaming-session"
+    install -Dm644 "$data/desktop/wincraft-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/wincraft-gaming.desktop"
     install -Dm644 "$data/desktop/shell.toml" "$pkgdir/usr/share/wincraft/shell.example.toml"
     install -Dm644 "$data/desktop/wincraft-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/wincraft-portals.conf"
     install -Dm755 "$data/desktop/labwc/autostart" "$pkgdir/usr/share/wincraft/labwc/autostart"
@@ -109,6 +114,10 @@ package() {
     install -Dm644 "$data/system/limits-esync.conf" "$pkgdir/etc/security/limits.d/90-wincraft-esync.conf"
     install -Dm644 "$data/system/modules-ntsync.conf" "$pkgdir/etc/modules-load.d/ntsync.conf"
     install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-wincraft-ntsync.rules"
+
+    # Gaming and latency tuning
+    install -Dm644 "$data/system/udev-ioschedulers.rules" "$pkgdir/usr/lib/udev/rules.d/60-wincraft-ioschedulers.rules"
+    install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/wincraft-nowatchdog.conf"
 
     # Setup and branding
     install -Dm644 "$data/wincraft/setupcomplete.d/README" "$pkgdir/etc/wincraft/setupcomplete.d/README"

@@ -32,7 +32,7 @@ prints it):
 |---------------|----------------|
 | **windowsPE**: `DiskConfiguration` with diskpart | GPT layout written with `sfdisk`: ESP (512 MiB), BIOS boot (1 MiB), swap (optional), root. One disk boots on both UEFI and legacy BIOS. |
 | MSR partition | BIOS boot partition (GRUB's core image on GPT disks) |
-| Pagefile | Swap partition, `auto` sizes it from RAM (2–8 GiB) like a "system managed" page file |
+| Pagefile | Compressed swap in RAM (zram) sized from memory, like a "system managed" page file; a swap partition on request |
 | **windowsPE**: `ImageInstall`, `DISM /Apply-Image` | `unsquashfs -f -d /mnt/wincraft LiveOS/rootfs.img` |
 | `bcdboot C:\Windows` | `grub-install` (UEFI entry named like the answer file's `[bootloader] id`, plus the removable `\EFI\BOOT\BOOTX64.EFI` fallback) and `grub-mkconfig`; `os-prober` adds Windows to the menu |
 | **offlineServicing** | OEM files and offline packages |
@@ -51,7 +51,8 @@ prints it):
 
 | Windows | Wincraft |
 |---------|----------|
-| Desktop, taskbar, Start menu | KDE Plasma with the `org.wincraft.desktop` layout: bottom taskbar, Start menu on the left, pinned programs, notification area, clock, Show Desktop corner |
+| Desktop, taskbar, Start menu | The Wincraft Rust shell on labwc: bottom taskbar with Start, pinned programs (Files, browser, terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.wincraft.desktop` layout is the fallback session |
+| Xbox app / Game Bar, Game Mode | Steam, Lutris, MangoHud, GameMode and the Wincraft Gaming Mode session (see [gaming.md](gaming.md)) |
 | Window buttons (minimize, maximize, close on the right), Alt+Tab thumbnails | KWin defaults in `/etc/xdg/kwinrc` |
 | File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, Spectacle, Gwenview, System Monitor, Partition Manager |
 | Microsoft Store | Discover with Flathub (Flatpak) |

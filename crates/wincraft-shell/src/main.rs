@@ -205,6 +205,7 @@ fn panel(app: &gtk::Application, menus: &Menus, preview: bool) -> gtk::Box {
         ("Files", "system-file-manager-symbolic", "dolphin"),
         ("Web browser", "web-browser-symbolic", "firefox"),
         ("Terminal", "utilities-terminal-symbolic", "konsole"),
+        ("Steam", "steam", "steam"),
     ] {
         let button = command_button("", icon, command, &[]);
         button.set_tooltip_text(Some(label));

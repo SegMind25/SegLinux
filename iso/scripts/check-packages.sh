@@ -3,21 +3,24 @@
 # buildiso will install from, and that each layer's package set resolves.
 # Run on Artix (or in the build container); needs pacman and go-yq.
 #
-#   iso/scripts/check-packages.sh [-i openrc|dinit|runit|s6] [-p profile] [-c pacman.conf]
+#   iso/scripts/check-packages.sh [-i openrc|runit|dinit|s6] [-k kernel]
+#                                 [-p profile] [-c pacman.conf]
 set -euo pipefail
 
 iso_dir=$(cd "$(dirname "$0")/.." && pwd)
 init=openrc
+kernel=linux
 profile=wincraft
 conf=$iso_dir/pacman.conf.d/iso-x86_64.conf
 local_repo=/var/lib/wincraft-repo
 
-while getopts "i:p:c:h" opt; do
+while getopts "i:k:p:c:h" opt; do
     case $opt in
         i) init=$OPTARG ;;
+        k) kernel=$OPTARG ;;
         p) profile=$OPTARG ;;
         c) conf=$OPTARG ;;
-        *) sed -n '2,8s/^# \{0,1\}//p' "$0"; exit 2 ;;
+        *) sed -n '2,9s/^# \{0,1\}//p' "$0"; exit 2 ;;
     esac
 done
 
@@ -43,7 +46,7 @@ rootfs=$(
         list "[\"packages-init\"].$init" "$common"
         list 'rootfs.packages' "$prof"
         list "rootfs[\"packages-init\"].$init" "$prof"
-    } | sort -u
+    } | sed -e "s/^linux$/$kernel/" -e "s/^linux-headers$/$kernel-headers/" | sort -u
 )
 livefs=$(
     {

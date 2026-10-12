@@ -2,7 +2,8 @@
 # Build the Wincraft ISO. Runs as root on Artix Linux, normally inside the
 # container that iso/build.sh starts.
 #
-#   INIT=openrc|dinit  OUT_DIR=<dir>  iso/scripts/build-in-container.sh
+#   INIT=openrc|runit|dinit  KERNEL=linux-zen|linux|linux-lts  OUT_DIR=<dir> \
+#       iso/scripts/build-in-container.sh
 #
 # Steps: build the wincraft package from this checkout into a local pacman
 # repository, point artools at it, check the package lists, run buildiso
@@ -11,6 +12,7 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 init=${INIT:-openrc}
+kernel=${KERNEL:-linux-zen}
 out=${OUT_DIR:-$repo/iso/out}
 in_container=${WINCRAFT_CONTAINER:-false}
 artools_dir=${CHROOTS_DIR:-/var/lib/artools}
@@ -21,8 +23,12 @@ step() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 case $init in
-    openrc | dinit) ;;
-    *) die "unsupported init system '$init' (Wincraft supports openrc and dinit)" ;;
+    openrc | runit | dinit) ;;
+    *) die "unsupported init system '$init' (Wincraft supports openrc, runit and dinit)" ;;
+esac
+case $kernel in
+    linux | linux-zen | linux-lts) ;;
+    *) die "unsupported kernel '$kernel' (linux-zen, linux or linux-lts)" ;;
 esac
 [[ $(id -u) == 0 ]] || die "run as root"
 [[ -f /etc/artix-release ]] || [[ $in_container == true ]] || die "this script must run on Artix Linux (use iso/build.sh for a container build)"
@@ -78,8 +84,34 @@ chown -R root:root "$workspace/iso-profiles"
 chmod 0440 "$workspace"/iso-profiles/wincraft/live-overlay/etc/sudoers.d/*
 export WORKSPACE_DIR=$workspace
 
-step "Checking package names ($init)"
-"$repo/iso/scripts/check-packages.sh" -i "$init"
+# Kernel: common.yaml names the stock kernel, which artools expects; swap in
+# the requested one. artools derives the live initramfs' kernel version from
+# /usr/src/linux/version, which only the stock linux-headers provides, so for
+# other kernels buildiso runs with a patched copy of its library (buildiso
+# honours LIBDIR) that reads the version from /usr/lib/modules instead.
+use_kernel() {
+    sed -i -E "s/^(\s*-\s*)linux$/\1$kernel/; s/^(\s*-\s*)linux-headers$/\1$kernel-headers/" \
+        "$workspace/iso-profiles/common/common.yaml"
+    [[ $kernel == linux ]] && return
+    # shellcheck disable=SC2016 # literal shell code, not expansions
+    local header='LIBDIR=${LIBDIR:-' old='k=$(<"$mnt"/usr/src/linux/version)'
+    # shellcheck disable=SC2016
+    local new='k=$(basename "$(dirname "$(find "$mnt"/usr/lib/modules -mindepth 2 -maxdepth 2 -name vmlinuz | sort -V | tail -n1)")")'
+    grep -qF "$header" "$(command -v buildiso)" || die "this buildiso does not honour LIBDIR; build with -k linux"
+    local patched=$artools_dir/wincraft-artools-lib
+    rm -rf "$patched"
+    cp -a /usr/share/artools/lib "$patched"
+    local file=$patched/iso/initcpio.sh text
+    grep -qF "$old" "$file" || die "artools changed how it finds the kernel version in $file; build with -k linux"
+    text=$(<"$file")
+    printf '%s\n' "${text/"$old"/"$new"}" > "$file"
+    export LIBDIR=$patched
+}
+step "Using the $kernel kernel"
+use_kernel
+
+step "Checking package names ($init, $kernel)"
+"$repo/iso/scripts/check-packages.sh" -i "$init" -k "$kernel"
 
 if [[ $in_container == true ]]; then
     modprobe loop 2>/dev/null || true
@@ -89,7 +121,7 @@ if [[ $in_container == true ]]; then
     done
 fi
 
-step "Running buildiso (profile wincraft, init $init)"
+step "Running buildiso (profile wincraft, init $init, kernel $kernel)"
 buildiso -p wincraft -i "$init"
 
 step "Collecting the ISO"

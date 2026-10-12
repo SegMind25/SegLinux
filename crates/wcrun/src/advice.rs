@@ -48,6 +48,24 @@ pub fn uses_d3d12(info: &PeInfo) -> bool {
     info.imports_matching(|i| D3D_VKD3D.contains(&i))
 }
 
+/// Whether the program looks like a game: it renders with Direct3D,
+/// DirectDraw, OpenGL or Vulkan, or reads game controllers. Installers are
+/// never games, even when their wizard uses Direct3D.
+pub fn is_game(info: &PeInfo) -> bool {
+    info.installer.is_none()
+        && info.is_launchable()
+        && info.imports_matching(|i| {
+            D3D_DXVK.contains(&i)
+                || D3D_VKD3D.contains(&i)
+                || matches!(
+                    i,
+                    "d3d8.dll" | "ddraw.dll" | "opengl32.dll" | "vulkan-1.dll" | "dinput8.dll"
+                )
+                || i.starts_with("xinput")
+                || i.starts_with("xaudio2")
+        })
+}
+
 /// Visual C++ runtimes and the winetricks verb that installs each one.
 const VCRUN: &[(&str, &str)] = &[
     ("msvcr80.dll", "vcrun2005"),
@@ -199,6 +217,17 @@ mod tests {
         assert!(uses_d3d_dxvk(&info(&["d3d9.dll"])));
         assert!(!uses_d3d_dxvk(&info(&["opengl32.dll"])));
         assert!(uses_d3d12(&info(&["d3d12.dll"])));
+    }
+
+    #[test]
+    fn game_detection() {
+        assert!(is_game(&info(&["d3d11.dll"])));
+        assert!(is_game(&info(&["opengl32.dll"])));
+        assert!(is_game(&info(&["xinput1_4.dll"])));
+        assert!(!is_game(&info(&["user32.dll", "comctl32.dll"])));
+        let mut installer = info(&["d3d9.dll"]);
+        installer.installer = Some(wincraft_pe::InstallerKind::Nsis);
+        assert!(!is_game(&installer));
     }
 
     #[test]

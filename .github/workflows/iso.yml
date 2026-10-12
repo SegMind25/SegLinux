@@ -6,8 +6,13 @@ on:
       init:
         description: Init system
         type: choice
-        options: [openrc, dinit]
+        options: [openrc, runit, dinit]
         default: openrc
+      kernel:
+        description: Kernel
+        type: choice
+        options: [linux-zen, linux, linux-lts]
+        default: linux-zen
   push:
     tags: ["v*"]
 
@@ -29,7 +34,7 @@ jobs:
       - name: Load the loop module
         run: sudo modprobe loop
       - name: Build
-        run: ./iso/build.sh -e docker -i "${{ inputs.init || 'openrc' }}"
+        run: ./iso/build.sh -e docker -i "${{ inputs.init || 'openrc' }}" -k "${{ inputs.kernel || 'linux-zen' }}"
       - uses: actions/upload-artifact@v4
         with:
           name: wincraft-${{ inputs.init || 'openrc' }}-iso

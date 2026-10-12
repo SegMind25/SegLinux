@@ -11,12 +11,22 @@ repository during the build.
 ```sh
 git clone https://github.com/SegMind25/Wincraft
 cd Wincraft
-./iso/build.sh              # OpenRC
-./iso/build.sh -i dinit     # or dinit
+./iso/build.sh                  # OpenRC + linux-zen (default)
+./iso/build.sh -i runit         # runit (or -i dinit)
+./iso/build.sh -k linux         # stock Arch kernel instead of linux-zen
 ```
 
 The ISO and its checksum are written to `iso/out/`, for example
 `iso/out/wincraft-openrc-20261012-x86_64.iso`.
+
+`common.yaml` names the stock `linux` kernel, which is what artools expects.
+For `linux-zen` (or `linux-lts`) the build swaps the kernel in a staged copy
+of the profile and runs `buildiso` with a patched copy of the artools
+library (`LIBDIR`): artools reads the live kernel's version from
+`/usr/src/linux/version`, which only the stock kernel's headers provide, and
+the copy reads it from `/usr/lib/modules` instead. The installed artools
+files are not modified. If artools changes that code, the build stops with a
+message suggesting `-k linux`.
 
 Needs: about 25 GB of free disk space, a network connection, and root
 rights for the container (`--privileged`, because `buildiso` mounts file

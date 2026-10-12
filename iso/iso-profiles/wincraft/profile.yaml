@@ -8,7 +8,8 @@
 #                                 WinPE image in sources\boot.wim
 #
 # root-overlay/ is copied over rootfs, live-overlay/ over livefs.
-# Build with iso/build.sh (see docs/building.md).
+# Build with iso/build.sh (see docs/building.md). The build swaps the kernel
+# in common.yaml for linux-zen unless -k linux is given.
 
 live-session:
   user: wincraft
@@ -26,11 +27,9 @@ live-session:
     - NetworkManager
     - sddm
     - power-profiles-daemon
-  user-services:
-    - dbus
-    - pipewire
-    - pipewire-pulse
-    - wireplumber
+  # No init-specific user services: both desktop sessions start PipeWire
+  # themselves (/usr/lib/wincraft/pipewire-session), so the same profile
+  # works with OpenRC, runit and dinit.
 
 rootfs:
   packages:
@@ -91,7 +90,6 @@ rootfs:
     - ffmpegthumbs
     - kdegraphics-thumbnailers
     - firefox                      # Edge
-    - libreoffice-fresh            # Office
     - vlc                          # Media Player
 
     # Sound
@@ -118,10 +116,16 @@ rootfs:
     - ttf-liberation
     - ttf-carlito
 
-    # Running Windows programs
+    # Running Windows programs and games
     - wine
     - winetricks
-    - steam
+    - steam                        # Steam and Proton
+    - lutris                       # GOG, Epic, Battle.net and other launchers
+    - gamemode                     # CPU/GPU tuning while a game runs
+    - lib32-gamemode
+    - mangohud                     # FPS and frame-time overlay
+    - lib32-mangohud
+    - gamescope                    # gaming compositor, Gaming Mode session
     - dosbox
     - mesa
     - lib32-mesa
@@ -133,23 +137,22 @@ rootfs:
     - lib32-vulkan-intel
     - vulkan-nouveau
     - vulkan-tools
+    - lib32-pipewire               # sound for 32-bit games
 
   packages-init:
     openrc:
-      - pipewire-openrc
-      - pipewire-pulse-openrc
-      - wireplumber-openrc
       - networkmanager-openrc
       - sddm-openrc
       - cups-openrc
       - bluez-openrc
       - syslog-ng-openrc
+    runit:
+      - networkmanager-runit
+      - sddm-runit
+      - cups-runit
+      - bluez-runit
+      - syslog-ng-runit
     dinit:
-      - pipewire-dinit
-      - pipewire-pulse-dinit
-      - wireplumber-dinit
-      - userspawn-dinit
-      - dbus-dinit-user
       - networkmanager-dinit
       - sddm-dinit
       - cups-dinit

@@ -23,7 +23,7 @@ full_name = "Ada Lovelace"
 password_hash = "$6$..."   # openssl passwd -6
 ```
 
-Everything else has defaults: ext4, swap sized from memory, `en_US.UTF-8`,
+Everything else has defaults: ext4, compressed swap in RAM (zram), `en_US.UTF-8`,
 US keyboard, UTC, a `DESKTOP-XXXXXXX` computer name, reboot when done.
 
 ## Where Setup looks for it
@@ -55,7 +55,7 @@ start it by hand: `sudo wincraft-setup install --unattend`.
 | `[disk] device` | required | `DiskID` | Whole disk, or `"auto"` (largest internal disk ≥ 20 GiB) |
 | `[disk] wipe` | required | `WillWipeDisk` | Must be `true` |
 | `[disk] filesystem` | `"ext4"` | | `ext4`, `btrfs` (subvolumes `@` and `@home`, zstd compression) or `xfs` |
-| `[disk] swap` | `"auto"` | Page file | Size (`"8GiB"`), `"auto"` (RAM, 2–8 GiB) or `"none"` |
+| `[disk] swap` | `"zram"` | Page file | `"zram"` (compressed in RAM, sized from memory, 2–8 GiB), a partition size (`"8GiB"`), `"auto"` (partition sized from RAM) or `"none"` |
 | `[disk] esp_size` | `"512MiB"` | ESP size | At least 200 MiB |
 | `[image] source` | `"auto"` | `ImageInstall` / `InstallFrom` | Path to the squashfs image (`LiveOS/rootfs.img`) |
 | `[oem] path` | `"auto"` | `$OEM$` | Folder copied over `/` (`wincraft/oem` on the media) |
@@ -75,6 +75,9 @@ start it by hand: `sudo wincraft-setup install --unattend`.
 | `[bootloader] id` | `"Wincraft"` | BCD description | UEFI boot entry name |
 | `[bootloader] removable` | `true` | | Also install `\EFI\BOOT\BOOTX64.EFI` |
 | `[bootloader] os_prober` | `true` | | Add Windows and other systems to the boot menu |
+| `[performance] parallel_boot` | `true` | | OpenRC: start services in parallel (`rc_parallel`) |
+| `[performance] kernel_parameters` | `[]` | | Added to `loglevel=3 quiet nowatchdog nmi_watchdog=0` (and `zswap.enabled=0` with zram) |
+| `[drivers] nvidia` | `"auto"` | Driver installation | `"auto"`: install NVIDIA's driver for GeForce GTX 16/RTX and newer when online; `"never"` |
 | `[services] enable` / `disable` | `[]` | | On top of Wincraft's defaults |
 | `[[run]] pass`, `command`, `description` | | `RunSynchronous`, `SetupComplete.cmd` | Shell command run in the new system during `specialize` or `setup-complete` |
 

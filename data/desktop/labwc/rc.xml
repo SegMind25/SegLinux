@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <labwc_config>
-  <core><decoration>server</decoration><gap>8</gap></core>
+  <core>
+    <decoration>server</decoration><gap>8</gap>
+    <!-- Gaming: variable refresh rate (FreeSync/G-Sync) for fullscreen
+         windows, and tearing when a game asks for it, for the lowest
+         input latency. -->
+    <adaptiveSync>fullscreen</adaptiveSync>
+    <allowTearing>yes</allowTearing>
+  </core>
   <theme>
     <name>Wincraft</name><cornerRadius>8</cornerRadius>
     <font place="ActiveWindow"><name>Noto Sans</name><size>10</size></font>

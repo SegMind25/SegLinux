@@ -19,6 +19,10 @@ Alt+Tab and workspaces. Plasma remains an alternative session.
 - Screen locking, with confirmation before signing out or powering off.
 - A live-session installer shortcut and unattended-installer startup.
 - A separate SDDM session, PipeWire startup, polkit agent and portal preferences.
+- Gaming: Steam pinned in the taskbar, variable refresh rate and tearing for
+  fullscreen games in labwc (`adaptiveSync`, `allowTearing`), and a separate
+  **Wincraft Gaming Mode** session (Steam Big Picture in gamescope). See
+  [gaming.md](gaming.md).
 
 ## Try it without switching desktop
 

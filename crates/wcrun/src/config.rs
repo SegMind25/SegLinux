@@ -50,8 +50,17 @@ pub struct Defaults {
     pub fsync: bool,
     /// Keep Wine's debug output (normally silenced with WINEDEBUG=-all).
     pub debug: bool,
-    /// Show the DXVK performance overlay.
+    /// Performance overlay: MangoHud when installed, otherwise DXVK's HUD.
     pub hud: bool,
+    /// Run games under Feral GameMode (CPU governor, I/O and GPU tuning
+    /// while the game runs). `auto` = programs that use Direct3D, OpenGL
+    /// or Vulkan.
+    pub gamemode: Toggle,
+    /// Run programs inside gamescope, Valve's gaming compositor (frame
+    /// limiting, upscaling, fullscreen for windowed-only games).
+    pub gamescope: bool,
+    /// Arguments for gamescope, e.g. `["-W", "2560", "-H", "1440", "-r", "165"]`.
+    pub gamescope_args: Vec<String>,
 }
 
 impl Default for Defaults {
@@ -66,6 +75,9 @@ impl Default for Defaults {
             fsync: true,
             debug: false,
             hud: false,
+            gamemode: Toggle::Auto,
+            gamescope: false,
+            gamescope_args: vec!["-f".into()],
         }
     }
 }
@@ -82,6 +94,10 @@ pub struct AppOverride {
     pub dxvk: Option<Toggle>,
     pub vkd3d: Option<Toggle>,
     pub virtual_desktop: Option<String>,
+    pub gamemode: Option<Toggle>,
+    pub gamescope: Option<bool>,
+    /// Replaces the default gamescope arguments when not empty.
+    pub gamescope_args: Vec<String>,
     /// Arguments added before the ones given on the command line.
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,

@@ -27,6 +27,8 @@ pub struct RunOptions {
     pub virtual_desktop: Option<String>,
     pub hud: bool,
     pub debug: bool,
+    pub gamemode: Option<Toggle>,
+    pub gamescope: bool,
 }
 
 /// Effective settings after merging defaults, the per-app override and the
@@ -41,6 +43,9 @@ pub struct Settings {
     pub fsync: bool,
     pub debug: bool,
     pub hud: bool,
+    pub gamemode: Toggle,
+    pub gamescope: bool,
+    pub gamescope_args: Vec<String>,
     pub silent: bool,
     pub virtual_desktop: Option<String>,
     pub extra_args: Vec<String>,
@@ -103,6 +108,15 @@ impl Settings {
             fsync: d.fsync,
             debug: opts.debug || d.debug,
             hud: opts.hud || d.hud,
+            gamemode: opts
+                .gamemode
+                .or(app.and_then(|a| a.gamemode))
+                .unwrap_or(d.gamemode),
+            gamescope: opts.gamescope || app.and_then(|a| a.gamescope).unwrap_or(d.gamescope),
+            gamescope_args: app
+                .map(|a| a.gamescope_args.clone())
+                .filter(|a| !a.is_empty())
+                .unwrap_or_else(|| d.gamescope_args.clone()),
             silent: opts.silent,
             virtual_desktop: opts
                 .virtual_desktop
@@ -120,13 +134,21 @@ impl Settings {
 pub struct Host {
     pub vulkan: bool,
     pub winetricks: bool,
+    /// `gamemoderun` from Feral GameMode.
+    pub gamemode: bool,
+    pub mangohud: bool,
+    pub gamescope: bool,
 }
 
 impl Host {
     pub fn detect() -> Host {
+        let has = |p: &str| wincraft_core::which(p).is_some();
         Host {
             vulkan: has_vulkan_icd(),
-            winetricks: wincraft_core::which("winetricks").is_some(),
+            winetricks: has("winetricks"),
+            gamemode: has("gamemoderun"),
+            mangohud: has("mangohud"),
+            gamescope: has("gamescope"),
         }
     }
 }
@@ -275,15 +297,46 @@ pub fn plan(
             }
         }
     }
-    if s.hud {
-        launch = launch.env("DXVK_HUD", "1");
-    }
     if !dll_overrides.is_empty() {
         launch = launch.env("WINEDLLOVERRIDES", dll_overrides.join(";"));
     }
     for (k, v) in &s.env {
         launch = launch.env(k.clone(), v.clone());
     }
+
+    // Gaming wrappers, outermost first:
+    //   gamemoderun gamescope <args> -- mangohud <runner> <program>
+    let mut wrappers: Vec<String> = Vec::new();
+    let game = pe.is_some_and(advice::is_game);
+    let gamemode = match s.gamemode {
+        Toggle::Always => true,
+        Toggle::Never => false,
+        Toggle::Auto => game,
+    };
+    if gamemode {
+        if host.gamemode {
+            wrappers.push("gamemoderun".into());
+        } else if s.gamemode == Toggle::Always {
+            notes.push("GameMode is not installed: sudo pacman -S gamemode lib32-gamemode".into());
+        }
+    }
+    if s.gamescope {
+        if host.gamescope {
+            wrappers.push("gamescope".into());
+            wrappers.extend(s.gamescope_args.iter().cloned());
+            wrappers.push("--".into());
+        } else {
+            notes.push("gamescope is not installed: sudo pacman -S gamescope".into());
+        }
+    }
+    if s.hud {
+        if host.mangohud {
+            wrappers.push("mangohud".into());
+        } else {
+            launch = launch.env("DXVK_HUD", "1");
+        }
+    }
+    let launch = wrap(launch, wrappers);
 
     Ok(LaunchPlan {
         prefix_dir: prefix_dir.to_path_buf(),
@@ -292,6 +345,20 @@ pub fn plan(
         notes,
         state,
     })
+}
+
+/// Prefix a command with wrapper programs, keeping its environment and
+/// working directory.
+fn wrap(mut cmd: Cmd, wrappers: Vec<String>) -> Cmd {
+    let mut parts = wrappers.into_iter();
+    let Some(first) = parts.next() else {
+        return cmd;
+    };
+    let mut args: Vec<String> = parts.collect();
+    args.push(std::mem::replace(&mut cmd.program, first));
+    args.append(&mut cmd.args);
+    cmd.args = args;
+    cmd
 }
 
 pub fn winetricks(runner: &Runner, prefix_dir: &Path, verbs: &[&str]) -> Cmd {
@@ -394,6 +461,9 @@ mod tests {
     const HOST: Host = Host {
         vulkan: true,
         winetricks: true,
+        gamemode: true,
+        mangohud: true,
+        gamescope: true,
     };
 
     fn settings(config: &Config, file: &str, kind: &FileKind, opts: RunOptions) -> Settings {
@@ -439,8 +509,9 @@ mod tests {
             ]
         );
         assert!(p.state.dxvk);
-        assert_eq!(p.launch.program, "wine");
-        assert_eq!(p.launch.args, vec!["/games/Game/game.exe"]);
+        // A Direct3D program is a game: it runs under GameMode.
+        assert_eq!(p.launch.program, "gamemoderun");
+        assert_eq!(p.launch.args, vec!["wine", "/games/Game/game.exe"]);
         assert_eq!(p.launch.cwd.as_deref(), Some(Path::new("/games/Game")));
         assert_eq!(p.launch.get_env("WINEDEBUG"), Some("-all"));
         assert_eq!(p.launch.get_env("WINEESYNC"), Some("1"));
@@ -464,7 +535,7 @@ mod tests {
 
         let no_vulkan = Host {
             vulkan: false,
-            winetricks: true,
+            ..HOST
         };
         let p = plan_for(&kind, "/g/a.exe", RunOptions::default(), None, no_vulkan);
         assert!(p.setup.iter().all(|s| !s.what.contains("DXVK")));
@@ -694,6 +765,107 @@ mod tests {
             },
         );
         assert_eq!(s.prefix, "default");
+    }
+
+    #[test]
+    fn gaming_wrappers() {
+        let game = exe(&["d3d11.dll"], None);
+        let opts = RunOptions {
+            hud: true,
+            gamescope: true,
+            ..Default::default()
+        };
+        let p = plan_for(&game, "/g/a.exe", opts.clone(), None, HOST);
+        assert_eq!(p.launch.program, "gamemoderun");
+        assert_eq!(
+            p.launch.args,
+            vec!["gamescope", "-f", "--", "mangohud", "wine", "/g/a.exe"]
+        );
+        // Environment and working directory survive the wrapping.
+        assert_eq!(p.launch.get_env("WINEESYNC"), Some("1"));
+        assert_eq!(p.launch.cwd.as_deref(), Some(Path::new("/g")));
+
+        // Without the tools: DXVK's own HUD and notes instead of wrappers.
+        let bare = Host {
+            gamemode: false,
+            mangohud: false,
+            gamescope: false,
+            ..HOST
+        };
+        let p = plan_for(&game, "/g/a.exe", opts, None, bare);
+        assert_eq!(p.launch.program, "wine");
+        assert_eq!(p.launch.get_env("DXVK_HUD"), Some("1"));
+        assert!(
+            p.notes
+                .iter()
+                .any(|n| n.contains("gamescope is not installed"))
+        );
+
+        // GameMode can be turned off, and forced on for non-games.
+        let off = RunOptions {
+            gamemode: Some(Toggle::Never),
+            ..Default::default()
+        };
+        assert_eq!(
+            plan_for(&game, "/g/a.exe", off, None, HOST).launch.program,
+            "wine"
+        );
+        let tool = exe(&["user32.dll"], None);
+        assert_eq!(
+            plan_for(&tool, "/t/t.exe", RunOptions::default(), None, HOST)
+                .launch
+                .program,
+            "wine"
+        );
+        let on = RunOptions {
+            gamemode: Some(Toggle::Always),
+            ..Default::default()
+        };
+        assert_eq!(
+            plan_for(&tool, "/t/t.exe", on, None, HOST).launch.program,
+            "gamemoderun"
+        );
+    }
+
+    #[test]
+    fn gamescope_args_from_app_override() {
+        let config = Config::parse(
+            r#"
+            [[app]]
+            match = "game.exe"
+            gamescope = true
+            gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165"]
+            "#,
+        )
+        .unwrap();
+        let game = exe(&["d3d12.dll"], None);
+        let s = settings(&config, "/g/game.exe", &game, RunOptions::default());
+        assert!(s.gamescope);
+        let p = plan(
+            Path::new("/g/game.exe"),
+            &game,
+            &[],
+            &s,
+            Path::new("/p"),
+            None,
+            HOST,
+        )
+        .unwrap();
+        assert_eq!(
+            p.launch.args,
+            vec![
+                "gamescope",
+                "-W",
+                "2560",
+                "-H",
+                "1440",
+                "-r",
+                "165",
+                "--",
+                "wine",
+                "/g/game.exe"
+            ]
+        );
     }
 
     #[test]

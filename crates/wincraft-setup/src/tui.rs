@@ -517,8 +517,13 @@ impl App {
             Line::from("   •  To quit Setup without installing Wincraft, press F3."),
             Line::from(""),
             Line::from(""),
-            Line::from("Wincraft is a Linux distribution based on Artix Linux. It looks and works"),
-            Line::from("like Windows and runs Windows programs through Wine, DXVK and Proton."),
+            Line::from(
+                "Wincraft is a lightweight gaming system based on Artix Linux. It looks and",
+            ),
+            Line::from(
+                "works like Windows and runs Windows games and programs through Wine, DXVK,",
+            ),
+            Line::from("VKD3D-Proton and Steam's Proton."),
             Line::from(""),
             Line::from(format!(
                 "Detected: {} firmware, {} init system, {} disk(s).",
@@ -621,7 +626,7 @@ impl App {
         f.render_widget(
             Paragraph::new(vec![
                 Line::from(format!("File system: {}   (press F to change)", self.filesystem)),
-                Line::from("Partitions: EFI system (512 MiB), BIOS boot, swap (sized from memory), Wincraft."),
+                Line::from("Partitions: EFI system (512 MiB), BIOS boot, Wincraft. Swap: compressed in RAM (zram)."),
             ])
             .style(base()),
             info,
@@ -806,6 +811,7 @@ mod tests {
             oem_dir: None,
             offline_packages: vec![],
             memory: 8 * GIB,
+            gpus: vec![],
             timezones: Some(
                 ["UTC", "Europe/Paris", "Europe/Berlin"]
                     .iter()
