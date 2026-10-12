@@ -117,7 +117,7 @@ fn main() -> glib::ExitCode {
                 .default_width(1280)
                 .default_height(800)
                 .build();
-            let overlay = desktop::background(&config, true);
+            let overlay = desktop::background(&config, true, None);
             let bar = dock::dock(app, &menus, &config, true);
             bar.set_valign(gtk::Align::End);
             bar.set_halign(gtk::Align::Center);
@@ -159,7 +159,13 @@ fn main() -> glib::ExitCode {
                             background.set_anchor(edge, true);
                         }
                         // Desktop icons on the first monitor, as in Plasma.
-                        background.set_child(Some(&desktop::background(&config, index == 0)));
+                        let geometry = monitor.geometry();
+                        let scale = monitor.scale_factor();
+                        background.set_child(Some(&desktop::background(
+                            &config,
+                            index == 0,
+                            Some((geometry.width() * scale, geometry.height() * scale)),
+                        )));
                         background.present();
 
                         // The dock floats: anchored to the bottom edge only,

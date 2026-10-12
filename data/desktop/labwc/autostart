@@ -7,4 +7,7 @@ xdg-user-dirs-update
 if [ -x /usr/lib/wincraft/live-autostart ]; then
     /usr/lib/wincraft/live-autostart &
 fi
-wincraft-shell &
+# The shell draws a wallpaper and a dock: GTK's CPU renderer does that with
+# about 40 MB of memory, its OpenGL renderer needs several times more. Only
+# the shell is affected; games and applications keep using the GPU.
+GSK_RENDERER="${GSK_RENDERER:-cairo}" wincraft-shell &

@@ -42,10 +42,42 @@ pub fn desktop_dir() -> PathBuf {
 }
 
 /// The background of one monitor. Only the first monitor shows icons.
-pub fn background(config: &Config, icons: bool) -> gtk::Overlay {
+/// The wallpaper, decoded at the size it is shown at (`size`, in pixels):
+/// a 2560 x 1440 image shown on a 1366 x 768 screen takes 4 MB of memory
+/// instead of 15.
+fn wallpaper(path: &std::path::Path, size: Option<(i32, i32)>) -> gtk::Picture {
+    use gtk::gdk_pixbuf::Pixbuf;
+    if let Some((width, height)) = size.filter(|(w, h)| *w > 0 && *h > 0)
+        && let Some((_, image_width, image_height)) = Pixbuf::file_info(path)
+        && image_width > 0
+        && image_height > 0
+    {
+        let (w, h) = cover_size((image_width, image_height), (width, height));
+        if let Ok(pixbuf) = Pixbuf::from_file_at_scale(path, w, h, true) {
+            return gtk::Picture::for_paintable(&gdk::Texture::for_pixbuf(&pixbuf));
+        }
+    }
+    gtk::Picture::for_filename(path)
+}
+
+/// The smallest size, keeping the image's proportions, that covers the
+/// screen; never larger than the image.
+pub fn cover_size(image: (i32, i32), screen: (i32, i32)) -> (i32, i32) {
+    let scale = (f64::from(screen.0) / f64::from(image.0))
+        .max(f64::from(screen.1) / f64::from(image.1))
+        .min(1.0);
+    (
+        (f64::from(image.0) * scale).ceil() as i32,
+        (f64::from(image.1) * scale).ceil() as i32,
+    )
+}
+
+/// The background of one monitor (`size` in pixels, when known). Only the
+/// first monitor shows icons.
+pub fn background(config: &Config, icons: bool, size: Option<(i32, i32)>) -> gtk::Overlay {
     let overlay = gtk::Overlay::new();
     overlay.add_css_class("desktop");
-    let picture = gtk::Picture::for_filename(&config.wallpaper);
+    let picture = wallpaper(&config.wallpaper, size);
     picture.set_content_fit(gtk::ContentFit::Cover);
     picture.set_can_shrink(true);
     overlay.set_child(Some(&picture));
@@ -235,6 +267,13 @@ fn context_menu(overlay: &gtk::Overlay) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wallpaper_sizes() {
+        assert_eq!(cover_size((2560, 1440), (1366, 768)), (1366, 769));
+        assert_eq!(cover_size((2560, 1440), (1920, 1200)), (2134, 1200));
+        assert_eq!(cover_size((2560, 1440), (3840, 2160)), (2560, 1440));
+    }
 
     #[test]
     fn folders_first_then_files_by_name() {
