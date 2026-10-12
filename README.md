@@ -77,12 +77,18 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 `site/` is the project's website: features, screenshots and the download
 page, which lists every ISO image of the releases. It is deployed on
 [Vercel](https://vercel.com): `vercel.json` runs `site/build.py`, which
-assembles the pages, the screenshots and the list of releases into `_site`.
+assembles the pages, the screenshots and the list of releases into `site/_site`
+on Vercel. The explicit `website` service serves all public paths under `/`.
+The Rust crates are Linux applications, not web backends, and are not deployed
+as services. No internal services or service bindings are needed.
 
 To deploy it:
 
 1. On Vercel, **Add New → Project**, import this repository and keep the
-   root directory and the settings `vercel.json` gives (framework "Other").
+   root directory `./`. Use the service configuration in `vercel.json`: it
+   declares only `website`, rooted at `site/`, with framework "Other". Do not
+   add the auto-detected Rust applications. Commit and push this configuration
+   to the branch you import before deploying.
 2. While the repository is private, add the environment variable
    `GH_TOKEN`: a GitHub token that can read this repository's contents
    (a fine-grained token with *Contents: read-only*). Without it the

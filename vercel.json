@@ -1,16 +1,40 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "python3 site/build.py --out _site",
-  "outputDirectory": "_site",
+  "services": {
+    "website": {
+      "root": "site",
+      "framework": null,
+      "installCommand": "",
+      "buildCommand": "python3 build.py --out _site",
+      "outputDirectory": "_site"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "website"
+      }
+    }
+  ],
   "headers": [
     {
       "source": "/releases.json",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     },
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
     }
   ]
 }
