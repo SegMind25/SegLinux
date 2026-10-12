@@ -9,3 +9,4 @@
 /packaging/seglinux/*.pkg.tar.*
 *.iso
 *.iso.sha256
+_site/

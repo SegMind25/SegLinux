@@ -59,6 +59,12 @@ jobs:
         run: |
           broken=$(find iso/iso-profiles -xtype l)
           if [[ -n $broken ]]; then echo "Broken links:"; echo "$broken"; exit 1; fi
+      - name: Website assembles
+        run: |
+          node --check site/app.js
+          echo '[]' > /tmp/releases.json
+          python3 site/build.py --out /tmp/site --releases /tmp/releases.json
+          test -s /tmp/site/index.html && test -s /tmp/site/assets/logo.svg
       - name: Boot menu theme files exist
         run: |
           cd data/grub/seglinux

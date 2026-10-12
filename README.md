@@ -1,9 +1,52 @@
-# SegLinux
+<p align="center">
+  <img src="data/artwork/seglinux.svg" width="128" height="128" alt="SegLinux logo">
+</p>
+
+<h1 align="center">SegLinux</h1>
+
+<p align="center">
+  <b>Lightweight Linux for gamers.</b><br>
+  Installs, looks and plays like Windows. No systemd. Tools written in Rust.
+</p>
+
+<p align="center">
+  <a href="https://segmind25.github.io/SegLinux/">Website</a> ·
+  <a href="https://github.com/SegMind25/SegLinux/releases">Download the ISO</a> ·
+  <a href="docs/building.md">Build it yourself</a>
+</p>
+
+![The SegLinux desktop with the Start menu open](docs/images/start-menu.webp)
 
 **SegLinux** is a lightweight Linux distribution for gaming, without
 systemd: a desktop that looks, installs and behaves like Windows, runs
 Windows games and programs, and is tuned for low latency. Its own tools are
 written in Rust.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Desktop with the floating dock](docs/images/desktop.webp) | ![SegLinux Setup, choosing the disk](docs/images/setup.webp) |
+| The desktop: wallpaper, desktop icons and the floating dock (Rust, GTK 4, labwc) | Setup, the graphical installer, in the live session |
+| ![Boot menu of the install media](docs/images/boot-menu.webp) | ![Boot menu of an installed system](docs/images/boot-menu-installed.webp) |
+| The boot menu of the DVD / USB stick | The boot menu of an installed system, next to Windows |
+
+Screenshots of the Lite live session; the full edition adds Steam, Lutris,
+Firefox, Dolphin and the other pinned applications to the dock.
+
+## Download
+
+ISO images are on the [releases page](https://github.com/SegMind25/SegLinux/releases)
+and the [website](https://segmind25.github.io/SegLinux/#download):
+
+| Edition | Size | What it is |
+|---|---|---|
+| **Lite** | about 740 MB | the desktop, Setup and drivers; Setup downloads the rest (Steam, Wine, ...) while it installs, so it needs an internet connection |
+| **Full** | about 2.8 GB, in two parts | everything on the image, for installing offline |
+
+Write the ISO to a USB stick (`sudo dd if=seglinux-....iso of=/dev/sdX bs=4M status=progress oflag=sync`,
+or Ventoy, or Rufus in DD mode), disable Secure Boot and boot from it. Join a
+full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 
 * **Installs like Windows.** The ISO is built the way a Windows ISO is (see
   [how a Windows ISO works](docs/windows-iso-anatomy.md)): a live image
@@ -30,6 +73,22 @@ written in Rust.
 * **Fast, systemd-free base.** OpenRC by default (parallel boot), or runit
   or dinit; rolling release.
 
+## Website
+
+`site/` is the project's website: features, screenshots and the download
+page, which lists every ISO image of the releases. `.github/workflows/site.yml`
+publishes it on GitHub Pages at <https://segmind25.github.io/SegLinux/>
+whenever the site changes and after every ISO build. To preview it:
+
+```sh
+python3 site/build.py --out _site   # GH_TOKEN=... lists the releases of a private repository
+python3 -m http.server -d _site 8000
+```
+
+GitHub Pages has to be turned on once (Settings → Pages → Source: GitHub
+Actions); a free account serves Pages, and lets anyone download release
+files, only from a public repository.
+
 ## Repository layout
 
 ```
@@ -41,6 +100,7 @@ crates/
   segrun/             the Windows program launcher
   seglinux-setup/     the installer: answer files, planning, execution, text-mode wizard
   seglinux-installer/ the graphical Setup wizard (GTK 4), which runs seglinux-setup
+site/                 the website (GitHub Pages)
 data/                 defaults installed by the seglinux package (Plasma layout,
                       file associations, binfmt, NTSYNC, sysctl, branding)
 packaging/seglinux/   PKGBUILD for the seglinux package

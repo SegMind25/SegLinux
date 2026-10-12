@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SegLinux — Lightweight Linux for gamers</title>
+  <meta name="description" content="SegLinux installs, looks and plays like Windows: Steam, Proton and your .exe files on a lightweight Rust desktop, without systemd. Download the ISO.">
+  <meta name="theme-color" content="#161719">
+  <meta property="og:title" content="SegLinux — Lightweight Linux for gamers">
+  <meta property="og:description" content="Installs, looks and plays like Windows. No systemd. Tools written in Rust.">
+  <meta property="og:image" content="assets/start-menu.webp">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Unbounded:wght@800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved theme before the page paints.
+    try {
+      const saved = localStorage.getItem("seglinux-theme");
+      if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="nav" id="top">
+    <a class="nav-logo" href="#top" aria-label="SegLinux home">
+      <img src="assets/logo.svg" alt="" width="28" height="28">
+    </a>
+    <nav class="nav-links" id="nav-links" aria-label="Sections">
+      <a href="#home" class="active">Home</a>
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#download">Download</a>
+      <a href="#get-started">Get started</a>
+      <a href="https://github.com/SegMind25/SegLinux/tree/main/docs" target="_blank" rel="noopener">Docs</a>
+    </nav>
+    <div class="nav-right">
+      <a class="nav-icon" href="https://github.com/SegMind25/SegLinux" target="_blank" rel="noopener" aria-label="SegLinux on GitHub">
+        <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <button class="nav-icon" id="theme-toggle" type="button" aria-label="Switch between dark and light">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="nav-icon nav-menu" id="menu-toggle" type="button" aria-label="Menu" aria-controls="nav-links" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <a class="nav-cta" href="#download">Download ISO</a>
+    </div>
+  </header>
+
+  <aside class="ruler" aria-hidden="true">
+    <div class="ruler-ticks" id="ruler-ticks"></div>
+    <div class="ruler-marker" id="ruler-marker"></div>
+  </aside>
+  <nav class="section-index" aria-label="Page sections">
+    <a href="#features" data-section="features">Features</a>
+    <a href="#screenshots" data-section="screenshots">Screenshots</a>
+    <a href="#download" data-section="download">Download</a>
+    <a href="#get-started" data-section="get-started">Get started</a>
+  </nav>
+
+  <main>
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero-bg" aria-hidden="true">
+        <div class="card-ghost" style="--x:12%;--y:3%;--w:230px;--h:96px;--r:-4deg"></div>
+        <div class="card-ghost" style="--x:15%;--y:31%;--w:176px;--h:96px;--r:2deg"></div>
+        <div class="card-ghost img" style="--x:31%;--y:18%;--w:120px;--h:92px;--r:0deg"><img src="assets/setup.webp" alt=""></div>
+        <div class="card-ghost" style="--x:19%;--y:63%;--w:166px;--h:120px;--r:1deg"></div>
+        <div class="card-ghost" style="--x:-2%;--y:69%;--w:62px;--h:122px;--r:3deg"></div>
+        <div class="card-ghost" style="--x:65%;--y:41%;--w:118px;--h:68px;--r:0deg"></div>
+        <div class="card-ghost" style="--x:66%;--y:62%;--w:156px;--h:112px;--r:1deg"></div>
+        <div class="card-ghost img" style="--x:62%;--y:89%;--w:162px;--h:76px;--r:-1deg"><img src="assets/start-menu.webp" alt=""></div>
+        <div class="card-ghost" style="--x:79%;--y:86%;--w:180px;--h:120px;--r:2deg"></div>
+        <div class="card-ghost img" style="--x:80%;--y:8%;--w:150px;--h:84px;--r:3deg"><img src="assets/boot-menu.webp" alt=""></div>
+        <svg class="orbit" id="orbit" viewBox="0 0 1000 1000">
+          <defs>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+          </defs>
+          <circle class="orbit-line" cx="500" cy="500" r="472"/>
+          <circle class="orbit-ticks" cx="500" cy="500" r="438" pathLength="360"/>
+          <circle class="orbit-line faint" cx="500" cy="500" r="300"/>
+          <g class="orbit-arcs">
+            <circle class="arc glow" style="--c:#2246ff;--from:118;--len:62" cx="500" cy="500" r="472" pathLength="360" filter="url(#glow)"/>
+            <circle class="arc" style="--c:#2246ff;--from:118;--len:62" cx="500" cy="500" r="472" pathLength="360"/>
+            <circle class="arc glow" style="--c:#139b3c;--from:196;--len:44" cx="500" cy="500" r="472" pathLength="360" filter="url(#glow)"/>
+            <circle class="arc" style="--c:#139b3c;--from:196;--len:44" cx="500" cy="500" r="472" pathLength="360"/>
+            <circle class="arc glow" style="--c:#d2341f;--from:262;--len:40" cx="500" cy="500" r="472" pathLength="360" filter="url(#glow)"/>
+            <circle class="arc" style="--c:#d2341f;--from:262;--len:40" cx="500" cy="500" r="472" pathLength="360"/>
+            <circle class="arc glow" style="--c:#7c2cff;--from:330;--len:48" cx="500" cy="500" r="472" pathLength="360" filter="url(#glow)"/>
+            <circle class="arc" style="--c:#7c2cff;--from:330;--len:48" cx="500" cy="500" r="472" pathLength="360"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="hero-content">
+        <h1 class="wordmark" id="hero-title" aria-label="SegLinux">
+          <svg class="wordmark-s" viewBox="29 17 70 94" aria-hidden="true">
+            <defs>
+              <linearGradient id="s-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0.3" style="stop-color: var(--word-top)"/><stop offset="1" style="stop-color: var(--word-bottom)"/></linearGradient>
+              <mask id="s-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128"><rect x="0" y="0" width="128" height="128" fill="#fff"/><path d="M28 80 100 48" stroke="#000" stroke-width="6"/></mask>
+            </defs>
+            <path d="M87.8 36.1A27 19 0 1 0 64 64A27 19 0 1 1 40.2 91.9" fill="none" stroke="url(#s-fill)" stroke-width="16" stroke-linecap="round" mask="url(#s-cut)"/>
+          </svg><span aria-hidden="true">EGLINUX</span>
+        </h1>
+        <p class="tagline">Lightweight Linux <em>for gamers.</em></p>
+        <p class="lead">SegLinux installs, looks and plays like Windows. Steam, Proton and your
+          <code>.exe</code> files on a Rust desktop that uses 59&nbsp;MB of memory at idle.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#download">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="3" width="10" height="13" rx="1.5"/><path d="M9 16v5h6v-5M10 6v2M14 6v2"/></svg>
+            Download free
+          </a>
+          <a class="btn btn-outline" href="#screenshots">See screenshots</a>
+        </div>
+        <p class="hero-meta">
+          <span><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1l2 4.5 4.8.4-3.6 3.2 1.1 4.8L8 11.4 3.7 13.9l1.1-4.8L1.2 5.9 6 5.5z"/></svg> Free download</span>
+          <span>Lite 740 MB · Full 2.8 GB</span>
+          <span>OpenRC · linux-zen</span>
+          <span>No systemd</span>
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <p class="label">01 — Features</p>
+      <h2 class="title" id="features-title">Everything a gamer needs, <em>nothing it doesn't.</em></h2>
+      <div class="features">
+        <article class="feature">
+          <span class="feature-tag">Install</span>
+          <h3>Installs like Windows</h3>
+          <p>Setup asks for your language, disk and account, shows exactly what it will do, then installs. Answer files work like <code>autounattend.xml</code>.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-tag">Desktop</span>
+          <h3>A desktop written in Rust</h3>
+          <p>Floating dock, Start menu with search, desktop icons, tray and calendar, on the labwc Wayland compositor. 59&nbsp;MB of memory at idle.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-tag">Gaming</span>
+          <h3>Built for gaming</h3>
+          <p>linux-zen kernel, Steam with Proton, Lutris, GameMode, MangoHud and gamescope, NTSYNC, zram and a Steam Gaming Mode session.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-tag">Windows apps</span>
+          <h3>Double-click an .exe</h3>
+          <p><code>segrun</code> inspects the program and prepares Wine for it, with DXVK and VKD3D-Proton for Direct3D, and runs games under GameMode.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-tag">Low-end PCs</span>
+          <h3>Light on old hardware</h3>
+          <p>A 740&nbsp;MB Lite image, compressed swap in memory, tuning for Intel graphics and a desktop that leaves the CPU and GPU to your game.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-tag">System</span>
+          <h3>No systemd</h3>
+          <p>OpenRC with parallel start by default; runit and dinit builds too. A rolling release with up-to-date packages.</p>
+        </article>
+      </div>
+
+      <dl class="stats">
+        <div><dt>59 MB</dt><dd>desktop memory at idle</dd></div>
+        <div><dt>0.25%</dt><dd>CPU use at idle</dd></div>
+        <div><dt>740 MB</dt><dd>Lite ISO download</dd></div>
+        <div><dt>133</dt><dd>automated tests</dd></div>
+      </dl>
+      <p class="footnote">Measured on a virtual screen: the compositor, the desktop and D-Bus, after sign-in.</p>
+    </section>
+
+    <section class="section" id="screenshots" aria-labelledby="screenshots-title">
+      <p class="label">02 — Screenshots</p>
+      <h2 class="title" id="screenshots-title">See it <em>before you boot it.</em></h2>
+      <div class="gallery">
+        <div class="tabs" role="tablist" aria-label="Screenshots">
+          <button role="tab" aria-selected="true" data-shot="start-menu">Start menu</button>
+          <button role="tab" aria-selected="false" data-shot="desktop">Desktop</button>
+          <button role="tab" aria-selected="false" data-shot="setup">Setup</button>
+          <button role="tab" aria-selected="false" data-shot="boot-menu">Boot menu</button>
+        </div>
+        <figure class="frame">
+          <div class="frame-bar" aria-hidden="true"><i></i><i></i><i></i><span id="shot-name">seglinux — start menu</span></div>
+          <img id="shot" src="assets/start-menu.webp" width="1600" height="900" alt="The SegLinux desktop with the Start menu open">
+          <figcaption id="shot-caption">The Start menu: search, applications, settings and power, from the floating dock.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="download" aria-labelledby="download-title">
+      <p class="label">03 — Download</p>
+      <h2 class="title" id="download-title">Pick your <em>edition.</em></h2>
+      <div class="editions">
+        <article class="edition" data-edition="lite">
+          <div class="edition-head">
+            <h3>SegLinux Lite</h3>
+            <span class="pill">Recommended</span>
+          </div>
+          <p class="edition-size" data-field="size">≈ 740 MB</p>
+          <p>The desktop, Setup and drivers. Setup downloads the rest (Steam, Wine, ...) while it installs, so the computer needs an internet connection.</p>
+          <ul class="edition-meta" data-field="meta"></ul>
+          <div class="edition-files" data-field="files">
+            <a class="btn btn-primary" href="https://github.com/SegMind25/SegLinux/releases">Releases page</a>
+          </div>
+        </article>
+        <article class="edition" data-edition="full">
+          <div class="edition-head">
+            <h3>SegLinux Full</h3>
+            <span class="pill pill-muted">Offline</span>
+          </div>
+          <p class="edition-size" data-field="size">≈ 2.8 GB</p>
+          <p>Everything on the image: Steam, Wine, Lutris, Plasma and the applications, for installing without an internet connection.</p>
+          <ul class="edition-meta" data-field="meta"></ul>
+          <div class="edition-files" data-field="files">
+            <a class="btn btn-primary" href="https://github.com/SegMind25/SegLinux/releases">Releases page</a>
+          </div>
+        </article>
+      </div>
+
+      <div class="builds">
+        <div class="builds-head">
+          <h3>All builds</h3>
+          <p class="muted" id="builds-status">Loading the list of ISO images…</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Edition</th><th>Build</th><th>Init · kernel</th><th>Size</th><th>Files</th></tr></thead>
+            <tbody id="builds"></tbody>
+          </table>
+        </div>
+        <noscript><p>See every build on the <a href="https://github.com/SegMind25/SegLinux/releases">releases page</a>.</p></noscript>
+      </div>
+    </section>
+
+    <section class="section" id="get-started" aria-labelledby="start-title">
+      <p class="label">04 — Get started</p>
+      <h2 class="title" id="start-title">From download to desktop <em>in four steps.</em></h2>
+      <ol class="steps">
+        <li>
+          <span class="step-no">1</span>
+          <h3>Download and check</h3>
+          <p>Download every file of the edition, join a full edition's parts, then check the image:</p>
+          <div class="code"><pre><code># full edition only: join the parts
+cat seglinux-*.iso.part* &gt; seglinux.iso
+sha256sum -c seglinux-*.iso.sha256</code></pre><button class="copy" type="button">Copy</button></div>
+        </li>
+        <li>
+          <span class="step-no">2</span>
+          <h3>Write it to a USB stick</h3>
+          <p>With <a href="https://www.ventoy.net" target="_blank" rel="noopener">Ventoy</a>, Rufus (in DD mode) or, on Linux:</p>
+          <div class="code"><pre><code>sudo dd if=seglinux.iso of=/dev/sdX \
+  bs=4M status=progress oflag=sync</code></pre><button class="copy" type="button">Copy</button></div>
+        </li>
+        <li>
+          <span class="step-no">3</span>
+          <h3>Boot from it</h3>
+          <p>Turn off Secure Boot in the firmware settings, start the computer from the USB stick and choose <b>Start SegLinux</b>.</p>
+        </li>
+        <li>
+          <span class="step-no">4</span>
+          <h3>Install</h3>
+          <p>Try the desktop, then double-click <b>Install SegLinux</b>. Setup takes 10 to 40 minutes; Lite needs the internet.</p>
+        </li>
+      </ol>
+
+      <div class="notice">
+        <h3>Good to know</h3>
+        <ul>
+          <li>Games whose anti-cheat needs a Windows kernel driver do not run on Linux, on SegLinux or elsewhere.</li>
+          <li>Secure Boot must be off: the boot chain is not signed with Microsoft's key.</li>
+          <li>Setup erases the whole disk you choose. Copy your files elsewhere first.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="footer-mark" aria-hidden="true">SEGLINUX</p>
+    <div class="footer-cols">
+      <div>
+        <img src="assets/logo.svg" alt="" width="36" height="36">
+        <p class="muted">Lightweight Linux for gamers.</p>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <a href="https://github.com/SegMind25/SegLinux">Source code</a>
+        <a href="https://github.com/SegMind25/SegLinux/releases">Releases</a>
+        <a href="https://github.com/SegMind25/SegLinux/issues">Report a problem</a>
+      </div>
+      <div>
+        <h4>Docs</h4>
+        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/gaming.md">Gaming</a>
+        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/desktop.md">The desktop</a>
+        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/unattended-install.md">Unattended install</a>
+        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/building.md">Build the ISO</a>
+      </div>
+    </div>
+    <p class="footer-credit muted">SegLinux is built from the packages of Artix Linux and Arch Linux. It is an independent project, not affiliated with or endorsed by either. Windows is a trademark of Microsoft; SegLinux includes no Microsoft software.</p>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

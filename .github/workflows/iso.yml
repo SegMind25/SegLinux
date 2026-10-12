@@ -113,3 +113,13 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "$title" --notes-file notes.md --prerelease ||
             gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY"
+
+  # Put the new images on the website (skipped while GitHub Pages is off).
+  website:
+    needs: iso
+    if: ${{ !cancelled() && needs.iso.result != 'skipped' && (github.event_name == 'push' || inputs.release) }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/site.yml
