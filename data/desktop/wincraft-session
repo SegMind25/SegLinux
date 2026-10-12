@@ -8,7 +8,28 @@ export GTK_THEME=Adwaita:dark
 export GDK_BACKEND=wayland
 export QT_QPA_PLATFORM=wayland
 export XCURSOR_THEME=breeze_cursors
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    exec dbus-run-session -- labwc -C /usr/share/wincraft/labwc
+# Without a working GPU driver (virtual machines without 3D acceleration,
+# very new GPUs) Mesa only offers its software renderer, which wlroots
+# refuses unless allowed. A real GPU is always preferred when there is one.
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+
+run_labwc() {
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        dbus-run-session -- labwc -C /usr/share/wincraft/labwc
+    else
+        labwc -C /usr/share/wincraft/labwc
+    fi
+}
+
+started=$(date +%s)
+status=0
+run_labwc || status=$?
+# If the compositor could not start at all with OpenGL, try once more with
+# wlroots' CPU renderer (pixman), which works on any display.
+if [ "$status" -ne 0 ] && [ -z "${WLR_RENDERER:-}" ] && [ $(($(date +%s) - started)) -lt 15 ]; then
+    echo "wincraft-session: labwc could not start (exit status $status); retrying with WLR_RENDERER=pixman" >&2
+    export WLR_RENDERER=pixman
+    run_labwc
+    exit 0
 fi
-exec labwc -C /usr/share/wincraft/labwc
+exit "$status"

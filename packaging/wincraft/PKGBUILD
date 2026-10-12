@@ -44,6 +44,7 @@ backup=(
     'etc/wincraft/wcrun.toml'
     'etc/binfmt.d/wine.conf'
     'etc/sysctl.d/80-wincraft-gaming.conf'
+    'etc/gamemode.ini'
     'etc/security/limits.d/90-wincraft-esync.conf'
     'etc/modules-load.d/ntsync.conf'
     'etc/sddm.conf.d/10-wincraft.conf'
@@ -123,6 +124,8 @@ package() {
     # Gaming and latency tuning
     install -Dm644 "$data/system/udev-ioschedulers.rules" "$pkgdir/usr/lib/udev/rules.d/60-wincraft-ioschedulers.rules"
     install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/wincraft-nowatchdog.conf"
+    install -Dm644 "$data/system/gamemode.ini" "$pkgdir/etc/gamemode.ini"
+    install -Dm644 "$data/system/profile-gaming.sh" "$pkgdir/etc/profile.d/wincraft-gaming.sh"
 
     # Setup and branding
     install -Dm644 "$data/wincraft/setupcomplete.d/README" "$pkgdir/etc/wincraft/setupcomplete.d/README"

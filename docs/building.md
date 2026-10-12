@@ -101,7 +101,7 @@ release's notes give its size:
 | Wine, Steam, Firefox, Lutris, drivers... | on the image | **downloaded by Setup** |
 | Init systems | OpenRC, runit, dinit | OpenRC |
 | Image compression | zstd (artools default) | xz, 1 MiB blocks, x86 filter |
-| Manuals, documentation, translations; Bluetooth, camera and server firmware; TV tuner and data-centre drivers | included | left out of the image ([list](../iso/iso-profiles/wincraft-lite/pacman-noextract.conf)), restored by Setup |
+| Manuals, documentation, translations; Bluetooth, camera and server firmware | included | left out of the image ([list](../iso/iso-profiles/wincraft-lite/pacman-noextract.conf)), restored by Setup |
 
 Setup on the Lite image installs the same system as the full edition: after
 copying the small image it runs `pacman -Syu` for everything else (the list
@@ -217,6 +217,13 @@ qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 4G \
 # Legacy BIOS: the same without the two pflash drives.
 ```
 
+`virtio-vga-gl` with `gl=on` gives the virtual machine 3D acceleration.
+VirtualBox: *Display → Graphics Controller: VMSVGA* and *Enable 3D
+Acceleration*; VMware: *Accelerate 3D graphics*. Without it there is no GPU
+driver to render with: the desktop then falls back to Mesa's software
+renderer (slow, and no games), and `~/.cache/wincraft-session.log` tells
+why it stopped if it does not start at all.
+
 In the live session, double-click **Install Wincraft**. To test an
 unattended installation, add `-drive file=answer.img,format=raw,if=virtio`
 with a small FAT image holding `autounattend.toml` at its root, or boot
@@ -259,3 +266,8 @@ workflow) and for `v*` tags, and uploads it as a workflow artifact.
   (`sudo modprobe loop`).
 * Logs of a failed build are in the container output; buildiso's work
   directory is in the `wincraft-artools` volume.
+* The live desktop stops at once and prints renderer errors: no GPU driver
+  could render (often a virtual machine without 3D acceleration, see
+  *Testing in QEMU*). The session retries with software rendering; the Lite
+  edition shows the last messages on the console and keeps them in
+  `~/.cache/wincraft-session.log`.

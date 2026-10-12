@@ -63,7 +63,7 @@ gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165", "--adaptive-sync"]
 |---------|------|--------|
 | `vm.max_map_count = 2147483642` | `/etc/sysctl.d/80-wincraft-gaming.conf` | Games that map many memory areas no longer crash (SteamOS value) |
 | `kernel.split_lock_mitigate = 0` | same | No deliberate slowdown of games that perform split locks |
-| `kernel.nmi_watchdog = 0`, `nowatchdog`, watchdog modules blacklisted | sysctl, kernel command line, `/usr/lib/modprobe.d/wincraft-nowatchdog.conf` | Fewer periodic interrupts |
+| `nmi_watchdog=0`, `nowatchdog`, watchdog modules blacklisted | kernel command line (Setup), `/usr/lib/modprobe.d/wincraft-nowatchdog.conf` | Fewer periodic interrupts |
 | `fs.inotify.max_user_watches` | sysctl | Launchers watching many files |
 | I/O schedulers: NVMe none, SSD mq-deadline, HDD BFQ | `/usr/lib/udev/rules.d/60-wincraft-ioschedulers.rules` | Low latency while games stream assets |
 | NTSYNC | `/etc/modules-load.d/ntsync.conf`, udev rule | Windows synchronisation in the kernel, used by Wine 11 and Proton |
@@ -115,7 +115,13 @@ What Wincraft does for low-end machines:
   game than Plasma or Windows would.
 * zram doubles as cheap extra memory: on a 4 GB PC, swapping to compressed
   RAM is much faster than to disk.
-* GameMode switches the CPU to its performance governor while a game runs.
+* GameMode switches the CPU to its performance governor while a game runs,
+  and on integrated GPUs, when the GPU is the busy part, lowers the CPU's
+  share of the power budget so the GPU can clock higher (`/etc/gamemode.ini`).
+* Mesa's shader cache may grow to 4 GB (`MESA_SHADER_CACHE_MAX_SIZE`, set
+  in `/etc/profile.d/wincraft-gaming.sh`): DXVK 2 and VKD3D-Proton keep
+  compiled shaders there, and the 1 GB default makes games recompile them
+  (stutter) once several are installed.
 * Hardware video decoding (`intel-media-driver`, `libva-intel-driver`) takes
   video playback off the CPU.
 * The **Lite** ISO (well under 1 GB, see [building.md](building.md#the-lite-edition))
@@ -138,6 +144,23 @@ In Steam, the same works per game with launch options such as
 `gamescope -w 1280 -h 720 -W 1920 -H 1080 -F fsr -f -- %command%`.
 Lower in-game resolution, shadows and post-processing first; MangoHud's
 `fps_limit` (in `~/.config/MangoHud/MangoHud.conf`) keeps frame times steady.
+
+More on Intel GPUs:
+
+* **Two memory modules.** An integrated GPU uses system RAM as video
+  memory, so dual-channel memory (two modules instead of one) often gives
+  noticeably more frames.
+* **Plugged in, performance profile:** `powerprofilesctl set performance`.
+* **Ivy Bridge and Haswell (HD 2500-5000):** the kernel's i915 driver
+  clears GPU state between programs on these generations to fix an
+  information leak (CVE-2019-14615), which costs them a large part of their
+  speed. `i915.mitigations=off` on the kernel command line turns that off:
+  much faster, but programs on the GPU can then read each other's leftovers.
+  Your choice; in an answer file:
+  `[performance] kernel_parameters = ["i915.mitigations=off"]`.
+* **Check that the GPU renders:** `wcrun doctor` shows the Vulkan driver.
+  A virtual machine without 3D acceleration only has Mesa's software
+  renderer, which runs the desktop but not games.
 
 ## Checking the setup
 

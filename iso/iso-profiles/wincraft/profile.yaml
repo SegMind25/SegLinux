@@ -169,6 +169,8 @@ livefs:
   packages-init:
     openrc:
       - artix-live-openrc
+      # artix-live's pacman-init service needs haveged.
+      - haveged-openrc
     dinit:
       - artix-live-dinit
     runit:
