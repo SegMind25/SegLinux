@@ -85,7 +85,9 @@ needs.
 
 ## Building on GitHub instead
 
-Actions → **ISO** → *Run workflow* builds the ISO on GitHub's servers and
+Actions → **ISO** → *Run workflow*, pushing a `v*` tag, or pushing a commit
+whose message contains `[build iso]` builds the ISO on GitHub's servers
+(OpenRC and linux-zen unless chosen otherwise in *Run workflow*) and
 publishes it under **Releases** as a pre-release. ISOs over 2 GB are split
 into `.part00`, `.part01`, ... files; join them with
 `cat wincraft-*.iso.part* > wincraft.iso` and check the `.sha256` file. A

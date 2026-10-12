@@ -17,8 +17,10 @@ on:
         description: Publish the ISO as a GitHub release
         type: boolean
         default: true
+  # Version tags, and any push whose commit message contains "[build iso]".
   push:
     tags: ["v*"]
+    branches: ["**"]
 
 permissions:
   contents: write
@@ -26,6 +28,9 @@ permissions:
 jobs:
   iso:
     name: Build the Wincraft ISO (${{ inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
+    if: >-
+      github.event_name != 'push' || github.ref_type == 'tag' ||
+      contains(github.event.head_commit.message, '[build iso]')
     runs-on: ubuntu-latest
     timeout-minutes: 240
     env:
