@@ -158,13 +158,37 @@ if [[ $profile == wincraft-lite ]]; then
     # Smaller than artools' default zstd, at the cost of a slower live boot:
     # xz with 1 MiB blocks and the x86 filter for programs and libraries.
     export COMPRESSION=xz
-    # shellcheck disable=SC2016 # literal shell code, not expansions
-    if patched_lib && patch_lib iso/squash.sh 'mksquashfs "${mksfs_args[@]}"' \
-        'mksquashfs "${mksfs_args[@]}" -b 1M -Xbcj x86'; then
-        echo "squashfs: xz, 1 MiB blocks, x86 filter"
-    else
-        echo "warning: cannot pass extra mksquashfs options; using artools' xz defaults" >&2
-    fi
+    export WINCRAFT_MKSQUASHFS_OPTS="-b 1M -Xbcj x86"
+fi
+
+# Before each squashfs image: stop processes that package scripts left
+# running inside the build chroots and unmount what they kept mounted.
+# artools cannot unmount a busy chroot, and mksquashfs then reads its /proc
+# and blocks for ever on files such as /proc/kmsg (a full-edition build hung
+# for four hours on it).
+wincraft_release_chroots() {
+    local root=$WINCRAFT_CHROOTS p m
+    [[ -n $root && -d $root ]] || return 0
+    for p in /proc/[0-9]*; do
+        [[ $(readlink "$p/root" 2>/dev/null) == "$root"/* ]] || continue
+        echo "wincraft: stopping $(cat "$p/comm" 2>/dev/null) (pid ${p#/proc/}), left running in the chroot" >&2
+        kill -KILL "${p#/proc/}" 2>/dev/null || true
+    done
+    findmnt -rn -o TARGET | awk -v r="$root/" 'index($0, r) == 1' | sort -r |
+        while read -r m; do
+            echo "wincraft: unmounting $m, left mounted in the chroot" >&2
+            umount -l "$m" || true
+        done
+}
+export -f wincraft_release_chroots
+export WINCRAFT_CHROOTS=$artools_dir/buildiso/$profile
+# shellcheck disable=SC2016 # literal shell code, not expansions
+if patched_lib && patch_lib iso/squash.sh 'mksquashfs "${mksfs_args[@]}"' \
+    '{ declare -F wincraft_release_chroots >/dev/null && wincraft_release_chroots; } || true
+        mksquashfs "${mksfs_args[@]}" ${WINCRAFT_MKSQUASHFS_OPTS:-}'; then
+    echo "squashfs: chroots released before squashing; extra options: ${WINCRAFT_MKSQUASHFS_OPTS:-none}"
+else
+    echo "warning: cannot patch artools' mksquashfs call; a busy chroot can hang the build" >&2
 fi
 
 if [[ $in_container == true ]]; then

@@ -39,7 +39,8 @@ jobs:
       contains(github.event.head_commit.message, '[build iso]') ||
       contains(github.event.head_commit.message, '[build lite iso]')
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # A full build takes about an hour; a hang should not burn four.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
