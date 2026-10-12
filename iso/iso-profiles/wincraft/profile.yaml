@@ -100,12 +100,11 @@ rootfs:
     - openssh
 
     # Fonts metric-compatible with Windows fonts (Arial, Times New Roman,
-    # Courier New, Calibri, Cambria) so documents keep their layout
+    # Courier New, Calibri) so documents keep their layout
     - noto-fonts
     - noto-fonts-emoji
     - ttf-liberation
     - ttf-carlito
-    - ttf-caladea
 
     # Running Windows programs
     - wine

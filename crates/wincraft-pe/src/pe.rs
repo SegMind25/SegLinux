@@ -324,8 +324,9 @@ fn parse_headers<R: Read + Seek>(src: &mut Source<'_, R>) -> io::Result<Option<H
         .collect();
 
     let sec_table = src.read_at(opt_off + opt_size as u64, n_sections * 40)?;
-    let sections = sec_table
-        .chunks_exact(40)
+    let (headers, _) = sec_table.as_chunks::<40>();
+    let sections = headers
+        .iter()
         .map(|s| Section {
             name: String::from_utf8_lossy(&s[..8])
                 .trim_end_matches('\0')

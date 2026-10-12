@@ -58,7 +58,7 @@ prints it):
 | Windows Update | `pacman -Syu` / Discover |
 | Edge, Office, Media Player | Firefox, LibreOffice, VLC |
 | Network places and sharing (SMB) | Dolphin `smb://`, folder sharing via kdenetwork-filesharing |
-| Arial, Times New Roman, Courier New, Calibri, Cambria | Metric-compatible Liberation, Carlito and Caladea fonts |
+| Arial, Times New Roman, Courier New, Calibri | Metric-compatible Liberation and Carlito fonts |
 | Services (`services.msc`) | OpenRC or dinit services (chosen when the ISO is built) |
 | Double-clicking an `.exe`, `.msi`, `.lnk` or `.bat` | `wcrun` via the desktop's file associations; `./program.exe` in a terminal via binfmt_misc |
 | `C:\`, `Program Files`, the registry | One Wine prefix per "Windows environment", `wcrun prefix open`, `wcrun tool regedit` |
