@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo clippy --locked -p wincraft-setup --no-default-features --all-targets -- -D warnings
+      - run: cargo test --locked
+      - name: Validate the example answer file
+        run: cargo run --locked -q -p wincraft-setup -- validate crates/wincraft-setup/autounattend.example.toml
+      - name: Validate the default wcrun configuration
+        run: cargo run --locked -q -p wcrun -- --config data/wincraft/wcrun.toml config
+
+  scripts:
+    name: Shell scripts and profile files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/wincraft/wincraft.install
+          shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
+            iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart
+      - name: YAML and JSON syntax
+        run: |
+          python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
+            iso/iso-profiles/common/common.yaml iso/iso-profiles/wincraft/profile.yaml
+          python3 -m json.tool data/plasma/look-and-feel/org.wincraft.desktop/metadata.json > /dev/null
+      - name: Desktop entries
+        run: |
+          sudo apt-get install -y -qq desktop-file-utils > /dev/null
+          desktop-file-validate data/applications/*.desktop \
+            iso/iso-profiles/wincraft/live-overlay/usr/share/applications/*.desktop
+
+  packages:
+    name: Artix package names (${{ matrix.init }})
+    runs-on: ubuntu-latest
+    container: docker.io/artixlinux/artixlinux:base
+    strategy:
+      fail-fast: false
+      matrix:
+        init: [openrc, dinit]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pacman tooling
+        run: |
+          pacman-key --init
+          pacman-key --populate artix
+          pacman -Sy --noconfirm --needed go-yq
+      - run: iso/scripts/check-packages.sh -i ${{ matrix.init }}

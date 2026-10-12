@@ -1,0 +1,38 @@
+name: ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      init:
+        description: Init system
+        type: choice
+        options: [openrc, dinit]
+        default: openrc
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  iso:
+    name: Build the Wincraft ISO (${{ inputs.init || 'openrc' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker system prune -af > /dev/null
+          df -h /
+      - name: Load the loop module
+        run: sudo modprobe loop
+      - name: Build
+        run: ./iso/build.sh -e docker -i "${{ inputs.init || 'openrc' }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wincraft-${{ inputs.init || 'openrc' }}-iso
+          path: iso/out/
+          compression-level: 0
+          retention-days: 7

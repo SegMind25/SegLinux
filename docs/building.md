@@ -1,0 +1,138 @@
+# Building and testing the Wincraft ISO
+
+Wincraft is built with Artix Linux's own ISO tooling: `buildiso` from
+[artools](https://gitea.artixlinux.org/artix/artools) reads
+`iso/iso-profiles/wincraft/profile.yaml`. The Rust tools are packaged with
+`packaging/wincraft/PKGBUILD` and served to `buildiso` from a local pacman
+repository during the build.
+
+## Quick start (any Linux host with docker or podman)
+
+```sh
+git clone https://github.com/SegMind25/Wincraft
+cd Wincraft
+./iso/build.sh              # OpenRC
+./iso/build.sh -i dinit     # or dinit
+```
+
+The ISO and its checksum are written to `iso/out/`, for example
+`iso/out/wincraft-openrc-20261012-x86_64.iso`.
+
+Needs: about 25 GB of free disk space, a network connection, and root
+rights for the container (`--privileged`, because `buildiso` mounts file
+systems and uses loop devices). The first build downloads roughly 3 GB of
+packages; they are cached in the `wincraft-pacman-cache` volume.
+
+## What the build does
+
+`iso/build.sh` builds `iso/Containerfile` (based on
+`docker.io/artixlinux/artixlinux:base-devel` plus artools, Rust and
+go-yq) and runs `iso/scripts/build-in-container.sh` in it, which:
+
+1. Packs the working tree and builds the `wincraft` package with
+   `makepkg` (as an unprivileged `builder` user; `check()` runs the Rust
+   test suite).
+2. Creates the local repository `/var/lib/wincraft-repo` with `repo-add`.
+3. Installs `iso/pacman.conf.d/iso-x86_64.conf` as artools'
+   `pacman.conf.d/iso-x86_64.conf`: `[wincraft]` first, then Artix's
+   `[system]`, `[world]`, `[galaxy]` and `[lib32]`.
+4. Stages `iso/iso-profiles` as the artools workspace (fixing modes such as
+   0440 for sudoers files, which git cannot store).
+5. Runs `iso/scripts/check-packages.sh`: every package name must exist and
+   each layer must resolve, so a typo fails in seconds instead of after
+   half an hour.
+6. Runs `buildiso -p wincraft -i <init>`, which builds:
+   * **rootfs** (`LiveOS/rootfs.img`): `common.yaml`'s base packages, the
+     profile's `rootfs.packages`, and `root-overlay/`. This is the system
+     `wincraft-setup` installs.
+   * **livefs** (`LiveOS/livefs.img`): live-only packages (the live boot
+     menu, `artix-live-<init>`, `squashfs-tools`) and `live-overlay/`
+     (the "Install Wincraft" icon, the installer autostart, passwordless
+     sudo for the live user `wincraft`).
+   * the live initramfs (`iso-initcpio`), the GRUB menus for BIOS and UEFI,
+     and the hybrid ISO.
+7. Renames the image to `wincraft-*.iso` and writes a `.sha256` file.
+
+## Building natively on Artix
+
+```sh
+sudo pacman -S --needed artools base-devel rust go-yq squashfs-tools
+./iso/build.sh --native -i openrc
+```
+
+## Changing what is on the ISO
+
+* **Packages**: edit `rootfs.packages` (installed system) or
+  `livefs.packages` (live session only) in
+  `iso/iso-profiles/wincraft/profile.yaml`; shared base packages are in
+  `iso/iso-profiles/common/common.yaml`. Init-specific service packages go
+  under `packages-init: openrc:` / `dinit:`.
+* **Files**: put them in `root-overlay/` (installed system) or
+  `live-overlay/` (live session). Keep each overlay non-empty: artools
+  copies `overlay/*`.
+* **Defaults applied by the package** (desktop layout, file associations,
+  binfmt, sysctl, ...) live in `data/` and are installed by the PKGBUILD.
+* **An answer file baked into the ISO**: add
+  `live-overlay/etc/wincraft/autounattend.toml`.
+* **Check package names** without building, on Artix or in the container:
+  `iso/scripts/check-packages.sh -i openrc`.
+
+## Testing in QEMU
+
+```sh
+qemu-img create -f qcow2 wincraft-disk.qcow2 40G
+
+# UEFI (Arch/Artix: edk2-ovmf; Debian/Ubuntu: ovmf, files in /usr/share/OVMF/)
+cp /usr/share/edk2/x64/OVMF_VARS.4m.fd ovmf-vars.fd
+qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 4G \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+  -drive if=pflash,format=raw,file=ovmf-vars.fd \
+  -drive file=wincraft-disk.qcow2,if=virtio \
+  -cdrom iso/out/wincraft-openrc-*.iso -boot menu=on \
+  -device virtio-vga-gl -display gtk,gl=on
+
+# Legacy BIOS: the same without the two pflash drives.
+```
+
+In the live session, double-click **Install Wincraft**. To test an
+unattended installation, add `-drive file=answer.img,format=raw,if=virtio`
+with a small FAT image holding `autounattend.toml` at its root, or boot
+with `wincraft.unattend=/path` on the kernel command line.
+
+`wincraft-setup plan --unattend autounattend.toml` (as root, in the live
+session) prints every command and file without changing anything.
+
+## Writing a USB stick
+
+```sh
+sudo dd if=iso/out/wincraft-openrc-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+```
+
+The image is hybrid: the same file boots from DVD and USB, on UEFI and BIOS.
+Ventoy also works.
+
+## Secure Boot
+
+Artix's boot chain (GRUB, kernel) is not signed with Microsoft's key, so
+disable Secure Boot in the firmware to boot the ISO. After installing you
+can enroll your own keys and sign the kernel and GRUB with `sbctl`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push: Rust formatting, clippy and
+tests, shellcheck, YAML and answer-file validation, and
+`check-packages.sh` for OpenRC and dinit inside an Artix container.
+`.github/workflows/iso.yml` builds the ISO on demand (Actions → ISO → Run
+workflow) and for `v*` tags, and uploads it as a workflow artifact.
+
+## Troubleshooting
+
+* `check-packages.sh` reports a package as missing: Artix renamed or dropped
+  it; search with `pacman -Ss` in the container and update the profile.
+* `overlayfs: upper fs does not support ...`: `/var/lib/artools` must be on
+  a regular file system (ext4, xfs, btrfs), not on the container's overlay
+  or on ZFS. `build.sh` uses a named volume for this.
+* `losetup: cannot find an unused loop device`: load the module on the host
+  (`sudo modprobe loop`).
+* Logs of a failed build are in the container output; buildiso's work
+  directory is in the `wincraft-artools` volume.
