@@ -216,9 +216,10 @@ function renderEdition(card, build) {
     el("li", {}, dateFormat.format(build.date)),
     el("li", {}, [build.init, build.kernel].filter(Boolean).join(" · ")),
   );
-  const files = fileLinks(build, true);
+  const files = build.parts.length > 1 ? [el("a", { class: "btn btn-primary", href: "/download-full.py", download: "download-full.py" }, "Get automatic Full ISO downloader") ] : fileLinks(build, true);
   if (build.parts.length > 1) {
-    files.push(el("p", { class: "edition-note" }, "Join the parts after downloading: ", el("code", {}, `cat ${build.isoName}.part* > ${build.isoName}`)));
+    files.push(el("p", { class: "edition-note" }, "Run the downloaded helper with Python 3. It saves one ISO and checks its SHA-256 automatically. ", el("a", { href: "/docs/downloads.html" }, "How it works →")));
+    files.push(el("details", {}, el("summary", {}, "Or download the parts manually"), ...fileLinks(build, true), el("p", { class: "edition-note" }, "Join in this order: ", el("code", {}, `cat ${build.isoName}.part* > ${build.isoName}`))));
   }
   field("files").replaceChildren(...files);
 }
@@ -274,3 +275,23 @@ async function loadReleases() {
   }
 }
 loadReleases();
+
+// Gentle entrance motion, with all content visible when scripting is unavailable.
+if (!reduceMotion) {
+  const reveals = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (entry.isIntersecting) { entry.target.classList.add("visible"); reveals.unobserve(entry.target); }
+  }), { threshold: 0.08 });
+  document.querySelectorAll(".feature,.edition,.doc-card,.gallery,.steps li").forEach(node => {
+    node.classList.add("reveal-ready"); reveals.observe(node);
+  });
+}
+const lightbox = document.createElement("dialog");
+lightbox.className = "lightbox";
+lightbox.innerHTML = '<button type="button" aria-label="Close screenshot">Close ×</button><img alt="">';
+document.body.append(lightbox);
+shot.tabIndex = 0; shot.setAttribute("role", "button"); shot.setAttribute("aria-label", "Enlarge screenshot");
+function openShot() { const img = lightbox.querySelector("img"); img.src = shot.src; img.alt = shot.alt; lightbox.showModal(); }
+shot.addEventListener("click", openShot);
+shot.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); openShot(); } });
+lightbox.querySelector("button").addEventListener("click", () => lightbox.close());
+lightbox.addEventListener("click", e => { if(e.target === lightbox) lightbox.close(); });

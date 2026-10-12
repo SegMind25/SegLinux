@@ -11,3 +11,6 @@
 *.iso.sha256
 _site/
 .vercel
+
+# Python build caches
+__pycache__/

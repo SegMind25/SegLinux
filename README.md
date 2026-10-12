@@ -100,6 +100,8 @@ To deploy it:
 
 The `/download` page provides direct ISO, split-part and checksum links; visitors
 do not need to open the GitHub releases page. The files are hosted by GitHub.
+For split Full images, `site/download-full.py` downloads the pieces into one ISO
+and verifies its checksum. The website also renders `docs/*.md` at `/docs/`.
 
 The page also refreshes the list from GitHub in the visitor's browser,
 which works once the repository is public. Release files of a private
@@ -109,6 +111,7 @@ public before sharing the site.
 To preview it locally:
 
 ```sh
+python3 -m pip install -r site/requirements.txt
 python3 site/build.py --out _site   # GH_TOKEN=... lists the releases of a private repository
 python3 -m http.server -d _site 8000
 ```

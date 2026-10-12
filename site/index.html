@@ -33,7 +33,7 @@
       <a href="#screenshots">Screenshots</a>
       <a href="/download">Download</a>
       <a href="#get-started">Get started</a>
-      <a href="https://github.com/SegMind25/SegLinux/tree/main/docs" target="_blank" rel="noopener">Docs</a>
+      <a href="/docs">Docs</a>
     </nav>
     <div class="nav-right">
       <a class="nav-icon" href="https://github.com/SegMind25/SegLinux" target="_blank" rel="noopener" aria-label="SegLinux on GitHub">
@@ -121,6 +121,7 @@
           <span>No systemd</span>
         </p>
       </div>
+
     </section>
 
     <section class="section" id="features" aria-labelledby="features-title">
@@ -189,13 +190,14 @@
     <section class="section" id="download" aria-labelledby="download-title">
       <p class="label">03 — Download</p>
       <h2 class="title" id="download-title">Pick your <em>edition.</em></h2>
+      <p class="download-intro">Your desktop, your choice. Start small with Lite, or take everything offline with Full.</p>
       <div class="editions">
         <article class="edition" data-edition="lite">
           <div class="edition-head">
             <h3>SegLinux Lite</h3>
             <span class="pill">Recommended</span>
           </div>
-          <p class="edition-size" data-field="size">≈ 740 MB</p>
+          <img class="edition-preview" src="/assets/desktop.webp" alt="SegLinux desktop preview" loading="lazy"><p class="edition-size" data-field="size">≈ 740 MB</p>
           <p>The desktop, Setup and drivers. Setup downloads the rest (Steam, Wine, ...) while it installs, so the computer needs an internet connection.</p>
           <ul class="edition-meta" data-field="meta"></ul>
           <div class="edition-files" data-field="files">
@@ -207,7 +209,7 @@
             <h3>SegLinux Full</h3>
             <span class="pill pill-muted">Offline</span>
           </div>
-          <p class="edition-size" data-field="size">≈ 2.8 GB</p>
+          <img class="edition-preview" src="/assets/start-menu.webp" alt="SegLinux Start menu preview" loading="lazy"><p class="edition-size" data-field="size">≈ 2.8 GB</p>
           <p>Everything on the image: Steam, Wine, Lutris, Plasma and the applications, for installing without an internet connection.</p>
           <ul class="edition-meta" data-field="meta"></ul>
           <div class="edition-files" data-field="files">
@@ -238,10 +240,8 @@
         <li>
           <span class="step-no">1</span>
           <h3>Download and check</h3>
-          <p>Download every file of the edition, join a full edition's parts, then check the image:</p>
-          <div class="code"><pre><code># full edition only: join the parts
-cat seglinux-*.iso.part* &gt; seglinux.iso
-sha256sum -c seglinux-*.iso.sha256</code></pre><button class="copy" type="button">Copy</button></div>
+          <p>Lite downloads as one ISO. For Full, use the automatic helper or follow the <a href="/docs/downloads.html">download guide</a> to join the parts and verify them.</p>
+          <div class="code"><pre><code>python3 download-full.py</code></pre><button class="copy" type="button">Copy</button></div>
         </li>
         <li>
           <span class="step-no">2</span>
@@ -271,6 +271,14 @@ sha256sum -c seglinux-*.iso.sha256</code></pre><button class="copy" type="button
         </ul>
       </div>
     </section>
+    <section class="section" id="documentation">
+      <p class="label">05 — The field guide</p><h2 class="title">Make yourself <em>at home.</em></h2>
+      <div class="docs-grid">
+        <a class="doc-card" href="/docs/downloads.html"><span>01 / GET STARTED ↗</span><h3>From download to desktop</h3><p>Choose an edition, prepare your ISO and boot your first session.</p></a>
+        <a class="doc-card" href="/docs/gaming.html"><span>02 / PLAY ↗</span><h3>Your games. Your setup.</h3><p>Steam, Proton, graphics drivers and the tools that power your games.</p></a>
+        <a class="doc-card" href="/docs/desktop.html"><span>03 / EXPLORE ↗</span><h3>A familiar place to start</h3><p>Meet the dock, launcher, desktop and everyday applications.</p></a>
+      </div><a class="text-link" href="/docs">Explore all documentation →</a>
+    </section>
   </main>
 
   <footer class="footer">
@@ -288,10 +296,10 @@ sha256sum -c seglinux-*.iso.sha256</code></pre><button class="copy" type="button
       </div>
       <div>
         <h4>Docs</h4>
-        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/gaming.md">Gaming</a>
-        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/desktop.md">The desktop</a>
-        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/unattended-install.md">Unattended install</a>
-        <a href="https://github.com/SegMind25/SegLinux/blob/main/docs/building.md">Build the ISO</a>
+        <a href="/docs/gaming.html">Gaming</a>
+        <a href="/docs/desktop.html">The desktop</a>
+        <a href="/docs/unattended-install.html">Unattended install</a>
+        <a href="/docs/building.html">Build the ISO</a>
       </div>
     </div>
     <p class="footer-credit muted">SegLinux is built from the packages of Artix Linux and Arch Linux. It is an independent project, not affiliated with or endorsed by either. Windows is a trademark of Microsoft; SegLinux includes no Microsoft software.</p>

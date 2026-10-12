@@ -15,10 +15,11 @@ import os
 import shutil
 import sys
 import urllib.request
+from build_docs import build_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-PAGES = ("index.html", "style.css", "app.js")
+PAGES = ("index.html", "style.css", "app.js", "download-full.py")
 # The fields of a release the page uses (the same as in GitHub's API).
 RELEASE_FIELDS = ("tag_name", "name", "html_url", "published_at", "created_at", "prerelease", "draft")
 ASSET_FIELDS = ("name", "size", "browser_download_url")
@@ -85,6 +86,8 @@ def main():
     for name in sorted(os.listdir(images)):
         if name.endswith(".webp"):
             shutil.copy2(os.path.join(images, name), assets)
+
+    build_docs(ROOT, args.out)
 
     if args.releases:
         with open(args.releases) as f:
