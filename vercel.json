@@ -3,7 +3,7 @@
   "services": {
     "website": {
       "root": "site",
-      "installCommand": "",
+      "installCommand": "true",
       "buildCommand": "python3 build.py --out _site",
       "outputDirectory": "_site"
     }
