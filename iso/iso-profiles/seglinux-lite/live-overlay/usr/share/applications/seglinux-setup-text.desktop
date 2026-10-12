@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Install SegLinux (text mode)
+Comment=Install SegLinux with the keyboard-driven text-mode Setup
+Exec=seglinux-terminal sudo /usr/bin/seglinux-setup
+Icon=system-software-install
+Terminal=false
+Categories=System;

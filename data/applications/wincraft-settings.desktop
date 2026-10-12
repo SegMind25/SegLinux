@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Wincraft Desktop Settings
-Comment=Wallpaper and clock preferences
-Exec=wincraft-shell --settings
-Icon=wincraft
-Type=Application
-Categories=Settings;DesktopSettings;

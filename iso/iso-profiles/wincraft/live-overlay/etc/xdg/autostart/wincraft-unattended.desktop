@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Wincraft unattended installation
-Comment=Starts Setup when an answer file with auto_start = true is present
-Exec=/usr/lib/wincraft/live-autostart
-NoDisplay=true

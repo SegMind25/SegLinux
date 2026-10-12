@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Version=1.5
-Name=Install Wincraft (text mode)
-Comment=Install Wincraft with the keyboard-driven text-mode Setup
-Exec=wincraft-terminal sudo /usr/bin/wincraft-setup
-Icon=system-software-install
-Terminal=false
-Categories=System;

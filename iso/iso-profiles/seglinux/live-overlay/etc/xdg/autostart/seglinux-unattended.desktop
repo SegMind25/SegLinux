@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=SegLinux unattended installation
+Comment=Starts Setup when an answer file with auto_start = true is present
+Exec=/usr/lib/seglinux/live-autostart
+NoDisplay=true

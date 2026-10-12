@@ -1,0 +1,86 @@
+# SegLinux answer file: the counterpart of Windows' autounattend.xml.
+#
+# Put it at the root of the install USB stick (next to LiveOS/), on any
+# other USB drive, or pass `seglinux.unattend=/path/to/file` on the kernel
+# command line. SegLinux Setup then answers every question from this file.
+#
+#   seglinux-setup validate autounattend.toml   # check it
+#   seglinux-setup plan --unattend autounattend.toml   # show what it would do
+
+[setup]
+# Start installing as soon as the live session finds this file.
+auto_start = false
+# reboot | poweroff | none
+finish = "reboot"
+
+# windowsPE pass: DiskConfiguration. The whole disk is erased and laid out
+# as GPT: EFI system partition, BIOS boot partition, optional swap, root.
+[disk]
+device = "/dev/sda"          # or "auto": the largest internal disk
+wipe = true                  # required, like <WillWipeDisk>true</WillWipeDisk>
+filesystem = "ext4"          # ext4 | btrfs | xfs
+swap = "zram"                # "zram" (compressed in RAM), "auto"/"8GiB" (partition) or "none"
+esp_size = "512MiB"
+
+# windowsPE pass: ImageInstall. "auto" finds LiveOS/rootfs.img on the media.
+[image]
+source = "auto"
+
+# offlineServicing: files copied over the new system ($OEM$) and packages
+# installed offline. "auto" uses seglinux/oem and seglinux/packages on the media.
+[oem]
+path = "auto"
+packages = "auto"
+
+# specialize pass: International-Core.
+[region]
+locale = "en_US.UTF-8"
+keyboard = "us"
+timezone = "Europe/Paris"
+hardware_clock = "utc"       # "local" if you dual-boot Windows
+
+[computer]
+name = "auto"                # "auto" gives a Windows-style DESKTOP-XXXXXXX
+
+# oobeSystem pass: UserAccounts.
+[[users]]
+name = "alice"
+full_name = "Alice Liddell"
+# Password "seglinux" - generate your own with: openssl passwd -6
+password_hash = "$6$seglinuxexample$/0zAk5ORrSGkWHPsYgHFp0Biv5tos6qvFYQ29K56usttWiEdP6Oo2PDyIYmZaMuhyi0m8EzjHuLSKXWmM9Gy2/"
+admin = true                 # member of wheel: can use sudo
+autologin = false
+groups = ["games"]           # extra groups (missing ones are skipped)
+
+# The root account stays locked unless a password is given.
+[root]
+
+[bootloader]
+id = "SegLinux"              # UEFI boot entry name
+removable = true             # also write \EFI\BOOT\BOOTX64.EFI
+os_prober = true             # list Windows in the boot menu
+
+# Gaming and boot tuning.
+[performance]
+parallel_boot = true         # OpenRC: start services in parallel
+kernel_parameters = []       # added to: loglevel=3 quiet nowatchdog nmi_watchdog=0
+
+# GPU drivers. "auto" installs NVIDIA's driver for GeForce GTX 16/RTX cards
+# when the network is up; "never" keeps the open-source driver.
+[drivers]
+nvidia = "auto"
+
+# Services on top of SegLinux's defaults (NetworkManager, sddm, cups, ...).
+[services]
+enable = ["sshd"]
+disable = []
+
+# RunSynchronous / SetupComplete.cmd: commands run inside the new system.
+[[run]]
+pass = "specialize"
+description = "Run Windows programs with umu-launcher (Proton) by default"
+command = "mkdir -p /etc/skel/.config/seglinux && printf '[defaults]\\nrunner = \"umu\"\\n' > /etc/skel/.config/seglinux/segrun.toml"
+
+[[run]]
+pass = "setup-complete"
+command = "echo 'Installed by SegLinux Setup' > /etc/motd"

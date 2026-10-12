@@ -1,0 +1,40 @@
+# System-wide defaults for segrun, the Windows program launcher.
+# Copy to ~/.config/seglinux/segrun.toml to change them for one user.
+# `segrun config` shows the settings in effect.
+
+[defaults]
+# wine | wine:/path/to/wine | proton:/path/to/Proton | umu | umu:/path/to/proton
+runner = "wine"
+# The shared Windows environment ("C: drive") every program installs into.
+prefix = "default"
+# Give each installer its own environment instead.
+isolate_installers = false
+# Direct3D 9/10/11 and 12 over Vulkan: auto | always | never
+dxvk = "auto"
+vkd3d = "auto"
+esync = true
+fsync = true
+debug = false
+# Performance overlay: MangoHud when installed, otherwise DXVK's HUD.
+hud = false
+# Feral GameMode while a game runs: auto | always | never
+# (auto = programs that use Direct3D, OpenGL or Vulkan).
+gamemode = "auto"
+# Run programs inside gamescope (fullscreen, frame limiting, FSR upscaling).
+gamescope = false
+gamescope_args = ["-f"]
+
+# Environment for every Windows program.
+[env]
+
+# Per-program settings, matched on the file name:
+#
+# [[app]]
+# match = "Photoshop*.exe"
+# prefix = "adobe"
+# dxvk = "never"
+# virtual_desktop = "1920x1080"
+# dll_overrides = ["d3dcompiler_47=n,b"]
+# gamescope = true
+# gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165", "--adaptive-sync"]
+# env = { MESA_GL_VERSION_OVERRIDE = "4.6" }

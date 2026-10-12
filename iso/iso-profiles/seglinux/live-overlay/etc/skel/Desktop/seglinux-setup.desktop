@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Install SegLinux
+Comment=Install SegLinux on this computer
+Exec=seglinux-installer
+Icon=system-software-install
+Terminal=false
+Categories=System;

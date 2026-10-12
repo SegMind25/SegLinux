@@ -1,28 +1,37 @@
-# Wincraft artwork
+# SegLinux artwork
 
-- `wincraft-flow.jpg`: the default wallpaper, drawn from scratch by
-  `make-wallpaper.py` (Pillow and NumPy): a rose-to-violet sky, a dark arc
-  and flowing ribbons of light over a blue floor. Run
-  `python3 data/artwork/make-wallpaper.py` to draw it again (2560 x 1440;
-  pass `WIDTH HEIGHT OUT` for other sizes).
-- `wincraft-dark.png`: the earlier dark wallpaper, generated with the built-in imagegen tool.
-- `wincraft.svg`: original editable vector mark authored for this desktop.
+All of it is drawn from scratch for SegLinux, by code in this folder.
 
-Both wallpapers are installed in `/usr/share/backgrounds/wincraft/`.
-The vector mark is installed in the hicolor application icon theme.
-The generated wallpaper is 1672 × 941 pixels.
-The original image was preserved without retouching or upscaling.
+- `seglinux.svg`: the logo. An S of two arcs, cut diagonally into two
+  segments, in a cyan-to-violet gradient on a dark rounded square. Installed
+  as the `seglinux` icon (hicolor theme): the Start button, the Setup
+  sidebar and `LOGO=` in os-release.
+- `seglinux-dark.jpg`: the default wallpaper, the S in ribbons of light on
+  deep navy, with the left half calm for desktop icons.
+- `seglinux-flow.jpg`: a second wallpaper, a rose-to-violet sky with flowing
+  ribbons over a blue floor.
+- `../grub/seglinux/`: the boot menu theme, used on the install media and on
+  installed systems: background with the logo and name, menu frames,
+  highlight, scrollbar, the logo as menu icon, and fonts.
 
-## Wallpaper generation prompt
+Both wallpapers are installed in `/usr/share/backgrounds/seglinux/`, the
+boot theme in `/usr/share/grub/themes/seglinux/`.
 
-Use case: stylized-concept. Asset type: original desktop wallpaper for Wincraft,
-a Rust Linux desktop with a dark KDE-inspired interface. Create a premium
-abstract dark wallpaper, widescreen 16:9 composition. A monumental faceted
-folded ribbon forming a subtle angular W, made of smoked cobalt glass and
-midnight blue brushed metal, suspended toward the right half of a near-black
-navy background. Thin icy cyan edge lighting and a restrained violet glow,
-soft atmospheric depth, precise architectural forms, beautifully rendered.
-Left half calm and very dark for desktop icons; bottom edge dark for a taskbar.
-No text, no letters printed on surfaces, no UI, no recognizable existing
-operating-system logos, no watermark. This is the actual wallpaper asset,
-not a desktop screenshot. Aim for 3840x2160.
+## Drawing them again
+
+Pillow and NumPy draw the images; `grub-mkfont` (GRUB) and the Inter font
+make the boot menu fonts:
+
+```sh
+python3 data/artwork/make-brand.py      # seglinux-dark.jpg and the boot menu theme
+python3 data/artwork/make-wallpaper.py  # seglinux-flow.jpg (2560 x 1440; WIDTH HEIGHT OUT for others)
+```
+
+`make-brand.py` draws the S from the same geometry as `seglinux.svg` (two
+arcs of radius 19 in a 128-unit box, a 13-unit stroke, the cut from (40, 76)
+to (88, 52)); change both together. The boot menu layout is in
+`../grub/seglinux/theme.txt`.
+
+The boot menu fonts (`seglinux-*.pf2`, named "SegLinux Sans") are bitmap
+renderings of [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the
+SIL Open Font License 1.1.

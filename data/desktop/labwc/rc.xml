@@ -9,15 +9,15 @@
     <allowTearing>yes</allowTearing>
   </core>
   <theme>
-    <name>Wincraft</name><cornerRadius>8</cornerRadius>
+    <name>SegLinux</name><cornerRadius>8</cornerRadius>
     <font place="ActiveWindow"><name>Noto Sans</name><size>10</size></font>
     <titlebar><layout>icon:iconify,max,close</layout></titlebar>
   </theme>
   <keyboard>
     <default />
-    <keybind key="W-space"><action name="Execute" command="gapplication action org.wincraft.Shell menu" /></keybind>
+    <keybind key="W-space"><action name="Execute" command="gapplication action org.seglinux.Shell menu" /></keybind>
     <keybind key="W-e"><action name="Execute" command="dolphin" /></keybind>
-    <keybind key="W-Return"><action name="Execute" command="wincraft-terminal" /></keybind>
+    <keybind key="W-Return"><action name="Execute" command="seglinux-terminal" /></keybind>
     <keybind key="W-l"><action name="Execute" command="swaylock -c 090f1d" /></keybind>
     <keybind key="W-d"><action name="ToggleShowDesktop" /></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>

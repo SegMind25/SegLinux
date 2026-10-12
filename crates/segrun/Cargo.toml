@@ -1,0 +1,19 @@
+[package]
+name = "segrun"
+description = "Run Windows programs on SegLinux: prefixes, runners, DXVK and desktop integration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+seglinux-pe.workspace = true
+seglinux-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -3,9 +3,9 @@
 
 # Build outputs
 /iso/out/
-/packaging/wincraft/*.tar.gz
-/packaging/wincraft/src/
-/packaging/wincraft/pkg/
-/packaging/wincraft/*.pkg.tar.*
+/packaging/seglinux/*.tar.gz
+/packaging/seglinux/src/
+/packaging/seglinux/pkg/
+/packaging/seglinux/*.pkg.tar.*
 *.iso
 *.iso.sha256

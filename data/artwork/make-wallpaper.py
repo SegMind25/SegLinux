@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Wincraft's default wallpaper, wincraft-flow.jpg, from scratch.
+"""Generate SegLinux's default wallpaper, seglinux-flow.jpg, from scratch.
 
 A rose-to-violet sky over a deep blue floor, a dark arc across the middle
 and flowing ribbons of light, with grain so the gradients do not band.
@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 W, H = (int(sys.argv[1]), int(sys.argv[2])) if len(sys.argv) > 2 else (2560, 1440)
-OUT = sys.argv[3] if len(sys.argv) > 3 else "data/artwork/wincraft-flow.jpg"
+OUT = sys.argv[3] if len(sys.argv) > 3 else "data/artwork/seglinux-flow.jpg"
 rng = np.random.default_rng(7)
 
 y, x = np.mgrid[0:H, 0:W].astype(np.float32)

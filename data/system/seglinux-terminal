@@ -1,0 +1,16 @@
+#!/bin/sh
+# Open the installed terminal emulator, optionally running a command:
+#   seglinux-terminal [command [arguments...]]
+# The full edition ships Konsole, the Lite edition foot.
+for terminal in konsole foot alacritty xterm; do
+    command -v "$terminal" >/dev/null 2>&1 || continue
+    if [ $# -eq 0 ]; then
+        exec "$terminal"
+    fi
+    case $terminal in
+        foot) exec foot "$@" ;;
+        *) exec "$terminal" -e "$@" ;;
+    esac
+done
+echo "seglinux-terminal: no terminal emulator is installed" >&2
+exit 1

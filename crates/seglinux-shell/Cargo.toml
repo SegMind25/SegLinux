@@ -1,0 +1,16 @@
+[package]
+name = "seglinux-shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
+gtk4-layer-shell = "0.7"
+serde.workspace = true
+toml.workspace = true
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+
+[dev-dependencies]
+tempfile.workspace = true

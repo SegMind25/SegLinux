@@ -1,0 +1,54 @@
+# SegLinux boot menu: a GRUB theme for the install media and installed
+# systems. The images and fonts are made by data/artwork/make-brand.py.
+title-text: ""
+desktop-image: "background.jpg"
+desktop-color: "#060a14"
+message-font: "SegLinux Sans Regular 18"
+message-color: "#e6eefc"
+terminal-font: "SegLinux Sans Regular 14"
+terminal-box: "menu_*.png"
+
++ boot_menu {
+    left = 50%-330
+    top = 33%
+    width = 660
+    height = 48%
+    menu_pixmap_style = "menu_*.png"
+    item_font = "SegLinux Sans Regular 18"
+    item_color = "#c7d3ea"
+    selected_item_font = "SegLinux Sans Bold 18"
+    selected_item_color = "#ffffff"
+    selected_item_pixmap_style = "select_*.png"
+    icon_width = 24
+    icon_height = 24
+    item_icon_space = 12
+    item_height = 34
+    item_padding = 8
+    item_spacing = 12
+    scrollbar = true
+    scrollbar_width = 6
+    scrollbar_thumb = "thumb_*.png"
+}
+
++ label {
+    id = "__timeout__"
+    left = 0
+    top = 83%
+    width = 100%
+    height = 24
+    align = "center"
+    color = "#8ec9ff"
+    font = "SegLinux Sans Regular 14"
+    text = "Starting automatically in %d seconds"
+}
+
++ label {
+    left = 0
+    top = 100%-56
+    width = 100%
+    height = 24
+    align = "center"
+    color = "#7d8bab"
+    font = "SegLinux Sans Regular 14"
+    text = "↑ ↓ choose   •   Enter start   •   E edit   •   C command line"
+}

@@ -1,0 +1,150 @@
+# Maintainer: SegLinux contributors <https://github.com/SegMind25/SegLinux>
+#
+# Builds the SegLinux tools and defaults from this repository. The source
+# tarball is produced by iso/scripts/build-in-container.sh (or by hand with
+# `make -C packaging/seglinux source`); see docs/building.md.
+
+pkgname=seglinux
+pkgver=0.1.0
+pkgrel=8
+pkgdesc="SegLinux: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
+arch=('x86_64')
+url="https://github.com/SegMind25/SegLinux"
+# No license has been chosen for the SegLinux repository yet.
+license=('LicenseRef-SegLinux-unspecified')
+# Wine is optional so that the Lite edition's image stays small; its Setup
+# downloads Wine with the rest of the full edition.
+depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
+makedepends=('cargo' 'pkgconf')
+optdepends=(
+    'wine: run Windows programs (segrun)'
+    'winetricks: install DXVK, VKD3D-Proton and Microsoft runtimes into prefixes'
+    'steam: Proton for games'
+    'dosbox: 16-bit DOS programs'
+    'konsole: terminal (seglinux-terminal), full edition'
+    'foot: terminal (seglinux-terminal), Lite edition'
+    'squashfs-tools: seglinux-setup (applies the system image)'
+    'grub: seglinux-setup (boot manager)'
+    'efibootmgr: seglinux-setup on UEFI machines'
+    'dosfstools: seglinux-setup (EFI system partition)'
+    'btrfs-progs: seglinux-setup with btrfs'
+    'xfsprogs: seglinux-setup with xfs'
+    'swaylock: screen locking in the Rust desktop'
+    'pavucontrol: sound controls in the Rust desktop'
+    'network-manager-applet: network connection editor'
+    'wdisplays: Wayland display settings'
+    'polkit-gnome: authentication agent in the SegLinux session'
+    'xdg-desktop-portal-wlr: screen sharing in the Rust desktop'
+    'xdg-desktop-portal-gtk: desktop file and URI portals'
+    'gamemode: segrun runs games under GameMode'
+    'mangohud: segrun --hud performance overlay'
+    'gamescope: SegLinux Gaming Mode session and segrun --gamescope'
+)
+backup=(
+    'etc/seglinux/segrun.toml'
+    'etc/binfmt.d/wine.conf'
+    'etc/sysctl.d/80-seglinux-gaming.conf'
+    'etc/gamemode.ini'
+    'etc/security/limits.d/90-seglinux-esync.conf'
+    'etc/modules-load.d/ntsync.conf'
+    'etc/sddm.conf.d/10-seglinux.conf'
+    'etc/xdg/kdeglobals'
+    'etc/xdg/kwinrc'
+    'etc/xdg/mimeapps.list'
+)
+# The project was called Wincraft before.
+provides=('wincraft')
+conflicts=('wincraft')
+replaces=('wincraft')
+install=seglinux.install
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo test --frozen --release
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    local data=data
+
+    install -Dm755 target/release/segrun "$pkgdir/usr/bin/segrun"
+    install -Dm755 target/release/seglinux-setup "$pkgdir/usr/bin/seglinux-setup"
+    install -Dm755 target/release/seglinux-installer "$pkgdir/usr/bin/seglinux-installer"
+    install -Dm644 crates/seglinux-setup/autounattend.example.toml \
+        "$pkgdir/usr/share/seglinux/autounattend.example.toml"
+
+    # SegLinux Rust desktop and its assets.
+    install -Dm755 target/release/seglinux-shell "$pkgdir/usr/bin/seglinux-shell"
+    install -Dm755 "$data/desktop/seglinux-session" "$pkgdir/usr/bin/seglinux-session"
+    install -Dm755 "$data/system/seglinux-terminal" "$pkgdir/usr/bin/seglinux-terminal"
+    install -Dm644 "$data/desktop/seglinux.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux.desktop"
+    install -Dm755 "$data/desktop/seglinux-gaming-session" "$pkgdir/usr/bin/seglinux-gaming-session"
+    install -Dm644 "$data/desktop/seglinux-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-gaming.desktop"
+    install -Dm644 "$data/desktop/shell.toml" "$pkgdir/usr/share/seglinux/shell.example.toml"
+    install -Dm644 "$data/desktop/seglinux-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/seglinux-portals.conf"
+    install -Dm755 "$data/desktop/labwc/autostart" "$pkgdir/usr/share/seglinux/labwc/autostart"
+    install -Dm644 -t "$pkgdir/usr/share/seglinux/labwc" "$data/desktop/labwc/rc.xml" "$data/desktop/labwc/themerc-override"
+    install -Dm644 -t "$pkgdir/usr/share/backgrounds/seglinux" \
+        "$data/artwork/seglinux-flow.jpg" "$data/artwork/seglinux-dark.jpg"
+    install -Dm644 "$data/artwork/seglinux.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/seglinux.svg"
+
+    # Boot menu theme, for the install media and installed systems.
+    local theme=usr/share/grub/themes/seglinux
+    install -Dm644 -t "$pkgdir/$theme" "$data"/grub/seglinux/*.{txt,jpg,png,pf2}
+    install -Dm644 -t "$pkgdir/$theme/icons" "$data"/grub/seglinux/icons/*.png
+
+    # Windows-style Plasma desktop
+    local lnf=usr/share/plasma/look-and-feel/org.seglinux.desktop
+    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/metadata.json" "$pkgdir/$lnf/metadata.json"
+    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/contents/defaults" "$pkgdir/$lnf/contents/defaults"
+    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" \
+        "$pkgdir/$lnf/contents/layouts/org.kde.plasma.desktop-layout.js"
+    install -Dm644 "$data/xdg/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
+    install -Dm644 "$data/xdg/kwinrc" "$pkgdir/etc/xdg/kwinrc"
+    install -Dm644 "$data/xdg/mimeapps.list" "$pkgdir/etc/xdg/mimeapps.list"
+    install -Dm644 "$data/xdg/seglinux-pipewire.desktop" "$pkgdir/etc/xdg/autostart/seglinux-pipewire.desktop"
+    install -Dm644 "$data/system/sddm-seglinux.conf" "$pkgdir/etc/sddm.conf.d/10-seglinux.conf"
+    install -Dm644 -t "$pkgdir/usr/share/applications" "$data"/applications/*.desktop
+
+    # Running Windows programs
+    install -Dm644 "$data/seglinux/segrun.toml" "$pkgdir/etc/seglinux/segrun.toml"
+    install -Dm644 "$data/system/binfmt-wine.conf" "$pkgdir/etc/binfmt.d/wine.conf"
+    install -Dm644 "$data/system/sysctl-gaming.conf" "$pkgdir/etc/sysctl.d/80-seglinux-gaming.conf"
+    install -Dm644 "$data/system/limits-esync.conf" "$pkgdir/etc/security/limits.d/90-seglinux-esync.conf"
+    install -Dm644 "$data/system/modules-ntsync.conf" "$pkgdir/etc/modules-load.d/ntsync.conf"
+    install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-seglinux-ntsync.rules"
+
+    # Gaming and latency tuning
+    install -Dm644 "$data/system/udev-ioschedulers.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules"
+    install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nowatchdog.conf"
+    install -Dm644 "$data/system/gamemode.ini" "$pkgdir/etc/gamemode.ini"
+    install -Dm644 "$data/system/profile-gaming.sh" "$pkgdir/etc/profile.d/seglinux-gaming.sh"
+
+    # Setup and branding
+    install -Dm644 "$data/seglinux/setupcomplete.d/README" "$pkgdir/etc/seglinux/setupcomplete.d/README"
+    install -Dm644 "$data/system/os-release" "$pkgdir/usr/share/seglinux/os-release"
+    install -Dm755 "$data/system/apply-branding" "$pkgdir/usr/lib/seglinux/apply-branding"
+    install -Dm755 "$data/system/pipewire-session" "$pkgdir/usr/lib/seglinux/pipewire-session"
+    install -Dm755 "$data/system/restore-trimmed-files" "$pkgdir/usr/lib/seglinux/restore-trimmed-files"
+    install -Dm644 "$data/libalpm/seglinux-branding.hook" "$pkgdir/usr/share/libalpm/hooks/seglinux-branding.hook"
+
+    install -Dm644 -t "$pkgdir/usr/share/doc/seglinux" README.md docs/*.md
+}

@@ -1,7 +1,0 @@
-Executable files in this directory run inside the new system at the end of
-Wincraft Setup, in name order, as root. They play the role of Windows'
-%WINDIR%\Setup\Scripts\SetupComplete.cmd. A failing script is logged in
-/var/log/wincraft/setupact.log but does not stop the installation.
-
-Add scripts here through the ISO's root-overlay or an OEM folder
-(wincraft/oem/etc/wincraft/setupcomplete.d/ on the install media).

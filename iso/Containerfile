@@ -1,4 +1,4 @@
-# Artix Linux environment for building the Wincraft ISO.
+# Artix Linux environment for building the SegLinux ISO.
 # Used by iso/build.sh; works with docker and podman on any Linux host.
 FROM docker.io/artixlinux/artixlinux:base-devel
 
@@ -20,9 +20,10 @@ RUN pacman-key --init \
         dosfstools \
         grub \
         sudo \
+        perl \
     && pacman -Scc --noconfirm
 
-ENV WINCRAFT_CONTAINER=true \
+ENV SEGLINUX_CONTAINER=true \
     CHROOTS_DIR=/var/lib/artools
 
 WORKDIR /src

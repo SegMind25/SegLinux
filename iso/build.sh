@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Wincraft ISO.
+# Build the SegLinux ISO.
 #
 #   iso/build.sh [--lite] [-i openrc|runit|dinit] [-k linux-zen|linux|linux-lts]
 #                [-e docker|podman] [--native]
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
-profile=wincraft
+profile=seglinux
 init=openrc
 kernel=linux-zen
 engine=
@@ -22,7 +22,7 @@ usage() { sed -n '2,12s/^# \{0,1\}//p' "$0"; }
 
 while (($#)); do
     case $1 in
-        --lite) profile=wincraft-lite; shift ;;
+        --lite) profile=seglinux-lite; shift ;;
         -p | --profile) profile=$2; shift 2 ;;
         -i | --init) init=$2; shift 2 ;;
         -k | --kernel) kernel=$2; shift 2 ;;
@@ -34,14 +34,14 @@ while (($#)); do
 done
 
 case $profile in
-    wincraft | wincraft-lite) ;;
-    *) echo "error: profile must be wincraft or wincraft-lite" >&2; exit 2 ;;
+    seglinux | seglinux-lite) ;;
+    *) echo "error: profile must be seglinux or seglinux-lite" >&2; exit 2 ;;
 esac
 case $init in
     openrc | runit | dinit) ;;
     *) echo "error: init must be openrc, runit or dinit" >&2; exit 2 ;;
 esac
-if [[ $profile == wincraft-lite && $init != openrc ]]; then
+if [[ $profile == seglinux-lite && $init != openrc ]]; then
     echo "error: the Lite edition is built with OpenRC only" >&2
     exit 2
 fi
@@ -78,14 +78,14 @@ if [[ $engine == podman && $(id -u) != 0 ]]; then
     sudo=(sudo)
 fi
 
-image=wincraft-iso-builder
+image=seglinux-iso-builder
 "${sudo[@]}" "$engine" build -t "$image" -f "$repo/iso/Containerfile" "$repo/iso"
 # The artools volume lives on the host's file system: buildiso stacks
 # overlayfs mounts there, which cannot sit on the container's own overlay.
 "${sudo[@]}" "$engine" run --rm --privileged \
     -v "$repo:/src" \
-    -v wincraft-artools:/var/lib/artools \
-    -v wincraft-pacman-cache:/var/cache/pacman/pkg \
+    -v seglinux-artools:/var/lib/artools \
+    -v seglinux-pacman-cache:/var/cache/pacman/pkg \
     -e PROFILE="$profile" \
     -e INIT="$init" \
     -e KERNEL="$kernel" \

@@ -1,27 +1,27 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/wincraft-pe",
-    "crates/wincraft-core",
-    "crates/wcrun",
-    "crates/wincraft-setup",
-    "crates/wincraft-shell",
-    "crates/wincraft-installer",
+    "crates/seglinux-pe",
+    "crates/seglinux-core",
+    "crates/segrun",
+    "crates/seglinux-setup",
+    "crates/seglinux-shell",
+    "crates/seglinux-installer",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
-authors = ["Wincraft contributors"]
-repository = "https://github.com/SegMind25/Wincraft"
-homepage = "https://github.com/SegMind25/Wincraft"
+authors = ["SegLinux contributors"]
+repository = "https://github.com/SegMind25/SegLinux"
+homepage = "https://github.com/SegMind25/SegLinux"
 
 [workspace.dependencies]
-wincraft-pe = { path = "crates/wincraft-pe" }
-wincraft-core = { path = "crates/wincraft-core" }
+seglinux-pe = { path = "crates/seglinux-pe" }
+seglinux-core = { path = "crates/seglinux-core" }
 # The graphical installer only needs the library, not the text-mode wizard.
-wincraft-setup = { path = "crates/wincraft-setup", default-features = false }
+seglinux-setup = { path = "crates/seglinux-setup", default-features = false }
 anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

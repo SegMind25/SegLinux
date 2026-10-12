@@ -1,12 +1,12 @@
 #!/bin/sh
-# Wincraft Lite leaves documentation, translations, and firmware and
-# drivers the live session does not use out of its image. Wincraft Setup
-# runs this in the new system, after downloading the rest of Wincraft, to
+# SegLinux Lite leaves documentation, translations, and firmware and
+# drivers the live session does not use out of its image. SegLinux Setup
+# runs this in the new system, after downloading the rest of SegLinux, to
 # reinstall every package with missing files so that the installed system
 # is complete. Needs a network connection.
 set -eu
 
-# Only packages from the repositories: wincraft itself is built locally.
+# Only packages from the repositories: seglinux itself is built locally.
 foreign=$(pacman -Qmq || true)
 pkgs=$(pacman -Qkq 2>/dev/null | cut -d' ' -f1 | sort -u)
 if [ -n "$foreign" ] && [ -n "$pkgs" ]; then

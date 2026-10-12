@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=SegLinux Gaming Mode
+Comment=Steam Big Picture in gamescope, for controllers and TVs
+Exec=seglinux-gaming-session
+TryExec=gamescope
+Type=Application

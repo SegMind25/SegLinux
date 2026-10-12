@@ -10,9 +10,9 @@ set -euo pipefail
 iso_dir=$(cd "$(dirname "$0")/.." && pwd)
 init=openrc
 kernel=linux
-profile=wincraft
+profile=seglinux
 conf=$iso_dir/pacman.conf.d/iso-x86_64.conf
-local_repo=/var/lib/wincraft-repo
+local_repo=/var/lib/seglinux-repo
 
 while getopts "i:k:p:c:h" opt; do
     case $opt in
@@ -66,11 +66,11 @@ chmod 755 "$db"
 cp "$conf" "$work_conf"
 
 skip=()
-if [[ ! -f $local_repo/wincraft.db ]]; then
-    # The wincraft package is built during the ISO build; when checking
+if [[ ! -f $local_repo/seglinux.db ]]; then
+    # The seglinux package is built during the ISO build; when checking
     # before that, leave the local repository out.
-    awk '/^\[wincraft\]/{skip=1; next} /^\[/{skip=0} !skip' "$conf" > "$work_conf"
-    skip=(wincraft)
+    awk '/^\[seglinux\]/{skip=1; next} /^\[/{skip=0} !skip' "$conf" > "$work_conf"
+    skip=(seglinux)
     echo "note: $local_repo has no repository yet; not checking: ${skip[*]}"
 fi
 

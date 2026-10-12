@@ -1,9 +1,9 @@
 # Double-clicking a Windows program, installer or shortcut opens it with
-# wcrun, which picks the Wine prefix, runner and graphics layers.
+# segrun, which picks the Wine prefix, runner and graphics layers.
 [Default Applications]
-application/x-ms-dos-executable=wcrun.desktop
-application/x-msdownload=wcrun.desktop
-application/vnd.microsoft.portable-executable=wcrun.desktop
-application/x-msi=wcrun.desktop
-application/x-ms-shortcut=wcrun.desktop
-application/x-bat=wcrun.desktop
+application/x-ms-dos-executable=segrun.desktop
+application/x-msdownload=segrun.desktop
+application/vnd.microsoft.portable-executable=segrun.desktop
+application/x-msi=segrun.desktop
+application/x-ms-shortcut=segrun.desktop
+application/x-bat=segrun.desktop

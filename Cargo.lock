@@ -1718,6 +1718,69 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "seglinux-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "tempfile",
+]
+
+[[package]]
+name = "seglinux-installer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gtk4",
+ "seglinux-core",
+ "seglinux-setup",
+ "toml",
+]
+
+[[package]]
+name = "seglinux-pe"
+version = "0.1.0"
+
+[[package]]
+name = "seglinux-setup"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "ratatui",
+ "seglinux-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
+name = "seglinux-shell"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "gtk4-layer-shell",
+ "serde",
+ "tempfile",
+ "toml",
+ "wayland-client",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "segrun"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "seglinux-core",
+ "seglinux-pe",
+ "serde",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2351,19 +2414,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wcrun"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "serde",
- "tempfile",
- "toml",
- "wincraft-core",
- "wincraft-pe",
-]
-
-[[package]]
 name = "wezterm-bidi"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2456,56 +2506,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "wincraft-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "tempfile",
-]
-
-[[package]]
-name = "wincraft-installer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "gtk4",
- "toml",
- "wincraft-core",
- "wincraft-setup",
-]
-
-[[package]]
-name = "wincraft-pe"
-version = "0.1.0"
-
-[[package]]
-name = "wincraft-setup"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ratatui",
- "serde",
- "serde_json",
- "tempfile",
- "toml",
- "wincraft-core",
-]
-
-[[package]]
-name = "wincraft-shell"
-version = "0.1.0"
-dependencies = [
- "gtk4",
- "gtk4-layer-shell",
- "serde",
- "tempfile",
- "toml",
- "wayland-client",
- "wayland-protocols-wlr",
-]
 
 [[package]]
 name = "windows-link"

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=SegLinux Desktop Settings
+Comment=Wallpaper and clock preferences
+Exec=seglinux-shell --settings
+Icon=seglinux
+Type=Application
+Categories=Settings;DesktopSettings;

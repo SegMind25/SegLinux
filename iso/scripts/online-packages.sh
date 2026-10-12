@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Print the packages the full Wincraft edition installs that the Lite
-# edition leaves out of its image: Wincraft Setup downloads them into the
-# new system (/usr/share/wincraft/online-packages on the Lite image). Needs
+# Print the packages the full SegLinux edition installs that the Lite
+# edition leaves out of its image: SegLinux Setup downloads them into the
+# new system (/usr/share/seglinux/online-packages on the Lite image). Needs
 # go-yq.
 #
 #   iso/scripts/online-packages.sh [-i openrc|runit|dinit] [-k kernel]
@@ -41,10 +41,10 @@ rootfs() {
     } | sed -e "s/^linux$/$kernel/" -e "s/^linux-headers$/$kernel-headers/" | sort -u
 }
 
-full=$(rootfs "$profiles/common/common.yaml" "$profiles/wincraft/profile.yaml")
-lite=$(rootfs "$profiles/wincraft-lite/common.yaml" "$profiles/wincraft-lite/profile.yaml")
+full=$(rootfs "$profiles/common/common.yaml" "$profiles/seglinux/profile.yaml")
+lite=$(rootfs "$profiles/seglinux-lite/common.yaml" "$profiles/seglinux-lite/profile.yaml")
 
-echo "# Packages Wincraft Setup downloads when it installs the Lite edition:"
+echo "# Packages SegLinux Setup downloads when it installs the Lite edition:"
 echo "# the full edition's ($init, $kernel) minus what the Lite image has."
-# wincraft itself is built locally and already on the image.
-comm -23 <(echo "$full") <(echo "$lite") | grep -vx wincraft
+# seglinux itself is built locally and already on the image.
+comm -23 <(echo "$full") <(echo "$lite") | grep -vx seglinux

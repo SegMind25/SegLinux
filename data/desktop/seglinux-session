@@ -1,0 +1,46 @@
+#!/bin/sh
+# A distinct desktop session: do not alter the user's Plasma configuration.
+set -eu
+export XDG_CURRENT_DESKTOP=SegLinux:wlroots
+export XDG_SESSION_DESKTOP=seglinux
+export XDG_SESSION_TYPE=wayland
+export GTK_THEME=Adwaita:dark
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+# Breeze cursors come with Plasma (full edition); Adwaita's with GTK (Lite).
+if [ -d /usr/share/icons/breeze_cursors ]; then
+    export XCURSOR_THEME=breeze_cursors
+else
+    export XCURSOR_THEME=Adwaita
+fi
+export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
+# Without a working GPU driver (virtual machines without 3D acceleration,
+# very new GPUs) Mesa only offers its software renderer, which wlroots
+# refuses unless allowed. A real GPU is always preferred when there is one.
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+
+run_labwc() {
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        dbus-run-session -- labwc -C /usr/share/seglinux/labwc
+    else
+        labwc -C /usr/share/seglinux/labwc
+    fi
+}
+
+started=$(date +%s)
+status=0
+run_labwc || status=$?
+# If the compositor could not start at all with OpenGL (it exits with an
+# error right away; 126 and above mean "killed" or "not found"), try once
+# more with wlroots' CPU renderer (pixman), which works on any display.
+if [ "$status" -ge 1 ] && [ "$status" -le 125 ] && [ -z "${WLR_RENDERER:-}" ] &&
+    [ $(($(date +%s) - started)) -lt 15 ]; then
+    echo "seglinux-session: labwc could not start (exit status $status); retrying with WLR_RENDERER=pixman" >&2
+    export WLR_RENDERER=pixman
+    # Without GPU rendering, GTK draws faster on the CPU than through
+    # Mesa's OpenGL emulation.
+    export GSK_RENDERER="${GSK_RENDERER:-cairo}"
+    run_labwc
+    exit 0
+fi
+exit "$status"

@@ -27,12 +27,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --all-targets -- -D warnings
-      - run: cargo clippy --locked -p wincraft-setup --no-default-features --all-targets -- -D warnings
+      - run: cargo clippy --locked -p seglinux-setup --no-default-features --all-targets -- -D warnings
       - run: cargo test --locked
       - name: Validate the example answer file
-        run: cargo run --locked -q -p wincraft-setup -- validate crates/wincraft-setup/autounattend.example.toml
-      - name: Validate the default wcrun configuration
-        run: cargo run --locked -q -p wcrun -- --config data/wincraft/wcrun.toml config
+        run: cargo run --locked -q -p seglinux-setup -- validate crates/seglinux-setup/autounattend.example.toml
+      - name: Validate the default segrun configuration
+        run: cargo run --locked -q -p segrun -- --config data/seglinux/segrun.toml config
 
   scripts:
     name: Shell scripts and profile files
@@ -41,29 +41,37 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/wincraft/wincraft.install
+          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
-            iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart \
-            data/desktop/wincraft-session data/desktop/wincraft-gaming-session \
-            data/desktop/labwc/autostart data/system/wincraft-terminal data/system/restore-trimmed-files \
+            iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
+            data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
+            data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
             data/system/profile-gaming.sh
-          shellcheck -s bash iso/iso-profiles/wincraft-lite/live-overlay/etc/skel/.bash_profile
+          shellcheck -s bash iso/iso-profiles/seglinux-lite/live-overlay/etc/skel/.bash_profile
       - name: YAML, JSON and XML syntax
         run: |
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
             iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
-            iso/iso-profiles/wincraft-lite/common.yaml
-          python3 -m json.tool data/plasma/look-and-feel/org.wincraft.desktop/metadata.json > /dev/null
+            iso/iso-profiles/seglinux-lite/common.yaml
+          python3 -m json.tool data/plasma/look-and-feel/org.seglinux.desktop/metadata.json > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml
       - name: Overlay links resolve
         run: |
           broken=$(find iso/iso-profiles -xtype l)
           if [[ -n $broken ]]; then echo "Broken links:"; echo "$broken"; exit 1; fi
+      - name: Boot menu theme files exist
+        run: |
+          cd data/grub/seglinux
+          # Every image the theme names (globs such as select_*.png must match).
+          for f in $(grep -o '"[^"]*\.\(png\|jpg\)"' theme.txt | tr -d '"'); do
+            compgen -G "$f" > /dev/null || { echo "missing: $f"; exit 1; }
+          done
+          ls *.pf2 icons/seglinux.png > /dev/null
       - name: Desktop entries
         run: |
           sudo apt-get install -y -qq desktop-file-utils > /dev/null
           desktop-file-validate data/applications/*.desktop data/desktop/*.desktop \
-            iso/iso-profiles/wincraft/live-overlay/usr/share/applications/*.desktop
+            iso/iso-profiles/seglinux/live-overlay/usr/share/applications/*.desktop
 
   packages:
     name: Artix package names (${{ matrix.profile }}, ${{ matrix.init }}, linux-zen)
@@ -72,11 +80,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [wincraft]
+        profile: [seglinux]
         init: [openrc, runit, dinit]
         include:
           # The Lite edition is OpenRC only.
-          - profile: wincraft-lite
+          - profile: seglinux-lite
             init: openrc
     steps:
       - uses: actions/checkout@v4
@@ -87,5 +95,5 @@ jobs:
           pacman -Sy --noconfirm --needed go-yq
       - run: iso/scripts/check-packages.sh -p ${{ matrix.profile }} -i ${{ matrix.init }} -k linux-zen
       - name: Packages the Lite edition downloads during Setup
-        if: matrix.profile == 'wincraft-lite'
+        if: matrix.profile == 'seglinux-lite'
         run: iso/scripts/online-packages.sh -i openrc -k linux-zen

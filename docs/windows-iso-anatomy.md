@@ -1,8 +1,8 @@
 # How a Windows installation ISO works
 
-This is the research Wincraft's design is based on: what is on a Windows 10/11
+This is the research SegLinux's design is based on: what is on a Windows 10/11
 installation ISO, how it boots, and how Windows Setup turns it into an
-installed system. [windows-to-wincraft.md](windows-to-wincraft.md) maps
+installed system. [windows-to-seglinux.md](windows-to-seglinux.md) maps
 each part onto its Linux/Artix counterpart.
 
 Sources are Microsoft's deployment documentation on Microsoft Learn (listed

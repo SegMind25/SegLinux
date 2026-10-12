@@ -1,8 +1,0 @@
-#!/bin/sh
-# Live session: when an answer file (autounattend.toml) with
-# auto_start = true is on the install media, a USB drive, the kernel command
-# line or in /etc/wincraft, start the unattended installation, just as
-# Windows Setup starts on its own when it finds autounattend.xml.
-if sudo -n /usr/bin/wincraft-setup find-answer-file --require-autostart >/dev/null 2>&1; then
-    exec wincraft-terminal sudo /usr/bin/wincraft-setup install --unattend
-fi

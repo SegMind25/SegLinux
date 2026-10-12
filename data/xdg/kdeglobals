@@ -1,7 +1,7 @@
-# System-wide Plasma defaults for Wincraft. Users can change all of this in
+# System-wide Plasma defaults for SegLinux. Users can change all of this in
 # System Settings; their own ~/.config/kdeglobals takes precedence.
 [KDE]
-LookAndFeelPackage=org.wincraft.desktop
+LookAndFeelPackage=org.seglinux.desktop
 widgetStyle=Breeze
 
 [General]

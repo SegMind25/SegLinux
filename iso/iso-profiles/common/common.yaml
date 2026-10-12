@@ -1,5 +1,5 @@
 ---
-# Packages shared by every Wincraft ISO profile (artools >= 0.39 format,
+# Packages shared by every SegLinux ISO profile (artools >= 0.39 format,
 # the same keys as Artix's own iso-profiles/common/common.yaml).
 #
 # Package names are checked against the Artix repositories by

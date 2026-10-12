@@ -1,16 +1,16 @@
-# Gaming on Wincraft
+# Gaming on SegLinux
 
-Wincraft is set up for games out of the box: Windows games run through Wine,
+SegLinux is set up for games out of the box: Windows games run through Wine,
 Proton and DXVK, and the system is tuned for low latency. This page lists
 what is included and why.
 
 ## Choices
 
-| Area | Wincraft default | Why |
+| Area | SegLinux default | Why |
 |------|------------------|-----|
 | Init system | **OpenRC** with parallel start (`rc_parallel="YES"`); runit and dinit builds are available | OpenRC is Artix's most used init. It applies `binfmt.d`, `sysctl.d` and `modules-load.d` natively, which the tuning below relies on, and starting services in parallel keeps boot fast. runit boots about as fast but leaves some of those files to its own scripts. |
 | Kernel | **linux-zen** | Arch's kernel variant tuned for desktop responsiveness and low latency; `-k linux` builds with the stock kernel |
-| Desktop | Wincraft Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games. Plasma stays available as a fallback session. |
+| Desktop | SegLinux Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games. Plasma stays available as a fallback session. |
 | Swap | **zram** (compressed swap in RAM, up to 8 GiB) | Avoids stutter from swapping to disk when a game fills memory |
 
 ## Included software
@@ -19,7 +19,7 @@ what is included and why.
 |---------|-----|
 | Steam (with Proton) | Steam games; turn on Proton for all titles in Steam → Settings → Compatibility |
 | Lutris | GOG, Epic, Battle.net, emulators and other launchers |
-| Wine, winetricks | Windows programs and games outside Steam (`wcrun`) |
+| Wine, winetricks | Windows programs and games outside Steam (`segrun`) |
 | GameMode | Performance governor, I/O priority and GPU performance level while a game runs |
 | MangoHud | FPS, frame time, CPU/GPU load overlay |
 | gamescope | Valve's gaming compositor: frame limiting, FSR upscaling, Gaming Mode |
@@ -28,13 +28,13 @@ what is included and why.
 
 ## Gaming Mode
 
-The sign-in screen offers **Wincraft Gaming Mode**: Steam's Big Picture
+The sign-in screen offers **SegLinux Gaming Mode**: Steam's Big Picture
 inside gamescope, like SteamOS. It suits controllers and TVs. Leaving Big
 Picture (Steam menu → Exit) returns to the sign-in screen.
 
-## Running Windows games with wcrun
+## Running Windows games with segrun
 
-`wcrun` recognises games from what they import (Direct3D, OpenGL, Vulkan,
+`segrun` recognises games from what they import (Direct3D, OpenGL, Vulkan,
 XInput) and then:
 
 * installs DXVK (Direct3D 9/10/11) or VKD3D-Proton (Direct3D 12) into the
@@ -42,13 +42,13 @@ XInput) and then:
 * starts the game under GameMode (`gamemode = "auto"`).
 
 ```sh
-wcrun Game.exe                       # GameMode automatically
-wcrun run --hud Game.exe             # MangoHud overlay
-wcrun run --gamescope Game.exe       # inside gamescope (fullscreen)
-wcrun run --gamemode never Game.exe  # without GameMode
+segrun Game.exe                       # GameMode automatically
+segrun run --hud Game.exe             # MangoHud overlay
+segrun run --gamescope Game.exe       # inside gamescope (fullscreen)
+segrun run --gamemode never Game.exe  # without GameMode
 ```
 
-Per-game settings go in `~/.config/wincraft/wcrun.toml`:
+Per-game settings go in `~/.config/seglinux/segrun.toml`:
 
 ```toml
 [[app]]
@@ -61,16 +61,16 @@ gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165", "--adaptive-sync"]
 
 | Setting | File | Effect |
 |---------|------|--------|
-| `vm.max_map_count = 2147483642` | `/etc/sysctl.d/80-wincraft-gaming.conf` | Games that map many memory areas no longer crash (SteamOS value) |
+| `vm.max_map_count = 2147483642` | `/etc/sysctl.d/80-seglinux-gaming.conf` | Games that map many memory areas no longer crash (SteamOS value) |
 | `kernel.split_lock_mitigate = 0` | same | No deliberate slowdown of games that perform split locks |
-| `nmi_watchdog=0`, `nowatchdog`, watchdog modules blacklisted | kernel command line (Setup), `/usr/lib/modprobe.d/wincraft-nowatchdog.conf` | Fewer periodic interrupts |
+| `nmi_watchdog=0`, `nowatchdog`, watchdog modules blacklisted | kernel command line (Setup), `/usr/lib/modprobe.d/seglinux-nowatchdog.conf` | Fewer periodic interrupts |
 | `fs.inotify.max_user_watches` | sysctl | Launchers watching many files |
-| I/O schedulers: NVMe none, SSD mq-deadline, HDD BFQ | `/usr/lib/udev/rules.d/60-wincraft-ioschedulers.rules` | Low latency while games stream assets |
+| I/O schedulers: NVMe none, SSD mq-deadline, HDD BFQ | `/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules` | Low latency while games stream assets |
 | NTSYNC | `/etc/modules-load.d/ntsync.conf`, udev rule | Windows synchronisation in the kernel, used by Wine 11 and Proton |
-| esync file limit | `/etc/security/limits.d/90-wincraft-esync.conf` | For Proton/wine-staging's esync |
+| esync file limit | `/etc/security/limits.d/90-seglinux-esync.conf` | For Proton/wine-staging's esync |
 | zram + `vm.swappiness = 180` | written by Setup | Compressed swap in RAM; `zswap.enabled=0` avoids double compression |
 | Quiet boot, `loglevel=3` | kernel command line (Setup) | Faster, quieter boot |
-| Variable refresh rate and tearing | `/usr/share/wincraft/labwc/rc.xml` (`adaptiveSync`, `allowTearing`) | FreeSync/G-Sync for fullscreen games, lowest input latency |
+| Variable refresh rate and tearing | `/usr/share/seglinux/labwc/rc.xml` (`adaptiveSync`, `allowTearing`) | FreeSync/G-Sync for fullscreen games, lowest input latency |
 | Parallel service start | `/etc/rc.conf` (Setup, OpenRC) | Faster boot |
 
 Extra kernel parameters can be added in the answer file
@@ -101,7 +101,7 @@ What to expect, honestly:
 * **Intel HD Graphics 520/620 and other Skylake-era GPUs:** Vulkan 1.3
   through ANV; fine for older and light games at low settings and 720p.
 * **Ivy Bridge, Haswell, Broadwell (HD 2500-6000):** Mesa's HASVK driver,
-  which is not a conformant Vulkan 1.3 driver. `wcrun` asks `vulkaninfo`
+  which is not a conformant Vulkan 1.3 driver. `segrun` asks `vulkaninfo`
   which version the GPU offers; below 1.3 it installs **DXVK 1.10.3** (the
   last release for Vulkan 1.1/1.2) instead of DXVK 2, and tells you that
   Direct3D 12 games cannot run. Expect old games only.
@@ -109,7 +109,7 @@ What to expect, honestly:
   the first time effects appear. Steam's shader pre-caching (Settings →
   Downloads) removes most of it for Steam games.
 
-What Wincraft does for low-end machines:
+What SegLinux does for low-end machines:
 
 * A light desktop (labwc + the Rust shell) leaves more RAM and CPU to the
   game than Plasma or Windows would.
@@ -119,7 +119,7 @@ What Wincraft does for low-end machines:
   and on integrated GPUs, when the GPU is the busy part, lowers the CPU's
   share of the power budget so the GPU can clock higher (`/etc/gamemode.ini`).
 * Mesa's shader cache may grow to 4 GB (`MESA_SHADER_CACHE_MAX_SIZE`, set
-  in `/etc/profile.d/wincraft-gaming.sh`): DXVK 2 and VKD3D-Proton keep
+  in `/etc/profile.d/seglinux-gaming.sh`): DXVK 2 and VKD3D-Proton keep
   compiled shaders there, and the 1 GB default makes games recompile them
   (stutter) once several are installed.
 * Hardware video decoding (`intel-media-driver`, `libva-intel-driver`) takes
@@ -132,7 +132,7 @@ What Wincraft does for low-end machines:
 Getting more frames on weak GPUs:
 
 ```toml
-# ~/.config/wincraft/wcrun.toml
+# ~/.config/seglinux/segrun.toml
 [[app]]
 match = "Game.exe"
 gamescope = true
@@ -158,13 +158,13 @@ More on Intel GPUs:
   much faster, but programs on the GPU can then read each other's leftovers.
   Your choice; in an answer file:
   `[performance] kernel_parameters = ["i915.mitigations=off"]`.
-* **Check that the GPU renders:** `wcrun doctor` shows the Vulkan driver.
+* **Check that the GPU renders:** `segrun doctor` shows the Vulkan driver.
   A virtual machine without 3D acceleration only has Mesa's software
   renderer, which runs the desktop but not games.
 
 ## Checking the setup
 
-`wcrun doctor` reports Wine, winetricks, Vulkan, NTSYNC, GameMode, MangoHud,
+`segrun doctor` reports Wine, winetricks, Vulkan, NTSYNC, GameMode, MangoHud,
 gamescope, split lock mitigation, zram, the open file limit,
 `vm.max_map_count` and binfmt support.
 

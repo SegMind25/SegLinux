@@ -1,9 +1,9 @@
-# Copy to ~/.config/wincraft/shell.toml to customize the Rust desktop.
-wallpaper = "/usr/share/backgrounds/wincraft/wincraft-flow.jpg"
+# Copy to ~/.config/seglinux/shell.toml to customize the Rust desktop.
+wallpaper = "/usr/share/backgrounds/seglinux/seglinux-dark.jpg"
 # %x is the date in your language's format.
 clock_format = "%x  %H:%M"
 # Dock launchers: desktop file ids (see /usr/share/applications), without
 # ".desktop". Ones that are not installed are left out.
-pinned = ["org.kde.dolphin", "firefox", "wincraft-terminal", "steam", "net.lutris.Lutris"]
+pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam", "net.lutris.Lutris"]
 # Files and folders in ~/Desktop as icons on the desktop.
 desktop_icons = true

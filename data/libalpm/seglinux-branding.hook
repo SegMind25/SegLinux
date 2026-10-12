@@ -1,0 +1,10 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/os-release
+
+[Action]
+Description = Applying SegLinux branding...
+When = PostTransaction
+Exec = /usr/lib/seglinux/apply-branding

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=PipeWire sound server
+Exec=/usr/lib/seglinux/pipewire-session
+NoDisplay=true
+X-KDE-autostart-phase=1

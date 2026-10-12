@@ -1,0 +1,11 @@
+post_install() {
+    /usr/lib/seglinux/apply-branding
+    cat <<'MSG'
+==> Windows programs: double-click an .exe, or run `segrun program.exe`.
+==> `segrun doctor` checks Wine, Vulkan, NTSYNC and binfmt support.
+MSG
+}
+
+post_upgrade() {
+    /usr/lib/seglinux/apply-branding
+}

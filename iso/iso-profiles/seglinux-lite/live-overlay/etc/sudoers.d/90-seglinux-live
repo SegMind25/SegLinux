@@ -1,0 +1,2 @@
+# Live session only: the live user runs the installer without a password.
+seglinux ALL=(ALL:ALL) NOPASSWD: ALL

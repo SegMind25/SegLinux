@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   iso:
-    name: Build the Wincraft ISO (${{ matrix.edition }}, ${{ matrix.edition == 'lite' && 'openrc' || inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
+    name: Build the SegLinux ISO (${{ matrix.edition }}, ${{ matrix.edition == 'lite' && 'openrc' || inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
     if: >-
       github.event_name != 'push' || github.ref_type == 'tag' ||
       contains(github.event.head_commit.message, '[build iso]') ||
@@ -75,14 +75,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd iso/out
-          iso=$(ls wincraft-*.iso)
+          iso=$(ls seglinux-*.iso)
           if [[ $GITHUB_REF_TYPE == tag ]]; then
             tag=$GITHUB_REF_NAME
           else
             tag="iso-$(date -u +%Y%m%d)-$EDITION-$INIT-$KERNEL-run$GITHUB_RUN_NUMBER"
           fi
-          title="Wincraft $tag"
-          [[ $EDITION == lite ]] && title="Wincraft Lite $tag"
+          title="SegLinux $tag"
+          [[ $EDITION == lite ]] && title="SegLinux Lite $tag"
           size=$(stat -c %s "$iso")
           assets=("$iso.sha256")
           if (( size > 2000000000 )); then
@@ -95,7 +95,7 @@ jobs:
             get="(single file)"
           fi
           cat > notes.md <<EOF
-          Wincraft live/installer ISO, $EDITION edition, built from $GITHUB_SHA ($INIT, $KERNEL).
+          SegLinux live/installer ISO, $EDITION edition, built from $GITHUB_SHA ($INIT, $KERNEL).
           Size: $(numfmt --to=iec --suffix=B "$size") ($size bytes).
 
           Download every asset, then:

@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Wincraft
-Comment=The Wincraft desktop: Rust shell with a floating dock and desktop icons, on labwc
-Exec=wincraft-session
-TryExec=wincraft-session
-Type=Application
