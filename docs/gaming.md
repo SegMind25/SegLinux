@@ -88,6 +88,53 @@ the open-source nouveau/NVK driver is used; install the packages later with
 `sudo pacman -Syu nvidia-open-dkms nvidia-utils lib32-nvidia-utils`. Older
 NVIDIA cards are not supported by NVIDIA's current driver and keep nouveau.
 
+## Intel graphics and low-end PCs
+
+What to expect, honestly:
+
+* **Intel Iris Xe, Arc and newer (Mesa's ANV driver):** Vulkan 1.3, so
+  DXVK 2 and VKD3D-Proton work. Older and lighter games (Direct3D 9-11,
+  esports titles, indie games) run well; recent AAA games are limited by the
+  GPU itself, as on Windows. Intel's Linux drivers are mature: in
+  Phoronix's 2025 comparison on Lunar Lake, Linux roughly matched Windows 11,
+  ahead in some tests and behind in others.
+* **Intel HD Graphics 520/620 and other Skylake-era GPUs:** Vulkan 1.3
+  through ANV; fine for older and light games at low settings and 720p.
+* **Ivy Bridge, Haswell, Broadwell (HD 2500-6000):** Mesa's HASVK driver,
+  which is not a conformant Vulkan 1.3 driver. `wcrun` asks `vulkaninfo`
+  which version the GPU offers; below 1.3 it installs **DXVK 1.10.3** (the
+  last release for Vulkan 1.1/1.2) instead of DXVK 2, and tells you that
+  Direct3D 12 games cannot run. Expect old games only.
+* **Weak CPUs:** DXVK compiles shaders while you play, which causes stutter
+  the first time effects appear. Steam's shader pre-caching (Settings →
+  Downloads) removes most of it for Steam games.
+
+What Wincraft does for low-end machines:
+
+* A light desktop (labwc + the Rust shell) leaves more RAM and CPU to the
+  game than Plasma or Windows would.
+* zram doubles as cheap extra memory: on a 4 GB PC, swapping to compressed
+  RAM is much faster than to disk.
+* GameMode switches the CPU to its performance governor while a game runs.
+* Hardware video decoding (`intel-media-driver`, `libva-intel-driver`) takes
+  video playback off the CPU.
+
+Getting more frames on weak GPUs:
+
+```toml
+# ~/.config/wincraft/wcrun.toml
+[[app]]
+match = "Game.exe"
+gamescope = true
+# Render at 720p, upscale to 1080p with AMD FSR, cap at 60 FPS.
+gamescope_args = ["-w", "1280", "-h", "720", "-W", "1920", "-H", "1080", "-F", "fsr", "-r", "60", "-f"]
+```
+
+In Steam, the same works per game with launch options such as
+`gamescope -w 1280 -h 720 -W 1920 -H 1080 -F fsr -f -- %command%`.
+Lower in-game resolution, shadows and post-processing first; MangoHud's
+`fps_limit` (in `~/.config/MangoHud/MangoHud.conf`) keeps frame times steady.
+
 ## Checking the setup
 
 `wcrun doctor` reports Wine, winetricks, Vulkan, NTSYNC, GameMode, MangoHud,

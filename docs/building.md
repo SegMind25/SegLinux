@@ -33,6 +33,64 @@ rights for the container (`--privileged`, because `buildiso` mounts file
 systems and uses loop devices). The first build downloads roughly 3 GB of
 packages; they are cached in the `wincraft-pacman-cache` volume.
 
+## Build on your own PC, step by step
+
+Any 64-bit Linux works (Artix, Arch, Ubuntu, Debian, Mint, Fedora, ...).
+You need about 30 GB of free disk space, 8 GB of RAM, an internet
+connection (about 4 GB of downloads) and 30-90 minutes.
+
+1. Install git and a container engine:
+
+   ```sh
+   # Artix
+   sudo pacman -S --needed git docker docker-openrc && sudo rc-service docker start
+   # Arch, Manjaro, EndeavourOS
+   sudo pacman -S --needed git docker && sudo systemctl start docker
+   # Ubuntu, Debian, Linux Mint
+   sudo apt install git docker.io && sudo systemctl start docker
+   # Fedora
+   sudo dnf install git podman
+   ```
+
+2. Get the sources. The repository is private, so sign in first, for
+   example with the GitHub CLI (`gh auth login`) or a personal access token:
+
+   ```sh
+   git clone https://github.com/SegMind25/Wincraft.git
+   cd Wincraft
+   ```
+
+3. Build:
+
+   ```sh
+   sudo modprobe loop
+   sudo ./iso/build.sh                 # OpenRC + linux-zen
+   # other choices: sudo ./iso/build.sh -i runit     or     -k linux
+   ```
+
+   (`sudo` is not needed when your user is in the `docker` group.)
+
+4. The result is in `iso/out/`:
+
+   ```sh
+   ls -lh iso/out/
+   sha256sum -c iso/out/wincraft-*.iso.sha256
+   ```
+
+   Try it in QEMU (see below) or write it to a USB stick.
+
+Windows PCs: use a Linux virtual machine, or GitHub Actions (next section);
+Docker Desktop on WSL2 does not reliably provide the loop devices the build
+needs.
+
+## Building on GitHub instead
+
+Actions → **ISO** → *Run workflow* builds the ISO on GitHub's servers and
+publishes it under **Releases** as a pre-release. ISOs over 2 GB are split
+into `.part00`, `.part01`, ... files; join them with
+`cat wincraft-*.iso.part* > wincraft.iso` and check the `.sha256` file. A
+private repository's Actions minutes count towards your plan.
+
 ## What the build does
 
 `iso/build.sh` builds `iso/Containerfile` (based on

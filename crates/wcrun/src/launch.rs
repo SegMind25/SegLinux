@@ -133,6 +133,10 @@ impl Settings {
 #[derive(Debug, Clone, Copy)]
 pub struct Host {
     pub vulkan: bool,
+    /// Highest Vulkan version a real GPU offers (from `vulkaninfo`);
+    /// `Some((0, 0))` when only the software rasteriser is available, `None`
+    /// when it could not be determined.
+    pub vulkan_api: Option<(u32, u32)>,
     pub winetricks: bool,
     /// `gamemoderun` from Feral GameMode.
     pub gamemode: bool,
@@ -143,14 +147,64 @@ pub struct Host {
 impl Host {
     pub fn detect() -> Host {
         let has = |p: &str| wincraft_core::which(p).is_some();
+        let vulkan = has_vulkan_icd();
         Host {
-            vulkan: has_vulkan_icd(),
+            vulkan,
+            vulkan_api: if vulkan { detect_vulkan_api() } else { None },
             winetricks: has("winetricks"),
             gamemode: has("gamemoderun"),
             mangohud: has("mangohud"),
             gamescope: has("gamescope"),
         }
     }
+}
+
+/// Ask `vulkaninfo` (vulkan-tools) which Vulkan version the GPUs support.
+pub fn detect_vulkan_api() -> Option<(u32, u32)> {
+    let out = Cmd::new("vulkaninfo").arg("--summary").output().ok()?;
+    parse_vulkan_summary(&out)
+}
+
+/// Highest `apiVersion` among the hardware devices in `vulkaninfo
+/// --summary` output. Software renderers (llvmpipe, device type CPU) do
+/// not count: DXVK on them is unusably slow.
+pub fn parse_vulkan_summary(text: &str) -> Option<(u32, u32)> {
+    // (apiVersion, is a CPU device) per GPU block.
+    let mut devices: Vec<(Option<(u32, u32)>, bool)> = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with("GPU") && line.ends_with(':') {
+            devices.push((None, false));
+        } else if let Some(device) = devices.last_mut() {
+            if let Some(value) = line.strip_prefix("apiVersion") {
+                device.0 = parse_version(value);
+            } else if let Some(value) = line.strip_prefix("deviceType") {
+                device.1 = value.contains("CPU");
+            }
+        }
+    }
+    if devices.is_empty() {
+        return None;
+    }
+    Some(
+        devices
+            .iter()
+            .filter(|(_, cpu)| !cpu)
+            .filter_map(|(api, _)| *api)
+            .max()
+            .unwrap_or((0, 0)),
+    )
+}
+
+/// `= 1.3.289` or `= 4206847 (1.3.255)` -> (1, 3).
+fn parse_version(value: &str) -> Option<(u32, u32)> {
+    value
+        .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .filter(|token| token.contains('.'))
+        .find_map(|token| {
+            let mut parts = token.split('.');
+            Some((parts.next()?.parse().ok()?, parts.next()?.parse().ok()?))
+        })
 }
 
 pub fn has_vulkan_icd() -> bool {
@@ -247,14 +301,29 @@ pub fn plan(
                 "VKD3D-Proton",
             ),
         ];
+        // DXVK 2 and VKD3D-Proton need Vulkan 1.3. Older GPUs (for example
+        // Intel HD Graphics before Skylake) still run DXVK 1.10.3, which
+        // needs Vulkan 1.1.
+        let api = host.vulkan_api;
+        let usable = host.vulkan && !matches!(api, Some(v) if v < (1, 1));
+        let legacy = matches!(api, Some(v) if v < (1, 3));
         for (kind, wanted, installed, verb, label) in layers {
             if !wanted || installed {
                 continue;
             }
-            if !host.vulkan {
+            let (verb, label) = match kind {
+                StepKind::Dxvk if legacy => ("dxvk1103", "DXVK 1.10.3"),
+                _ => (verb, label),
+            };
+            if !usable {
                 notes.push(format!(
-                    "No Vulkan driver found: {label} skipped, Wine falls back to OpenGL (WineD3D)."
+                    "No Vulkan 1.1 GPU driver found: {label} skipped, Wine falls back to OpenGL (WineD3D)."
                 ));
+            } else if kind == StepKind::Vkd3d && legacy {
+                notes.push(
+                    "This GPU has no Vulkan 1.3 driver: Direct3D 12 (VKD3D-Proton) cannot run on it."
+                        .into(),
+                );
             } else if !host.winetricks {
                 notes.push(format!("winetricks is not installed: {label} skipped."));
             } else {
@@ -460,6 +529,7 @@ mod tests {
 
     const HOST: Host = Host {
         vulkan: true,
+        vulkan_api: Some((1, 3)),
         winetricks: true,
         gamemode: true,
         mangohud: true,
@@ -765,6 +835,55 @@ mod tests {
             },
         );
         assert_eq!(s.prefix, "default");
+    }
+
+    #[test]
+    fn older_gpus_get_dxvk_1_10_and_no_vkd3d() {
+        let kind = exe(&["d3d11.dll", "d3d12.dll"], None);
+        let haswell = Host {
+            vulkan_api: Some((1, 2)),
+            ..HOST
+        };
+        let p = plan_for(&kind, "/g/a.exe", RunOptions::default(), None, haswell);
+        let steps: Vec<String> = p.setup.iter().map(|s| s.cmd.to_string()).collect();
+        assert!(
+            steps.iter().any(|s| s.ends_with("winetricks -q dxvk1103")),
+            "{steps:?}"
+        );
+        assert!(!steps.iter().any(|s| s.contains("vkd3d")));
+        assert!(p.notes.iter().any(|n| n.contains("Direct3D 12")));
+        assert!(p.state.dxvk && !p.state.vkd3d);
+
+        // Only the software rasteriser: no DXVK at all.
+        let llvmpipe = Host {
+            vulkan_api: Some((0, 0)),
+            ..HOST
+        };
+        let p = plan_for(&kind, "/g/a.exe", RunOptions::default(), None, llvmpipe);
+        assert!(p.setup.iter().all(|s| s.kind == StepKind::InitPrefix));
+        assert!(p.notes.iter().any(|n| n.contains("WineD3D")));
+    }
+
+    #[test]
+    fn vulkaninfo_summary_parsing() {
+        let modern = "\
+Devices:
+========
+GPU0:
+\tapiVersion         = 1.3.289
+\tdeviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+\tdeviceName         = Intel(R) UHD Graphics 620 (KBL GT2)
+GPU1:
+\tapiVersion         = 1.4.305
+\tdeviceType         = PHYSICAL_DEVICE_TYPE_CPU
+\tdeviceName         = llvmpipe (LLVM 19.1.7, 256 bits)
+";
+        assert_eq!(parse_vulkan_summary(modern), Some((1, 3)));
+        let old = "GPU0:\n  apiVersion = 4202671 (1.2.175)\n  deviceType = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU\n";
+        assert_eq!(parse_vulkan_summary(old), Some((1, 2)));
+        let software = "GPU0:\n  apiVersion = 1.4.305\n  deviceType = PHYSICAL_DEVICE_TYPE_CPU\n";
+        assert_eq!(parse_vulkan_summary(software), Some((0, 0)));
+        assert_eq!(parse_vulkan_summary("ERROR: no ICD"), None);
     }
 
     #[test]

@@ -95,7 +95,24 @@ pub fn run_checks(wine: &str) -> Vec<Check> {
     });
 
     out.push(if has_vulkan_icd() {
-        check(Status::Ok, "A Vulkan driver is installed (DXVK/VKD3D available)", "")
+        match crate::launch::detect_vulkan_api() {
+            Some((0, 0)) => check(
+                Status::Warn,
+                "Only the software Vulkan renderer (llvmpipe) is available",
+                "Install the Vulkan driver for your GPU: vulkan-intel, vulkan-radeon, vulkan-nouveau or nvidia-utils.",
+            ),
+            Some(v) if v < (1, 3) => check(
+                Status::Warn,
+                format!("The GPU supports Vulkan {}.{}, not 1.3", v.0, v.1),
+                "Direct3D 9-11 games use DXVK 1.10.3; Direct3D 12 games cannot run on this GPU.",
+            ),
+            Some(v) => check(
+                Status::Ok,
+                format!("Vulkan {}.{} GPU driver (DXVK and VKD3D-Proton available)", v.0, v.1),
+                "",
+            ),
+            None => check(Status::Ok, "A Vulkan driver is installed (DXVK/VKD3D available)", ""),
+        }
     } else {
         check(
             Status::Warn,
@@ -151,7 +168,7 @@ pub fn run_checks(wine: &str) -> Vec<Check> {
         (
             "mangohud",
             "MangoHud (FPS and frame-time overlay)",
-            "mangohud lib32-mangohud",
+            "mangohud",
         ),
         ("gamescope", "gamescope (gaming compositor)", "gamescope"),
     ] {

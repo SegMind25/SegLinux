@@ -123,8 +123,7 @@ rootfs:
     - lutris                       # GOG, Epic, Battle.net and other launchers
     - gamemode                     # CPU/GPU tuning while a game runs
     - lib32-gamemode
-    - mangohud                     # FPS and frame-time overlay
-    - lib32-mangohud
+    - mangohud                     # FPS and frame-time overlay (64-bit games)
     - gamescope                    # gaming compositor, Gaming Mode session
     - dosbox
     - mesa
@@ -133,8 +132,10 @@ rootfs:
     - lib32-vulkan-icd-loader
     - vulkan-radeon
     - lib32-vulkan-radeon
-    - vulkan-intel
+    - vulkan-intel                 # Intel: ANV (Skylake+), HASVK (Ivy Bridge-Broadwell)
     - lib32-vulkan-intel
+    - intel-media-driver           # hardware video decoding (Broadwell+), less CPU load
+    - libva-intel-driver           # hardware video decoding on older Intel GPUs
     - vulkan-nouveau
     - vulkan-tools
     - lib32-pipewire               # sound for 32-bit games

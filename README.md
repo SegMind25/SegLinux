@@ -58,7 +58,9 @@ docs/                 design notes and guides
 
 Runs in a privileged Artix container (docker or podman) on any Linux host
 and writes `iso/out/wincraft-*.iso`. See [docs/building.md](docs/building.md)
-for requirements, native builds, customisation and testing in QEMU.
+for step-by-step instructions for your PC, native builds, customisation and
+testing in QEMU. Ready-made ISOs are built by the **ISO** workflow and
+published under Releases.
 
 ## Preview the Rust desktop
 

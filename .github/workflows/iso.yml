@@ -13,17 +13,24 @@ on:
         type: choice
         options: [linux-zen, linux, linux-lts]
         default: linux-zen
+      release:
+        description: Publish the ISO as a GitHub release
+        type: boolean
+        default: true
   push:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   iso:
-    name: Build the Wincraft ISO (${{ inputs.init || 'openrc' }})
+    name: Build the Wincraft ISO (${{ inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    env:
+      INIT: ${{ inputs.init || 'openrc' }}
+      KERNEL: ${{ inputs.kernel || 'linux-zen' }}
     steps:
       - uses: actions/checkout@v4
       - name: Free disk space
@@ -34,10 +41,47 @@ jobs:
       - name: Load the loop module
         run: sudo modprobe loop
       - name: Build
-        run: ./iso/build.sh -e docker -i "${{ inputs.init || 'openrc' }}" -k "${{ inputs.kernel || 'linux-zen' }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wincraft-${{ inputs.init || 'openrc' }}-iso
-          path: iso/out/
-          compression-level: 0
-          retention-days: 7
+        run: ./iso/build.sh -e docker -i "$INIT" -k "$KERNEL"
+      - name: Show the result
+        run: ls -l iso/out/ && cat iso/out/*.sha256
+      # Workflow artifacts would exceed the Actions storage quota of private
+      # repositories, so the ISO is published as a release. Release assets
+      # are limited to 2 GiB each: larger images are split into parts.
+      - name: Publish as a release
+        if: github.event_name == 'push' || inputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd iso/out
+          iso=$(ls wincraft-*.iso)
+          if [[ $GITHUB_REF_TYPE == tag ]]; then
+            tag=$GITHUB_REF_NAME
+          else
+            tag="iso-$(date -u +%Y%m%d)-$INIT-$KERNEL-run$GITHUB_RUN_NUMBER"
+          fi
+          assets=("$iso.sha256")
+          if (( $(stat -c %s "$iso") > 2000000000 )); then
+            split -b 1900M -d -a 2 "$iso" "$iso.part"
+            rm "$iso"
+            assets+=("$iso".part*)
+            get="cat $iso.part* > $iso"
+          else
+            assets+=("$iso")
+            get="(single file)"
+          fi
+          cat > notes.md <<EOF
+          Wincraft live/installer ISO built from $GITHUB_SHA ($INIT, $KERNEL).
+
+          Download every asset, then:
+
+          \`\`\`sh
+          $get
+          sha256sum -c $iso.sha256
+          \`\`\`
+
+          Write it to a USB stick with \`sudo dd if=$iso of=/dev/sdX bs=4M status=progress oflag=sync\`
+          (or Ventoy), disable Secure Boot and boot from it. See docs/building.md.
+          EOF
+          gh release create "$tag" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Wincraft $tag" --notes-file notes.md --prerelease
