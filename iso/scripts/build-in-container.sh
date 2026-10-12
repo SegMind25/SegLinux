@@ -82,11 +82,10 @@ targets=("$XDG_CONFIG_HOME/artools/pacman.conf.d")
 for dir in "${targets[@]}"; do
     install -Dm644 "$repo/iso/pacman.conf.d/$conf" "$dir/$conf"
     if [[ $profile == wincraft-lite ]]; then
-        # Keep documentation, manuals and translations off the Lite image.
+        # Files the Lite image leaves out; Setup restores them on install.
         # The installed system's own pacman.conf (root-overlay) has no such
         # rule, so packages installed later are complete.
-        sed -i '/^\[options\]/a NoExtract = usr/share/doc/* usr/share/gtk-doc/* usr/share/help/* usr/share/info/* usr/share/man/*\nNoExtract = usr/share/locale/* !usr/share/locale/locale.alias' \
-            "$dir/$conf"
+        sed -i "/^\[options\]/r $repo/iso/iso-profiles/wincraft-lite/pacman-noextract.conf" "$dir/$conf"
     fi
 done
 
@@ -114,23 +113,34 @@ fi
 # /usr/src/linux/version, which only the stock linux-headers provides, so for
 # other kernels buildiso runs with a patched copy of its library (buildiso
 # honours LIBDIR) that reads the version from /usr/lib/modules instead.
+# Copy artools' library once so that buildiso (which honours LIBDIR) runs
+# with patched code; the installed artools files stay untouched.
+patched_lib() {
+    local patched=$artools_dir/wincraft-artools-lib
+    if [[ ${LIBDIR:-} != "$patched" ]]; then
+        # shellcheck disable=SC2016 # literal shell code, not expansions
+        grep -qF 'LIBDIR=${LIBDIR:-' "$(command -v buildiso)" || return 1
+        rm -rf "$patched"
+        cp -a /usr/share/artools/lib "$patched"
+        export LIBDIR=$patched
+    fi
+}
+# Replace the text $2 with $3 in the artools library file $1.
+patch_lib() {
+    local file=$LIBDIR/$1 text
+    grep -qF "$2" "$file" || return 1
+    text=$(<"$file")
+    printf '%s\n' "${text/"$2"/"$3"}" > "$file"
+}
 use_kernel() {
     sed -i -E "s/^(\s*-\s*)linux$/\1$kernel/; s/^(\s*-\s*)linux-headers$/\1$kernel-headers/" \
         "$workspace/iso-profiles/common/common.yaml"
     [[ $kernel == linux ]] && return
+    patched_lib || die "this buildiso does not honour LIBDIR; build with -k linux"
     # shellcheck disable=SC2016 # literal shell code, not expansions
-    local header='LIBDIR=${LIBDIR:-' old='k=$(<"$mnt"/usr/src/linux/version)'
-    # shellcheck disable=SC2016
-    local new='k=$(basename "$(dirname "$(find "$mnt"/usr/lib/modules -mindepth 2 -maxdepth 2 -name vmlinuz | sort -V | tail -n1)")")'
-    grep -qF "$header" "$(command -v buildiso)" || die "this buildiso does not honour LIBDIR; build with -k linux"
-    local patched=$artools_dir/wincraft-artools-lib
-    rm -rf "$patched"
-    cp -a /usr/share/artools/lib "$patched"
-    local file=$patched/iso/initcpio.sh text
-    grep -qF "$old" "$file" || die "artools changed how it finds the kernel version in $file; build with -k linux"
-    text=$(<"$file")
-    printf '%s\n' "${text/"$old"/"$new"}" > "$file"
-    export LIBDIR=$patched
+    patch_lib iso/initcpio.sh 'k=$(<"$mnt"/usr/src/linux/version)' \
+        'k=$(basename "$(dirname "$(find "$mnt"/usr/lib/modules -mindepth 2 -maxdepth 2 -name vmlinuz | sort -V | tail -n1)")")' ||
+        die "artools changed how it finds the kernel version in iso/initcpio.sh; build with -k linux"
 }
 step "Using the $kernel kernel"
 use_kernel
@@ -145,10 +155,16 @@ if [[ $profile == wincraft-lite ]]; then
     mkdir -p "$(dirname "$online")"
     "$repo/iso/scripts/online-packages.sh" -i "$init" -k "$kernel" > "$online"
     echo "$(grep -vc '^#' "$online") packages"
-    # Smaller than artools' default zstd, at the cost of a slower live boot.
+    # Smaller than artools' default zstd, at the cost of a slower live boot:
+    # xz with 1 MiB blocks and the x86 filter for programs and libraries.
     export COMPRESSION=xz
-    echo "artools' mksquashfs options:"
-    grep -n -A6 'mksquashfs' "${LIBDIR:-/usr/share/artools/lib}/iso/squash.sh" || true
+    # shellcheck disable=SC2016 # literal shell code, not expansions
+    if patched_lib && patch_lib iso/squash.sh 'mksquashfs "${mksfs_args[@]}"' \
+        'mksquashfs "${mksfs_args[@]}" -b 1M -Xbcj x86'; then
+        echo "squashfs: xz, 1 MiB blocks, x86 filter"
+    else
+        echo "warning: cannot pass extra mksquashfs options; using artools' xz defaults" >&2
+    fi
 fi
 
 if [[ $in_container == true ]]; then
@@ -181,15 +197,20 @@ report_sizes() {
         awk '$5 > 1048576 {printf "%9.1f MiB  %s\n", $5 / 1048576, $NF}' | sort -rn | head -15
     local db=$artools_dir/buildiso/$profile/artix/rootfs/var/lib/pacman
     [[ -d $db/local ]] || return 0
-    echo "Largest packages of the installed system (uncompressed):"
-    pacman --dbpath "$db" -Qi | awk '
-        /^Name / { name = $3 }
+    echo "Largest packages of the installed system (uncompressed), and what needs them:"
+    pacman --dbpath "$db" -Qi 2>/dev/null | awk -F' *: ' '
+        /^Name / { name = $2 }
+        /^Required By/ { needed = $2 }
         /^Installed Size/ {
-            unit = $5; size = $4
+            split($2, v, " "); size = v[1]; unit = v[2]
             if (unit == "B") size /= 1048576; else if (unit == "KiB") size /= 1024; else if (unit == "GiB") size *= 1024
-            total += size; printf "%9.1f MiB  %s\n", size, name
+            total += size; printf "%9.1f MiB  %-28s <- %.90s\n", size, name, needed
         }
-        END { printf "%9.1f MiB  TOTAL\n", total }' | sort -rn | head -40
+        END { printf "%9.1f MiB  TOTAL\n", total }' | sort -rn | head -45
+    local root=${db%/var/lib/pacman}
+    echo "Largest firmware and driver folders on the image:"
+    du -sm "$root"/usr/lib/firmware/* "$root"/usr/lib/modules/*/kernel/drivers/* 2>/dev/null |
+        sort -rn | head -20 | sed "s|$root||"
 }
 step "What takes the space"
 report_sizes || true

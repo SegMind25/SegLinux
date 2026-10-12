@@ -90,27 +90,33 @@ needs.
 The full edition is a large image: the Plasma fallback, Steam, Wine,
 Firefox and every driver and firmware file are on it. The **Lite** edition
 (`iso/iso-profiles/wincraft-lite`) is the smallest image that still boots
-the Wincraft desktop, aiming at 500-600 MB:
+the Wincraft desktop and gets online; the first build was 868 MB, and each
+release's notes give its size:
 
 | | Full | Lite |
 |---|---|---|
 | Live desktop | Wincraft (Rust) on labwc, Plasma fallback, SDDM | Wincraft (Rust) on labwc, signed in on tty1 |
 | Terminal | Konsole | foot |
-| Firmware | all (`linux-firmware`) | AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
+| Firmware | all (`linux-firmware`) | graphics and Wi-Fi/Ethernet of PCs: AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
 | Wine, Steam, Firefox, Lutris, drivers... | on the image | **downloaded by Setup** |
 | Init systems | OpenRC, runit, dinit | OpenRC |
-| Image compression | zstd (artools default) | xz |
-| Manuals, documentation, translations | included | left out of the image |
+| Image compression | zstd (artools default) | xz, 1 MiB blocks, x86 filter |
+| Manuals, documentation, translations; Bluetooth, camera and server firmware; TV tuner and data-centre drivers | included | left out of the image ([list](../iso/iso-profiles/wincraft-lite/pacman-noextract.conf)), restored by Setup |
 
 Setup on the Lite image installs the same system as the full edition: after
 copying the small image it runs `pacman -Syu` for everything else (the list
 is generated at build time by `iso/scripts/online-packages.sh` into
-`/usr/share/wincraft/online-packages`), so **installing Lite needs an
-internet connection** (wired networks connect by themselves; for Wi-Fi use
+`/usr/share/wincraft/online-packages`), then reinstalls the packages whose
+files the image left out (`/usr/lib/wincraft/restore-trimmed-files`). So
+**installing Lite needs an internet connection** (wired networks connect by themselves; for Wi-Fi use
 *Network* in the panel, or `nmtui`). Setup's summary warns when there is no
 network. Without one, the installed system boots to a text login: sign in
 and run `wincraft-session`, then install the rest later with
-`sudo pacman -Syu --needed $(grep -v '^#' /usr/share/wincraft/online-packages)`.
+`sudo pacman -Syu --needed $(grep -v '^#' /usr/share/wincraft/online-packages)`
+followed by `sudo /usr/lib/wincraft/restore-trimmed-files`.
+
+Each build ends with a report of the largest files, packages and firmware
+folders, which is where to look when trimming the image further.
 
 The size of each build is in its release notes.
 

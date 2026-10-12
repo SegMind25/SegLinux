@@ -55,7 +55,7 @@ docs/                 design notes and guides
 ```sh
 ./iso/build.sh                 # OpenRC + linux-zen (recommended)
 ./iso/build.sh -i runit        # or runit / dinit; -k linux for the stock kernel
-./iso/build.sh --lite          # Lite edition: ~500-600 MB, Setup downloads the apps
+./iso/build.sh --lite          # Lite edition: smaller image, Setup downloads the apps
 ```
 
 Runs in a privileged Artix container (docker or podman) on any Linux host

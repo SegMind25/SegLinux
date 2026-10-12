@@ -25,6 +25,10 @@ pub const DEFAULT_TARGET: &str = "/mnt/wincraft";
 /// Scripts run at the end of setup, like `%WINDIR%\Setup\Scripts\SetupComplete.cmd`.
 pub const SETUPCOMPLETE_DIR: &str = "/etc/wincraft/setupcomplete.d";
 
+/// Reinstalls the packages whose files the Lite image leaves out
+/// (data/system/restore-trimmed-files).
+pub const RESTORE_TRIMMED_FILES: &str = "/usr/lib/wincraft/restore-trimmed-files";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pass {
     WindowsPe,
@@ -757,6 +761,12 @@ pub fn build(
                     .args(facts.online_packages.iter().cloned()),
             )],
         });
+        sp.push(Step {
+            description:
+                "Restoring the documentation, translations and drivers left out of the Lite image"
+                    .into(),
+            actions: vec![Action::chroot_optional(Cmd::new(RESTORE_TRIMMED_FILES))],
+        });
     }
     if answer.drivers.nvidia == DriverChoice::Auto
         && let Some(gpu) = facts.gpus.iter().find(|g| g.nvidia_open_capable())
@@ -1225,8 +1235,13 @@ mod tests {
         assert!(text.contains(
             "(new system) $ pacman -Syu --noconfirm --needed wine steam sddm-openrc  # may fail"
         ));
+        assert!(
+            text.contains("(new system) $ /usr/lib/wincraft/restore-trimmed-files  # may fail")
+        );
         // After the keyring, before the initramfs and the services it installs.
         let download = text.find("--needed wine").unwrap();
+        let restore = text.find("restore-trimmed-files").unwrap();
+        assert!(download < restore && restore < text.find("mkinitcpio -P").unwrap());
         assert!(text.find("pacman-key --populate").unwrap() < download);
         assert!(download < text.find("mkinitcpio -P").unwrap());
         assert!(download < text.find("Enabling services").unwrap());
@@ -1234,6 +1249,7 @@ mod tests {
         let full = build_plan(&a, &facts()).unwrap().to_string();
         assert!(!full.contains("Download:"));
         assert!(!full.contains("--needed wine"));
+        assert!(!full.contains("restore-trimmed-files"));
     }
 
     #[test]

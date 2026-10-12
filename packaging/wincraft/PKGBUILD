@@ -6,7 +6,7 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=4
+pkgrel=5
 pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
@@ -129,6 +129,7 @@ package() {
     install -Dm644 "$data/system/os-release" "$pkgdir/usr/share/wincraft/os-release"
     install -Dm755 "$data/system/apply-branding" "$pkgdir/usr/lib/wincraft/apply-branding"
     install -Dm755 "$data/system/pipewire-session" "$pkgdir/usr/lib/wincraft/pipewire-session"
+    install -Dm755 "$data/system/restore-trimmed-files" "$pkgdir/usr/lib/wincraft/restore-trimmed-files"
     install -Dm644 "$data/libalpm/wincraft-branding.hook" "$pkgdir/usr/share/libalpm/hooks/wincraft-branding.hook"
 
     install -Dm644 -t "$pkgdir/usr/share/doc/wincraft" README.md docs/*.md

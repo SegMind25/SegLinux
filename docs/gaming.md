@@ -118,7 +118,7 @@ What Wincraft does for low-end machines:
 * GameMode switches the CPU to its performance governor while a game runs.
 * Hardware video decoding (`intel-media-driver`, `libva-intel-driver`) takes
   video playback off the CPU.
-* The **Lite** ISO (about 500-600 MB, see [building.md](building.md#the-lite-edition))
+* The **Lite** ISO (well under 1 GB, see [building.md](building.md#the-lite-edition))
   is quicker to download and fits small USB sticks. It installs the same
   system as the full ISO (Setup downloads the games stack), so games run
   exactly as fast with either.
