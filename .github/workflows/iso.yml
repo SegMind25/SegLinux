@@ -22,11 +22,11 @@ on:
         description: Publish the ISO as a GitHub release
         type: boolean
         default: true
-  # Version tags (both editions), and any push whose commit message contains
-  # "[build iso]" (full edition) and/or "[build lite iso]" (Lite edition).
+  # Version tags (both editions), and any push to main whose commit message
+  # contains "[build iso]" (full edition) and/or "[build lite iso]" (Lite).
   push:
     tags: ["v*"]
-    branches: ["**"]
+    branches: [main]
 
 permissions:
   contents: write
