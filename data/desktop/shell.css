@@ -1,24 +1,53 @@
-window { background: transparent; color: #e8edf6; font-family: "Noto Sans", sans-serif; font-size: 13px; }
-.desktop { background: #090f1d; }
-.desktop-title { font-size: 40px; font-weight: 300; letter-spacing: -1px; color: #eef6ff; }
-.desktop-subtitle { font-size: 10px; letter-spacing: 3px; color: #8fa5bf; }
-.desktop button { background: alpha(#101c2e, 0.8); border: 1px solid alpha(#8eaed5, 0.15); padding: 12px 16px; }
-.panel { background: alpha(#111a29, 0.97); border-top: 1px solid #2b394e; padding: 7px 12px; min-height: 42px; }
-button { border-radius: 8px; background: transparent; box-shadow: none; border: 1px solid transparent; padding: 9px 12px; color: #e8edf6; }
-button:hover { background: #24344c; border-color: #3a5170; }
-button:focus-visible { outline: 2px solid #69b8ff; outline-offset: -2px; }
-.start { background: #245a93; border-radius: 9px; }
-.start button:hover { background: #3473b5; }
-.clock { margin: 0 10px; font-size: 11px; }
-popover > contents { background: #121d2e; border: 1px solid #35475f; border-radius: 14px; padding: 22px; box-shadow: 0 10px 30px alpha(black, 0.5); }
-.heading { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
-entry { background: #0b1422; border: 1px solid #3b516c; border-radius: 8px; padding: 10px; color: #e8edf6; }
-list, row { background: transparent; }
-.app-row { padding: 10px; }
-separator { background: #2c3d53; min-width: 1px; margin: 4px; }
-.task { padding: 8px 12px; }
-.task.active { background: #263e5a; border-bottom: 2px solid #6ac0ff; }
-dialog { background: #121d2e; }
+/* Wincraft desktop: a dark, translucent look in the spirit of Plasma's
+   Breeze Dark, with Breeze's blue (#3daee9) for focus and running apps. */
 
-.settings-window { background: #121d2e; }
-button { font-weight: 400; }
+window { background: transparent; color: #eff0f1; font-family: "Noto Sans", sans-serif; font-size: 13px; }
+
+/* Shown while the wallpaper loads, or when it is missing. */
+.desktop { background-image: linear-gradient(170deg, #c45b74 0%, #6b3e8c 42%, #233a9c 70%, #3e68d8 100%); }
+
+/* Desktop icons */
+.desktop-icons { background: transparent; }
+.desktop-icons flowboxchild { padding: 4px; border-radius: 6px; }
+.desktop-icons flowboxchild:hover { background: alpha(#ffffff, 0.10); }
+.desktop-icons flowboxchild:selected { background: alpha(#3daee9, 0.35); }
+.desktop-icon { min-width: 84px; }
+.desktop-icon label { color: #ffffff; font-size: 12px; text-shadow: 0 1px 2px alpha(black, 0.95), 0 0 4px alpha(black, 0.6); }
+
+/* The floating dock */
+.dock {
+    background: alpha(#202326, 0.86);
+    border: 1px solid alpha(#ffffff, 0.12);
+    border-radius: 12px;
+    padding: 3px 6px;
+}
+.dock button { padding: 5px; min-width: 30px; min-height: 30px; border-radius: 8px; }
+.dock .start { background: transparent; }
+.dock .start button { padding: 5px; }
+.dock .start image, .dock .app image { -gtk-icon-size: 26px; }
+.dock .app { border-bottom: 2px solid transparent; border-radius: 8px 8px 4px 4px; }
+.dock .app.running { border-bottom-color: alpha(#3daee9, 0.55); }
+.dock .app.active { background: alpha(#3daee9, 0.22); border-bottom-color: #3daee9; }
+.dock separator { background: alpha(#ffffff, 0.12); min-width: 1px; margin: 6px 3px; }
+.tray button { padding: 5px 6px; }
+.tray .battery { margin: 0 4px; font-size: 12px; }
+.clock { font-size: 13px; margin: 0 2px; }
+
+/* Buttons and menus */
+button { border-radius: 6px; background: transparent; box-shadow: none; border: 1px solid transparent; padding: 7px 10px; color: #eff0f1; font-weight: 400; }
+button:hover { background: alpha(#3daee9, 0.18); border-color: alpha(#3daee9, 0.35); }
+button:focus-visible { outline: 2px solid #3daee9; outline-offset: -2px; }
+popover > contents { background: alpha(#202326, 0.97); border: 1px solid alpha(#ffffff, 0.12); border-radius: 12px; padding: 14px; box-shadow: 0 10px 30px alpha(black, 0.5); }
+popover.menu > contents { padding: 6px; }
+.heading { font-size: 17px; font-weight: 600; }
+.menu-title { font-weight: 600; margin: 4px 8px 6px 8px; }
+entry { background: alpha(#000000, 0.25); border: 1px solid alpha(#ffffff, 0.15); border-radius: 6px; padding: 8px; color: #eff0f1; }
+entry:focus-within { border-color: #3daee9; }
+list, row { background: transparent; }
+.app-row { padding: 7px 10px; }
+.launcher .footer { padding-top: 6px; border-top: 1px solid alpha(#ffffff, 0.10); }
+.power button { padding: 7px; }
+separator { background: alpha(#ffffff, 0.12); min-width: 1px; margin: 4px; }
+calendar { background: transparent; border: none; color: #eff0f1; }
+calendar > grid > label.today { background: #3daee9; color: #ffffff; border-radius: 4px; }
+dialog, .settings-window { background: #202326; }

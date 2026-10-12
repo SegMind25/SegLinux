@@ -1,0 +1,297 @@
+//! The floating dock at the bottom of the screen, like Plasma's floating
+//! panel: Start, show desktop, one icon per application (pinned, running or
+//! both), the tray and the clock.
+use crate::tasks::{self, Action, Task, Tasks};
+use crate::{apps, common, config::Config, launcher, tray};
+use gtk::{gdk, gio, glib, prelude::*};
+use std::{cell::OnceCell, cell::RefCell, rc::Rc};
+
+/// Start buttons, so `gapplication action org.wincraft.Shell menu` can open one.
+pub type Menus = Rc<RefCell<Vec<glib::WeakRef<gtk::MenuButton>>>>;
+
+/// One dock icon: a pinned application and/or a group of windows of the
+/// same application.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Slot {
+    /// Index into the pinned list, if pinned.
+    pub pin: Option<usize>,
+    pub app_id: String,
+    pub windows: Vec<Task>,
+}
+
+/// Pinned applications first, in their order, with their windows; then the
+/// other windows grouped by application, in the order they opened.
+pub fn slots(pins: &[String], windows: &[Task]) -> Vec<Slot> {
+    let mut slots: Vec<Slot> = pins
+        .iter()
+        .enumerate()
+        .map(|(i, pin)| Slot {
+            pin: Some(i),
+            app_id: pin.clone(),
+            windows: Vec::new(),
+        })
+        .collect();
+    for window in windows {
+        if let Some(slot) = slots
+            .iter_mut()
+            .find(|s| s.pin.is_some() && apps::belongs_to(&s.app_id, &window.app_id))
+        {
+            slot.windows.push(window.clone());
+            continue;
+        }
+        let key = window.app_id.to_lowercase();
+        match slots
+            .iter_mut()
+            .find(|s| s.pin.is_none() && !key.is_empty() && s.app_id.to_lowercase() == key)
+        {
+            Some(slot) => slot.windows.push(window.clone()),
+            None => slots.push(Slot {
+                pin: None,
+                app_id: window.app_id.clone(),
+                windows: vec![window.clone()],
+            }),
+        }
+    }
+    slots
+}
+
+/// The window a click on a group should activate: the one after the active
+/// window (cycling), or the first.
+pub fn next_window(windows: &[Task]) -> Option<u32> {
+    match windows.iter().position(|w| w.active && !w.minimized) {
+        Some(i) if windows.len() == 1 => Some(windows[i].id),
+        Some(i) => Some(windows[(i + 1) % windows.len()].id),
+        None => windows.first().map(|w| w.id),
+    }
+}
+
+pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: bool) -> gtk::Box {
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    bar.add_css_class("dock");
+
+    let start = gtk::MenuButton::builder()
+        .icon_name(common::themed_icon(&[
+            "wincraft",
+            "start-here",
+            "view-app-grid-symbolic",
+        ]))
+        .tooltip_text("Start (Super+Space)")
+        .build();
+    start.add_css_class("start");
+    start.set_popover(Some(&launcher::menu(preview)));
+    menus.borrow_mut().push(start.downgrade());
+    bar.append(&start);
+
+    let handle: Rc<OnceCell<Tasks>> = Rc::default();
+    let show_desktop = gtk::Button::from_icon_name(&common::themed_icon(&[
+        "user-desktop-symbolic",
+        "user-desktop",
+        "desktop",
+    ]));
+    show_desktop.set_tooltip_text(Some("Show the desktop"));
+    let desktop_handle = handle.clone();
+    show_desktop.connect_clicked(move |_| {
+        if let Some(tasks) = desktop_handle.get() {
+            tasks.send(Action::ShowDesktop);
+        }
+    });
+    bar.append(&show_desktop);
+    bar.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+
+    let apps_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    apps_box.add_css_class("apps");
+    bar.append(&apps_box);
+
+    // Pinned applications that are installed.
+    let pins: Rc<Vec<(String, gio::DesktopAppInfo)>> = Rc::new(
+        config
+            .pinned
+            .iter()
+            .filter_map(|id| apps::lookup(id).map(|a| (id.clone(), a)))
+            .collect(),
+    );
+    let render = {
+        let apps_box = apps_box.clone();
+        let handle = handle.clone();
+        move |windows: &[Task]| {
+            while let Some(child) = apps_box.first_child() {
+                apps_box.remove(&child);
+            }
+            let ids: Vec<String> = pins.iter().map(|(id, _)| id.clone()).collect();
+            for slot in slots(&ids, windows) {
+                let app = match slot.pin {
+                    Some(i) => Some(pins[i].1.clone()),
+                    None => apps::for_window(&slot.app_id),
+                };
+                apps_box.append(&app_button(&slot, app, handle.clone()));
+            }
+        }
+    };
+    render(&[]);
+    if !preview {
+        let tasks = tasks::watch(render);
+        let _ = handle.set(tasks);
+    }
+
+    bar.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+    bar.append(&tray::tray(app, preview));
+    bar
+}
+
+fn app_button(
+    slot: &Slot,
+    app: Option<gio::DesktopAppInfo>,
+    handle: Rc<OnceCell<Tasks>>,
+) -> gtk::Button {
+    let button = gtk::Button::new();
+    button.add_css_class("app");
+    let image = gtk::Image::from_gicon(&apps::icon(app.as_ref()));
+    image.set_pixel_size(26);
+    button.set_child(Some(&image));
+    if !slot.windows.is_empty() {
+        button.add_css_class("running");
+    }
+    if slot.windows.iter().any(|w| w.active && !w.minimized) {
+        button.add_css_class("active");
+    }
+    let name = app
+        .as_ref()
+        .map(|a| a.display_name().to_string())
+        .unwrap_or_else(|| slot.app_id.clone());
+    let mut tooltip = name.clone();
+    for w in &slot.windows {
+        tooltip.push_str("\n• ");
+        tooltip.push_str(&w.title);
+    }
+    button.set_tooltip_text(Some(&tooltip));
+
+    // Left click: start the application, or focus/minimize its windows.
+    let windows = slot.windows.clone();
+    let start_app = app.clone();
+    let click_handle = handle.clone();
+    button.connect_clicked(move |_| match next_window(&windows) {
+        Some(id) => {
+            if let Some(tasks) = click_handle.get() {
+                tasks.send(Action::Toggle(id));
+            }
+        }
+        None => {
+            if let Some(app) = &start_app {
+                common::launch_app(app);
+            }
+        }
+    });
+
+    // Middle click: a new window, as in Plasma.
+    let middle = gtk::GestureClick::new();
+    middle.set_button(gdk::BUTTON_MIDDLE);
+    let new_app = app.clone();
+    middle.connect_pressed(move |_, _, _, _| {
+        if let Some(app) = &new_app {
+            common::launch_app(app);
+        }
+    });
+    button.add_controller(middle);
+
+    // Right click: new window, close.
+    let menu = gtk::Popover::new();
+    let items = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    let title = gtk::Label::new(Some(&name));
+    title.add_css_class("menu-title");
+    items.append(&title);
+    if let Some(app) = app.clone() {
+        let open = gtk::Button::with_label("New window");
+        open.connect_clicked(move |b| {
+            common::launch_app(&app);
+            common::close_popover(b);
+        });
+        items.append(&open);
+    }
+    if !slot.windows.is_empty() {
+        let close = gtk::Button::with_label(if slot.windows.len() == 1 {
+            "Close window"
+        } else {
+            "Close all windows"
+        });
+        let ids: Vec<u32> = slot.windows.iter().map(|w| w.id).collect();
+        close.connect_clicked(move |b| {
+            if let Some(tasks) = handle.get() {
+                for id in &ids {
+                    tasks.send(Action::Close(*id));
+                }
+            }
+            common::close_popover(b);
+        });
+        items.append(&close);
+    }
+    menu.set_child(Some(&items));
+    menu.set_parent(&button);
+    let owned = menu.clone();
+    button.connect_destroy(move |_| owned.unparent());
+    let right = gtk::GestureClick::new();
+    right.set_button(gdk::BUTTON_SECONDARY);
+    right.connect_pressed(move |_, _, _, _| menu.popup());
+    button.add_controller(right);
+    button
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn task(id: u32, app_id: &str, active: bool) -> Task {
+        Task {
+            id,
+            title: format!("window {id}"),
+            app_id: app_id.into(),
+            active,
+            minimized: false,
+        }
+    }
+
+    #[test]
+    fn pinned_first_then_other_apps_grouped() {
+        let pins = [
+            "org.kde.dolphin".to_string(),
+            "firefox".into(),
+            "steam".into(),
+        ];
+        let windows = [
+            task(1, "firefox", false),
+            task(2, "foot", true),
+            task(3, "firefox", false),
+            task(4, "Foot", false),
+            task(5, "", false),
+        ];
+        let s = slots(&pins, &windows);
+        assert_eq!(s.len(), 5);
+        assert_eq!(s[0].windows.len(), 0);
+        assert_eq!(
+            s[1].windows.iter().map(|w| w.id).collect::<Vec<_>>(),
+            [1, 3]
+        );
+        assert_eq!(
+            (s[3].pin, s[3].app_id.as_str(), s[3].windows.len()),
+            (None, "foot", 2)
+        );
+        assert_eq!((s[4].pin, s[4].windows[0].id), (None, 5));
+    }
+
+    #[test]
+    fn terminal_windows_join_the_terminal_pin() {
+        let s = slots(&["wincraft-terminal".into()], &[task(9, "foot", false)]);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].windows[0].id, 9);
+    }
+
+    #[test]
+    fn clicks_cycle_through_windows() {
+        assert_eq!(next_window(&[]), None);
+        assert_eq!(next_window(&[task(1, "a", false)]), Some(1));
+        assert_eq!(next_window(&[task(1, "a", true)]), Some(1));
+        let two = [task(1, "a", true), task(2, "a", false)];
+        assert_eq!(next_window(&two), Some(2));
+        let none_active = [task(1, "a", false), task(2, "a", false)];
+        assert_eq!(next_window(&none_active), Some(1));
+    }
+}

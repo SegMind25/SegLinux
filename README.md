@@ -13,9 +13,10 @@ low latency. Its own tools are written in Rust.
   reads `autounattend.toml`, the counterpart of `autounattend.xml`. In the
   live session **Install Wincraft** opens a graphical GTK 4 Setup wizard
   (a text-mode one is in the menu too).
-* **Lightweight, looks like Windows.** A dark Wincraft shell written in Rust,
-  with a searchable application launcher, taskbar and desktop preferences, on
-  the labwc Wayland compositor; KDE Plasma remains available as a fallback.
+* **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
+  a floating dock with Start menu, one icon per application, tray and clock,
+  written in Rust (GTK 4) on the labwc Wayland compositor, and the default
+  session; KDE Plasma remains available as a fallback.
   Familiar applications (File Explorer → Dolphin, Store → Discover, ...).
 * **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
   GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable

@@ -5,16 +5,35 @@ use std::path::PathBuf;
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub wallpaper: PathBuf,
+    /// strftime-style format of the dock clock (`%x` is the local date).
     pub clock_format: String,
+    /// Applications pinned to the dock, as desktop file ids without
+    /// `.desktop`; ones that are not installed are skipped.
+    pub pinned: Vec<String>,
+    /// Show the files in ~/Desktop as icons on the desktop.
+    pub desktop_icons: bool,
 }
 impl Default for Config {
     fn default() -> Self {
         Self {
-            wallpaper: "/usr/share/backgrounds/wincraft/wincraft-dark.png".into(),
-            clock_format: "%H:%M\n%a, %d %b".into(),
+            wallpaper: "/usr/share/backgrounds/wincraft/wincraft-flow.jpg".into(),
+            clock_format: CLOCK_24H.into(),
+            pinned: [
+                "org.kde.dolphin",
+                "firefox",
+                "wincraft-terminal",
+                "steam",
+                "net.lutris.Lutris",
+            ]
+            .map(String::from)
+            .to_vec(),
+            desktop_icons: true,
         }
     }
 }
+
+pub const CLOCK_24H: &str = "%x  %H:%M";
+pub const CLOCK_12H: &str = "%x  %I:%M %p";
 impl Config {
     pub fn path() -> Option<PathBuf> {
         let home = std::env::var_os("XDG_CONFIG_HOME")
@@ -69,6 +88,20 @@ mod tests {
         let c: Config = toml::from_str("clock_format = '%I:%M %p'").unwrap();
         assert_eq!(c.clock_format, "%I:%M %p");
         assert!(c.wallpaper.is_absolute());
+        assert!(c.desktop_icons);
+        assert!(c.pinned.iter().any(|p| p == "firefox"));
         assert!(toml::from_str::<Config>("wallpapre = 'oops'").is_err());
+        let c: Config = toml::from_str("pinned = ['steam']\ndesktop_icons = false").unwrap();
+        assert_eq!(c.pinned, ["steam"]);
+        assert!(!c.desktop_icons);
+    }
+
+    #[test]
+    fn saved_config_round_trips() {
+        let c = Config::default();
+        let text = toml::to_string_pretty(&c).unwrap();
+        let back: Config = toml::from_str(&text).unwrap();
+        assert_eq!(back.pinned, c.pinned);
+        assert_eq!(back.clock_format, c.clock_format);
     }
 }

@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{CLOCK_12H, CLOCK_24H, Config};
 use gtk::{gio, prelude::*};
 
 pub fn open(app: &gtk::Application, config: &Config) {
@@ -31,6 +31,10 @@ pub fn open(app: &gtk::Application, config: &Config) {
     let clock = gtk::CheckButton::with_label("Use a 12-hour clock");
     clock.set_active(config.clock_format.contains("%I"));
     content.append(&clock);
+    let icons = gtk::CheckButton::with_label("Show the files of the Desktop folder on the desktop");
+    icons.set_active(config.desktop_icons);
+    content.append(&icons);
+    let saved = config.clone();
     let save = gtk::Button::with_label("Save preferences");
     content.append(&save);
     let status = gtk::Label::new(Some("Changes apply the next time you sign in."));
@@ -49,11 +53,13 @@ pub fn open(app: &gtk::Application, config: &Config) {
         let config = Config {
             wallpaper: path,
             clock_format: if clock.is_active() {
-                "%I:%M %p\n%a, %d %b"
+                CLOCK_12H
             } else {
-                "%H:%M\n%a, %d %b"
+                CLOCK_24H
             }
             .into(),
+            desktop_icons: icons.is_active(),
+            ..saved.clone()
         };
         let result = (|| -> Result<(), String> {
             let path = Config::path().ok_or("HOME or XDG_CONFIG_HOME must be set")?;

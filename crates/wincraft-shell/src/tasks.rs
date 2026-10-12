@@ -1,5 +1,7 @@
-//! Window buttons use wlroots foreign-toplevel, never process-name guessing.
-use gtk::{glib, prelude::*};
+//! Open windows, from wlroots foreign-toplevel (never process-name
+//! guessing): the dock lists them and can activate, minimize, close them and
+//! show the desktop.
+use gtk::glib;
 use std::{collections::BTreeMap, sync::mpsc, time::Duration};
 use wayland_client::{
     Connection, Dispatch, Proxy, QueueHandle, WEnum,
@@ -9,12 +11,35 @@ use wayland_protocols_wlr::foreign_toplevel::v1::client::{
     zwlr_foreign_toplevel_handle_v1 as handle, zwlr_foreign_toplevel_manager_v1 as manager,
 };
 
-#[derive(Clone, Debug)]
-struct Task {
-    id: u32,
-    title: String,
-    active: bool,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Task {
+    pub id: u32,
+    pub title: String,
+    pub app_id: String,
+    pub active: bool,
+    pub minimized: bool,
 }
+
+/// What the dock asks the compositor to do.
+#[derive(Clone, Copy, Debug)]
+pub enum Action {
+    /// Activate the window, or minimize it when it is already active.
+    Toggle(u32),
+    Close(u32),
+    /// Minimize every window; when all are minimized, restore them.
+    ShowDesktop,
+}
+
+/// Sends actions to the compositor connection.
+#[derive(Clone)]
+pub struct Tasks(mpsc::Sender<Action>);
+
+impl Tasks {
+    pub fn send(&self, action: Action) {
+        let _ = self.0.send(action);
+    }
+}
+
 struct Entry {
     proxy: handle::ZwlrForeignToplevelHandleV1,
     task: Task,
@@ -30,11 +55,43 @@ impl State {
             .updates
             .send(self.windows.values().map(|w| w.task.clone()).collect());
     }
+
+    fn apply(&self, action: Action) {
+        match action {
+            Action::Toggle(id) => {
+                if let (Some(entry), Some(seat)) = (self.windows.get(&id), &self.seat) {
+                    if entry.task.active && !entry.task.minimized {
+                        entry.proxy.set_minimized();
+                    } else {
+                        entry.proxy.unset_minimized();
+                        entry.proxy.activate(seat);
+                    }
+                }
+            }
+            Action::Close(id) => {
+                if let Some(entry) = self.windows.get(&id) {
+                    entry.proxy.close();
+                }
+            }
+            Action::ShowDesktop => {
+                let all_minimized = self.windows.values().all(|w| w.task.minimized);
+                for entry in self.windows.values() {
+                    if all_minimized {
+                        entry.proxy.unset_minimized();
+                    } else {
+                        entry.proxy.set_minimized();
+                    }
+                }
+            }
+        }
+    }
 }
 
-pub fn attach(container: &gtk::Box) {
+/// Follows the open windows. `on_update` runs on the GTK main loop whenever
+/// the list changes.
+pub fn watch(on_update: impl Fn(&[Task]) + 'static) -> Tasks {
     let (updates_tx, updates_rx) = mpsc::channel();
-    let (actions_tx, actions_rx) = mpsc::channel::<u32>();
+    let (actions_tx, actions_rx) = mpsc::channel::<Action>();
     std::thread::spawn(move || {
         let Ok(connection) = Connection::connect_to_env() else {
             return;
@@ -56,16 +113,7 @@ pub fn attach(container: &gtk::Box) {
             }
             loop {
                 match actions_rx.try_recv() {
-                    Ok(id) => {
-                        if let (Some(entry), Some(seat)) = (state.windows.get(&id), &state.seat) {
-                            if entry.task.active {
-                                entry.proxy.set_minimized();
-                            } else {
-                                entry.proxy.unset_minimized();
-                                entry.proxy.activate(seat);
-                            }
-                        }
-                    }
+                    Ok(action) => state.apply(action),
                     Err(mpsc::TryRecvError::Empty) => break,
                     Err(mpsc::TryRecvError::Disconnected) => return,
                 }
@@ -85,35 +133,13 @@ pub fn attach(container: &gtk::Box) {
             std::thread::sleep(Duration::from_millis(35));
         }
     });
-    let weak = container.downgrade();
     glib::timeout_add_local(Duration::from_millis(100), move || {
-        let Some(container) = weak.upgrade() else {
-            return glib::ControlFlow::Break;
-        };
         if let Some(tasks) = updates_rx.try_iter().last() {
-            while let Some(child) = container.first_child() {
-                container.remove(&child);
-            }
-            for task in tasks {
-                let button = gtk::Button::new();
-                button.add_css_class("task");
-                if task.active {
-                    button.add_css_class("active");
-                }
-                let label = gtk::Label::new(Some(&task.title));
-                label.set_max_width_chars(22);
-                label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-                button.set_child(Some(&label));
-                button.set_tooltip_text(Some(&task.title));
-                let actions = actions_tx.clone();
-                button.connect_clicked(move |_| {
-                    let _ = actions.send(task.id);
-                });
-                container.append(&button);
-            }
+            on_update(&tasks);
         }
         glib::ControlFlow::Continue
     });
+    Tasks(actions_tx)
 }
 
 impl Dispatch<wl_registry::WlRegistry, ()> for State {
@@ -166,7 +192,9 @@ impl Dispatch<manager::ZwlrForeignToplevelManagerV1, ()> for State {
                     task: Task {
                         id,
                         title: "Application".into(),
+                        app_id: String::new(),
                         active: false,
+                        minimized: false,
                     },
                 },
             );
@@ -190,15 +218,22 @@ impl Dispatch<handle::ZwlrForeignToplevelHandleV1, ()> for State {
                     entry.task.title = title;
                 }
             }
+            handle::Event::AppId { app_id } => {
+                if let Some(entry) = state.windows.get_mut(&id) {
+                    entry.task.app_id = app_id;
+                }
+            }
             handle::Event::State { state: flags } => {
                 if let Some(entry) = state.windows.get_mut(&id) {
-                    entry.task.active = flags.as_chunks::<4>().0.iter().any(|bytes| {
-                        let value = u32::from_ne_bytes(*bytes);
-                        matches!(
-                            WEnum::<handle::State>::from(value),
-                            WEnum::Value(handle::State::Activated)
-                        )
-                    });
+                    let states: Vec<WEnum<handle::State>> = flags
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .map(|bytes| WEnum::from(u32::from_ne_bytes(*bytes)))
+                        .collect();
+                    let has = |s: handle::State| states.contains(&WEnum::Value(s));
+                    entry.task.active = has(handle::State::Activated);
+                    entry.task.minimized = has(handle::State::Minimized);
                 }
             }
             handle::Event::Done => state.publish(),

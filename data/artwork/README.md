@@ -1,9 +1,14 @@
 # Wincraft artwork
 
-- `wincraft-dark.png`: original wallpaper, generated with the built-in imagegen tool.
+- `wincraft-flow.jpg`: the default wallpaper, drawn from scratch by
+  `make-wallpaper.py` (Pillow and NumPy): a rose-to-violet sky, a dark arc
+  and flowing ribbons of light over a blue floor. Run
+  `python3 data/artwork/make-wallpaper.py` to draw it again (2560 x 1440;
+  pass `WIDTH HEIGHT OUT` for other sizes).
+- `wincraft-dark.png`: the earlier dark wallpaper, generated with the built-in imagegen tool.
 - `wincraft.svg`: original editable vector mark authored for this desktop.
 
-The wallpaper is installed at `/usr/share/backgrounds/wincraft/wincraft-dark.png`.
+Both wallpapers are installed in `/usr/share/backgrounds/wincraft/`.
 The vector mark is installed in the hicolor application icon theme.
 The generated wallpaper is 1672 × 941 pixels.
 The original image was preserved without retouching or upscaling.

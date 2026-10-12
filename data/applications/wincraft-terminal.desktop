@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Terminal
+Comment=Command line (Konsole, foot or another installed terminal)
+Exec=wincraft-terminal
+Icon=utilities-terminal
+Terminal=false
+NoDisplay=true
+Categories=System;TerminalEmulator;

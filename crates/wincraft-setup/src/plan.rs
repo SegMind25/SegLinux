@@ -25,6 +25,9 @@ pub const DEFAULT_TARGET: &str = "/mnt/wincraft";
 /// Scripts run at the end of setup, like `%WINDIR%\Setup\Scripts\SetupComplete.cmd`.
 pub const SETUPCOMPLETE_DIR: &str = "/etc/wincraft/setupcomplete.d";
 
+/// SDDM's memory of the last session and user, which it preselects.
+pub const SDDM_STATE: &str = "/var/lib/sddm/state.conf";
+
 /// Reinstalls the packages whose files the Lite image leaves out
 /// (data/system/restore-trimmed-files).
 pub const RESTORE_TRIMMED_FILES: &str = "/usr/lib/wincraft/restore-trimmed-files";
@@ -886,6 +889,20 @@ pub fn build(
             mode: 0o440,
         }],
     }];
+    // The sign-in screen preselects the Wincraft desktop (not Plasma) and
+    // the first account, as it would after they had been used once.
+    if let Some(first) = answer.users.first() {
+        oobe.push(Step {
+            description: "Making the Wincraft desktop the default session".into(),
+            actions: vec![Action::write(
+                SDDM_STATE,
+                format!(
+                    "[Last]\nUser={}\nSession=/usr/share/wayland-sessions/wincraft.desktop\n",
+                    first.name
+                ),
+            )],
+        });
+    }
     let autologin = answer.users.iter().find(|u| u.autologin);
     if let Some(u) = autologin {
         oobe.push(Step {
@@ -1138,6 +1155,10 @@ mod tests {
             "set GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0 zswap.enabled=0\" in /etc/default/grub"
         ));
         assert!(text.contains("set rc_parallel=\"YES\" in /etc/rc.conf"));
+        // The sign-in screen preselects the Wincraft desktop and the user.
+        assert!(text.contains("/var/lib/sddm/state.conf"), "{text}");
+        assert!(text.contains("| User=alice"));
+        assert!(text.contains("| Session=/usr/share/wayland-sessions/wincraft.desktop"));
         assert!(text.contains("(new system) $ pacman-key --populate artix  # may fail"));
         assert!(text.contains("$ mkfs.fat -F 32 -n SYSTEM -i 00000001 /dev/vda1"));
         assert!(text.contains(

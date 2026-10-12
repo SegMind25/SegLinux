@@ -6,7 +6,7 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=6
+pkgrel=7
 pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
@@ -98,7 +98,8 @@ package() {
     install -Dm644 "$data/desktop/wincraft-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/wincraft-portals.conf"
     install -Dm755 "$data/desktop/labwc/autostart" "$pkgdir/usr/share/wincraft/labwc/autostart"
     install -Dm644 -t "$pkgdir/usr/share/wincraft/labwc" "$data/desktop/labwc/rc.xml" "$data/desktop/labwc/themerc-override"
-    install -Dm644 "$data/artwork/wincraft-dark.png" "$pkgdir/usr/share/backgrounds/wincraft/wincraft-dark.png"
+    install -Dm644 -t "$pkgdir/usr/share/backgrounds/wincraft" \
+        "$data/artwork/wincraft-flow.jpg" "$data/artwork/wincraft-dark.png"
     install -Dm644 "$data/artwork/wincraft.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/wincraft.svg"
 
     # Windows-style Plasma desktop
