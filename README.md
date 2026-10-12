@@ -10,7 +10,6 @@
 </p>
 
 <p align="center">
-  <a href="https://segmind25.github.io/SegLinux/">Website</a> ·
   <a href="https://github.com/SegMind25/SegLinux/releases">Download the ISO</a> ·
   <a href="docs/building.md">Build it yourself</a>
 </p>
@@ -37,7 +36,7 @@ Firefox, Dolphin and the other pinned applications to the dock.
 ## Download
 
 ISO images are on the [releases page](https://github.com/SegMind25/SegLinux/releases)
-and the [website](https://segmind25.github.io/SegLinux/#download):
+and the website's download page:
 
 | Edition | Size | What it is |
 |---|---|---|
@@ -76,18 +75,34 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 ## Website
 
 `site/` is the project's website: features, screenshots and the download
-page, which lists every ISO image of the releases. `.github/workflows/site.yml`
-publishes it on GitHub Pages at <https://segmind25.github.io/SegLinux/>
-whenever the site changes and after every ISO build. To preview it:
+page, which lists every ISO image of the releases. It is deployed on
+[Vercel](https://vercel.com): `vercel.json` runs `site/build.py`, which
+assembles the pages, the screenshots and the list of releases into `_site`.
+
+To deploy it:
+
+1. On Vercel, **Add New → Project**, import this repository and keep the
+   root directory and the settings `vercel.json` gives (framework "Other").
+2. While the repository is private, add the environment variable
+   `GH_TOKEN`: a GitHub token that can read this repository's contents
+   (a fine-grained token with *Contents: read-only*). Without it the
+   download page cannot list the releases.
+3. So that each new ISO appears without waiting for the next commit:
+   in the Vercel project, **Settings → Git → Deploy Hooks**, create a hook
+   for `main`, and add its URL to this repository as the Actions secret
+   `VERCEL_DEPLOY_HOOK`. The ISO workflow calls it after publishing.
+
+The page also refreshes the list from GitHub in the visitor's browser,
+which works once the repository is public. Release files of a private
+repository cannot be downloaded by other people: make the repository
+public before sharing the site.
+
+To preview it locally:
 
 ```sh
 python3 site/build.py --out _site   # GH_TOKEN=... lists the releases of a private repository
 python3 -m http.server -d _site 8000
 ```
-
-GitHub Pages has to be turned on once (Settings → Pages → Source: GitHub
-Actions); a free account serves Pages, and lets anyone download release
-files, only from a public repository.
 
 ## Repository layout
 
@@ -100,7 +115,7 @@ crates/
   segrun/             the Windows program launcher
   seglinux-setup/     the installer: answer files, planning, execution, text-mode wizard
   seglinux-installer/ the graphical Setup wizard (GTK 4), which runs seglinux-setup
-site/                 the website (GitHub Pages)
+site/                 the website (deployed on Vercel)
 data/                 defaults installed by the seglinux package (Plasma layout,
                       file associations, binfmt, NTSYNC, sysctl, branding)
 packaging/seglinux/   PKGBUILD for the seglinux package

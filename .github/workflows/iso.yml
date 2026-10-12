@@ -113,13 +113,17 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "$title" --notes-file notes.md --prerelease ||
             gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY"
-
-  # Put the new images on the website (skipped while GitHub Pages is off).
-  website:
-    needs: iso
-    if: ${{ !cancelled() && needs.iso.result != 'skipped' && (github.event_name == 'push' || inputs.release) }}
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    uses: ./.github/workflows/site.yml
+      # The website (Vercel) lists the releases when it is built: ask it to
+      # build again. Add the project's deploy hook URL as the repository
+      # secret VERCEL_DEPLOY_HOOK (see README, "Website").
+      - name: Update the website
+        if: github.event_name == 'push' || inputs.release
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [[ -z $VERCEL_DEPLOY_HOOK ]]; then
+            echo "No VERCEL_DEPLOY_HOOK secret: the website shows the new image after its next deployment."
+          else
+            curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" > /dev/null
+            echo "Website deployment requested."
+          fi

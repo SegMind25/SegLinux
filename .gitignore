@@ -10,3 +10,4 @@
 *.iso
 *.iso.sha256
 _site/
+.vercel

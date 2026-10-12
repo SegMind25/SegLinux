@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Assemble the SegLinux website in one folder, ready for GitHub Pages.
+"""Assemble the SegLinux website in one folder, ready to serve.
 
 Copies the pages in site/, the logo and the screenshots (docs/images), and
 writes releases.json: the ISO releases of the repository, from GitHub's API
 (with GH_TOKEN or GITHUB_TOKEN when set; needed for a private repository),
-or from a file given with --releases.
+or from a file given with --releases. Vercel runs it (see vercel.json).
 
     python3 site/build.py [--out _site] [--repo OWNER/NAME] [--releases FILE]
 """
@@ -50,10 +50,20 @@ def slim(release):
     return out
 
 
+def default_repo():
+    """The repository being built: from GitHub Actions or Vercel, else SegLinux's."""
+    if os.environ.get("GITHUB_REPOSITORY"):
+        return os.environ["GITHUB_REPOSITORY"]
+    owner, slug = os.environ.get("VERCEL_GIT_REPO_OWNER"), os.environ.get("VERCEL_GIT_REPO_SLUG")
+    if owner and slug:
+        return f"{owner}/{slug}"
+    return "SegMind25/SegLinux"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=os.path.join(ROOT, "_site"))
-    parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "SegMind25/SegLinux"))
+    parser.add_argument("--repo", default=default_repo())
     parser.add_argument("--releases", help="read the releases from this JSON file instead of GitHub")
     args = parser.parse_args()
 
@@ -86,8 +96,6 @@ def main():
     ]
     with open(os.path.join(args.out, "releases.json"), "w") as f:
         json.dump(isos, f, indent=1)
-    # GitHub Pages: serve the files as they are.
-    open(os.path.join(args.out, ".nojekyll"), "w").close()
     print(f"{args.out}: {len(isos)} releases with ISO images, {len(os.listdir(assets))} assets")
 
 
