@@ -1,0 +1,103 @@
+# Maintainer: Wincraft contributors <https://github.com/SegMind25/Wincraft>
+#
+# Builds the Wincraft tools and defaults from this repository. The source
+# tarball is produced by iso/scripts/build-in-container.sh (or by hand with
+# `make -C packaging/wincraft source`); see docs/building.md.
+
+pkgname=wincraft
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Wincraft: Windows program launcher (wcrun), installer (wincraft-setup) and Windows-style desktop defaults"
+arch=('x86_64')
+url="https://github.com/SegMind25/Wincraft"
+# No license has been chosen for the Wincraft repository yet.
+license=('LicenseRef-Wincraft-unspecified')
+depends=('gcc-libs' 'glibc' 'wine' 'procps-ng')
+makedepends=('cargo')
+optdepends=(
+    'winetricks: install DXVK, VKD3D-Proton and Microsoft runtimes into prefixes'
+    'steam: Proton for games'
+    'dosbox: 16-bit DOS programs'
+    'konsole: start the installer from the live desktop'
+    'squashfs-tools: wincraft-setup (applies the system image)'
+    'grub: wincraft-setup (boot manager)'
+    'efibootmgr: wincraft-setup on UEFI machines'
+    'dosfstools: wincraft-setup (EFI system partition)'
+    'btrfs-progs: wincraft-setup with btrfs'
+    'xfsprogs: wincraft-setup with xfs'
+)
+backup=(
+    'etc/wincraft/wcrun.toml'
+    'etc/binfmt.d/wine.conf'
+    'etc/sysctl.d/80-wincraft-gaming.conf'
+    'etc/security/limits.d/90-wincraft-esync.conf'
+    'etc/modules-load.d/ntsync.conf'
+    'etc/sddm.conf.d/10-wincraft.conf'
+    'etc/xdg/kdeglobals'
+    'etc/xdg/kwinrc'
+    'etc/xdg/mimeapps.list'
+)
+install=wincraft.install
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo test --frozen --release
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    local data=data
+
+    install -Dm755 target/release/wcrun "$pkgdir/usr/bin/wcrun"
+    install -Dm755 target/release/wincraft-setup "$pkgdir/usr/bin/wincraft-setup"
+    install -Dm644 crates/wincraft-setup/autounattend.example.toml \
+        "$pkgdir/usr/share/wincraft/autounattend.example.toml"
+
+    # Windows-style Plasma desktop
+    local lnf=usr/share/plasma/look-and-feel/org.wincraft.desktop
+    install -Dm644 "$data/plasma/look-and-feel/org.wincraft.desktop/metadata.json" "$pkgdir/$lnf/metadata.json"
+    install -Dm644 "$data/plasma/look-and-feel/org.wincraft.desktop/contents/defaults" "$pkgdir/$lnf/contents/defaults"
+    install -Dm644 "$data/plasma/look-and-feel/org.wincraft.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" \
+        "$pkgdir/$lnf/contents/layouts/org.kde.plasma.desktop-layout.js"
+    install -Dm644 "$data/xdg/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
+    install -Dm644 "$data/xdg/kwinrc" "$pkgdir/etc/xdg/kwinrc"
+    install -Dm644 "$data/xdg/mimeapps.list" "$pkgdir/etc/xdg/mimeapps.list"
+    install -Dm644 "$data/xdg/wincraft-pipewire.desktop" "$pkgdir/etc/xdg/autostart/wincraft-pipewire.desktop"
+    install -Dm644 "$data/system/sddm-wincraft.conf" "$pkgdir/etc/sddm.conf.d/10-wincraft.conf"
+    install -Dm644 -t "$pkgdir/usr/share/applications" "$data"/applications/*.desktop
+
+    # Running Windows programs
+    install -Dm644 "$data/wincraft/wcrun.toml" "$pkgdir/etc/wincraft/wcrun.toml"
+    install -Dm644 "$data/system/binfmt-wine.conf" "$pkgdir/etc/binfmt.d/wine.conf"
+    install -Dm644 "$data/system/sysctl-gaming.conf" "$pkgdir/etc/sysctl.d/80-wincraft-gaming.conf"
+    install -Dm644 "$data/system/limits-esync.conf" "$pkgdir/etc/security/limits.d/90-wincraft-esync.conf"
+    install -Dm644 "$data/system/modules-ntsync.conf" "$pkgdir/etc/modules-load.d/ntsync.conf"
+    install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-wincraft-ntsync.rules"
+
+    # Setup and branding
+    install -Dm644 "$data/wincraft/setupcomplete.d/README" "$pkgdir/etc/wincraft/setupcomplete.d/README"
+    install -Dm644 "$data/system/os-release" "$pkgdir/usr/share/wincraft/os-release"
+    install -Dm755 "$data/system/apply-branding" "$pkgdir/usr/lib/wincraft/apply-branding"
+    install -Dm755 "$data/system/pipewire-session" "$pkgdir/usr/lib/wincraft/pipewire-session"
+    install -Dm644 "$data/libalpm/wincraft-branding.hook" "$pkgdir/usr/share/libalpm/hooks/wincraft-branding.hook"
+
+    install -Dm644 -t "$pkgdir/usr/share/doc/wincraft" README.md docs/*.md
+}

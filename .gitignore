@@ -1,10 +1,8 @@
 /target
 **/*.rs.bk
 
-# ISO build outputs
+# Build outputs
 /iso/out/
-/iso/work/
-/iso/localrepo/
 /packaging/wincraft/*.tar.gz
 /packaging/wincraft/src/
 /packaging/wincraft/pkg/

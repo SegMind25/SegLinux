@@ -294,6 +294,7 @@ pub const DEFAULT_SERVICES: &[&str] = &[
     "cupsd",
     "cronie",
     "syslog-ng",
+    "ntpd",
     "acpid",
     "power-profiles-daemon",
 ];

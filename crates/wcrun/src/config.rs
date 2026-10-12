@@ -28,7 +28,7 @@ pub struct Config {
     pub defaults: Defaults,
     /// Extra environment for every program.
     pub env: BTreeMap<String, String>,
-    #[serde(rename = "app")]
+    #[serde(rename = "app", skip_serializing_if = "Vec::is_empty")]
     pub apps: Vec<AppOverride>,
 }
 

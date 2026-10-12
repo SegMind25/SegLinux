@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Install Wincraft
+Comment=Install Wincraft on this computer
+Exec=konsole --hide-menubar -e sudo /usr/bin/wincraft-setup
+Icon=system-software-install
+Terminal=false
+Categories=System;

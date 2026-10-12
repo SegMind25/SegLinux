@@ -122,8 +122,19 @@ fn boot_disk() -> Option<String> {
 }
 
 /// Find the system image below `dir` (the media, or the copy in RAM when
-/// booted with `copytoram`).
+/// booted with `copytoram`): the usual locations first, then a shallow
+/// search.
 pub fn find_image(dir: &Path) -> Option<PathBuf> {
+    for known in [
+        "bootmnt/LiveOS/rootfs.img",
+        "copytoram/rootfs.img",
+        "bootmnt/artix/x86_64/rootfs.sfs",
+    ] {
+        let p = dir.join(known);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
     fn walk(dir: &Path, depth: u32) -> Option<PathBuf> {
         if depth > 4 {
             return None;
@@ -308,10 +319,13 @@ fn collect_removable(devices: &serde_json::Value, parent_removable: bool, out: &
             .as_str()
             .is_some_and(|f| !f.is_empty() && f != "swap");
         let unmounted = d["mountpoint"].is_null();
-        if removable && has_fs && unmounted && d["type"] != "rom" {
-            if let Some(p) = d["path"].as_str() {
-                out.push(p.to_string());
-            }
+        if removable
+            && has_fs
+            && unmounted
+            && d["type"] != "rom"
+            && let Some(p) = d["path"].as_str()
+        {
+            out.push(p.to_string());
         }
         collect_removable(&d["children"], removable, out);
     }

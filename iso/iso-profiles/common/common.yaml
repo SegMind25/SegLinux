@@ -1,0 +1,137 @@
+---
+# Packages shared by every Wincraft ISO profile (artools >= 0.39 format,
+# the same keys as Artix's own iso-profiles/common/common.yaml).
+#
+# Package names are checked against the Artix repositories by
+# iso/scripts/check-packages.sh, which CI runs on every change.
+
+packages-base:
+  - base
+  - linux
+  - linux-firmware
+  - linux-headers
+  - intel-ucode
+  - amd-ucode
+  - mkinitcpio
+  - grub
+  - efibootmgr
+  - os-prober
+  - acpi
+  - alsa-firmware
+  - sof-firmware
+  - btrfs-progs
+  - dosfstools
+  - e2fsprogs
+  - exfatprogs
+  - f2fs-tools
+  - ntfs-3g
+  - xfsprogs
+  - lvm2
+  - cryptsetup
+  - mdadm
+  - diffutils
+  - inetutils
+  - logrotate
+  - lsb-release
+  - man-db
+  - man-pages
+  - nano
+  - vi
+  - sudo
+  - sysfsutils
+  - usbutils
+  - which
+  - bash-completion
+  - wireless-regdb
+  - wpa_supplicant
+
+packages-apps:
+  - inxi
+  - fastfetch
+
+packages-xorg:
+  - xorg-server
+  - xf86-input-libinput
+  - xf86-input-vmmouse
+  - xf86-input-wacom
+  - xf86-video-amdgpu
+  - xf86-video-ati
+  - xf86-video-fbdev
+  - xf86-video-qxl
+  - xf86-video-vesa
+
+packages-xlibre:
+  - xlibre-xserver
+  - xlibre-input-vmmouse
+  - xlibre-input-wacom
+  - xlibre-video-amdgpu
+  - xlibre-video-ati
+  - xlibre-video-fbdev
+  - xlibre-video-qxl
+  - xlibre-video-vesa
+
+packages-misc:
+  - wayland
+  - xorg-xwayland
+  - xdg-user-dirs
+  - xdg-utils
+  - terminus-font
+  - ttf-dejavu
+  - ttf-liberation
+
+packages-init:
+  openrc:
+    - openrc-settingsd
+    - elogind-openrc
+    - dbus-openrc
+    - acpid-openrc
+    - cronie-openrc
+    - cryptsetup-openrc
+    - lvm2-openrc
+    - mdadm-openrc
+    - ntp-openrc
+    - openssh-openrc
+    - power-profiles-daemon-openrc
+    - wpa_supplicant-openrc
+  dinit:
+    - blocaled
+    - elogind-dinit
+    - dbus-dinit
+    - acpid-dinit
+    - cronie-dinit
+    - cryptsetup-dinit
+    - lvm2-dinit
+    - mdadm-dinit
+    - ntp-dinit
+    - openssh-dinit
+    - power-profiles-daemon-dinit
+    - wpa_supplicant-dinit
+  runit:
+    - blocaled
+    - elogind-runit
+    - dbus-runit
+    - acpid-runit
+    - cronie-runit
+    - cryptsetup-runit
+    - lvm2-runit
+    - mdadm-runit
+    - ntp-runit
+    - openssh-runit
+    - power-profiles-daemon-runit
+    - wpa_supplicant-runit
+  s6:
+    - blocaled
+    - elogind-s6
+    - dbus-s6
+    - acpid-s6
+    - cronie-s6
+    - cryptsetup-s6
+    - lvm2-s6
+    - mdadm-s6
+    - ntp-s6
+    - openssh-s6
+    - power-profiles-daemon-s6
+    - wpa_supplicant-s6
+
+packages-boot:
+  - iso-initcpio

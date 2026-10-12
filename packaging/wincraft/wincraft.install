@@ -1,0 +1,11 @@
+post_install() {
+    /usr/lib/wincraft/apply-branding
+    cat <<'MSG'
+==> Windows programs: double-click an .exe, or run `wcrun program.exe`.
+==> `wcrun doctor` checks Wine, Vulkan, NTSYNC and binfmt support.
+MSG
+}
+
+post_upgrade() {
+    /usr/lib/wincraft/apply-branding
+}

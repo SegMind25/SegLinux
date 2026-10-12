@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Add or Remove Windows Programs
+Comment=Uninstall Windows programs installed with Wincraft
+Exec=wcrun tool uninstaller
+Icon=system-software-install
+Terminal=false
+Categories=Settings;
+Keywords=wine;windows;uninstall;programs;

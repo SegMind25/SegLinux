@@ -1,0 +1,3 @@
+# /dev/ntsync only provides synchronisation objects to the process that
+# opens it, so every user may use it (Wine runs as the logged-in user).
+KERNEL=="ntsync", MODE="0666"

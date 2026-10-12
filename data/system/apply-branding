@@ -1,0 +1,9 @@
+#!/bin/sh
+# Re-apply Wincraft's os-release. Run by pacman whenever the package that
+# owns /usr/lib/os-release replaces it, and when wincraft is installed.
+set -e
+src=/usr/share/wincraft/os-release
+install -m 644 "$src" /usr/lib/os-release
+if [ -e /etc/os-release ] && [ ! -L /etc/os-release ]; then
+    install -m 644 "$src" /etc/os-release
+fi

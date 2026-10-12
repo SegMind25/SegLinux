@@ -1,0 +1,15 @@
+#!/bin/sh
+# Start the PipeWire sound server for this desktop session unless an init
+# system user service already did. Artix has no systemd user units, so this
+# autostart entry is what gives every Wincraft session working sound.
+running() {
+    pgrep -u "$(id -u)" -x "$1" >/dev/null 2>&1
+}
+
+if ! running pipewire; then
+    pipewire &
+    sleep 1
+fi
+running wireplumber || wireplumber &
+running pipewire-pulse || pipewire-pulse &
+exit 0

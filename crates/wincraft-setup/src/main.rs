@@ -154,10 +154,14 @@ fn summary_of(plan: &plan::Plan) -> String {
 }
 
 fn finish(finish: Finish) -> Result<ExitCode> {
-    match finish {
-        Finish::Reboot => Cmd::new("reboot").run()?,
-        Finish::Poweroff => Cmd::new("poweroff").run()?,
-        Finish::None => {}
+    let action = match finish {
+        Finish::Reboot => "reboot",
+        Finish::Poweroff => "poweroff",
+        Finish::None => return Ok(ExitCode::SUCCESS),
+    };
+    // The init system's command first, elogind's as a fallback.
+    if Cmd::new(action).run().is_err() {
+        Cmd::new("loginctl").arg(action).run()?;
     }
     Ok(ExitCode::SUCCESS)
 }

@@ -1,0 +1,2 @@
+# Live session only: the live user runs the installer without a password.
+wincraft ALL=(ALL:ALL) NOPASSWD: ALL

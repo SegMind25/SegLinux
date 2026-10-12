@@ -1,0 +1,23 @@
+# Artix Linux environment for building the Wincraft ISO.
+# Used by iso/build.sh; works with docker and podman on any Linux host.
+FROM docker.io/artixlinux/artixlinux:base-devel
+
+RUN pacman-key --init \
+    && pacman-key --populate artix \
+    && pacman -Syu --noconfirm --needed \
+        artools \
+        go-yq \
+        rust \
+        squashfs-tools \
+        libisoburn \
+        mtools \
+        dosfstools \
+        grub \
+        sudo \
+    && pacman -Scc --noconfirm
+
+ENV WINCRAFT_CONTAINER=true \
+    CHROOTS_DIR=/var/lib/artools
+
+WORKDIR /src
+CMD ["/src/iso/scripts/build-in-container.sh"]

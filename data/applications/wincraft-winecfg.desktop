@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Windows Compatibility Settings
+GenericName=Wine configuration
+Comment=Windows version, drives, graphics and libraries used by Windows programs
+Exec=wcrun tool winecfg
+Icon=preferences-system
+Terminal=false
+Categories=Settings;
+Keywords=wine;windows;winecfg;compatibility;
