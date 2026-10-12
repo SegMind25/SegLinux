@@ -1,5 +1,5 @@
 ---
-# Wincraft Lite: the smallest Wincraft image (868 MB in its first build).
+# Wincraft Lite: the smallest Wincraft image (about 740 MB).
 #
 # The live system has the Rust desktop on labwc, the foot terminal and
 # Wincraft Setup. Setup downloads everything else the full edition ships

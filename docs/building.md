@@ -90,8 +90,8 @@ needs.
 The full edition is a large image: the Plasma fallback, Steam, Wine,
 Firefox and every driver and firmware file are on it. The **Lite** edition
 (`iso/iso-profiles/wincraft-lite`) is the smallest image that still boots
-the Wincraft desktop and gets online; the first build was 868 MB, and each
-release's notes give its size:
+the Wincraft desktop and gets online: about 740 MB (the first build was
+868 MB before trimming), and each release's notes give its size:
 
 | | Full | Lite |
 |---|---|---|
