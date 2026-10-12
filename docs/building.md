@@ -224,7 +224,13 @@ driver to render with: the desktop then falls back to Mesa's software
 renderer (slow, and no games), and `~/.cache/wincraft-session.log` tells
 why it stopped if it does not start at all.
 
-In the live session, double-click **Install Wincraft**. To test an
+In the live session, double-click **Install Wincraft**: the graphical Setup
+(`wincraft-installer`) asks for the region, disk and account, shows the plan
+and then runs `wincraft-setup install --unattend` with the answers, following
+its progress. *Install Wincraft (text mode)* in the menu starts the
+keyboard-driven text Setup instead. `wincraft-installer --demo` (or
+`--demo-page=summary` and the other page names) shows the wizard on any
+desktop with an invented computer and installs nothing. To test an
 unattended installation, add `-drive file=answer.img,format=raw,if=virtio`
 with a small FAT image holding `autounattend.toml` at its root, or boot
 with `wincraft.unattend=/path` on the kernel command line.

@@ -2466,6 +2466,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wincraft-installer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "gtk4",
+ "toml",
+ "wincraft-core",
+ "wincraft-setup",
+]
+
+[[package]]
 name = "wincraft-pe"
 version = "0.1.0"
 

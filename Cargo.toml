@@ -6,6 +6,7 @@ members = [
     "crates/wcrun",
     "crates/wincraft-setup",
     "crates/wincraft-shell",
+    "crates/wincraft-installer",
 ]
 
 [workspace.package]
@@ -19,6 +20,8 @@ homepage = "https://github.com/SegMind25/Wincraft"
 [workspace.dependencies]
 wincraft-pe = { path = "crates/wincraft-pe" }
 wincraft-core = { path = "crates/wincraft-core" }
+# The graphical installer only needs the library, not the text-mode wizard.
+wincraft-setup = { path = "crates/wincraft-setup", default-features = false }
 anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

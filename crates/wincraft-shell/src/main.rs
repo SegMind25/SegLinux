@@ -179,12 +179,23 @@ fn background(config: &Config) -> gtk::Overlay {
         }
     }
     if std::path::Path::new("/usr/lib/wincraft/live-autostart").exists() {
-        shortcuts.append(&command_button(
-            "Install Wincraft",
-            "system-software-install-symbolic",
-            TERMINAL,
-            &["sudo", "/usr/bin/wincraft-setup"],
-        ));
+        // The graphical Setup; the text-mode one when it is missing.
+        let install = if installed("wincraft-installer") {
+            command_button(
+                "Install Wincraft",
+                "system-software-install-symbolic",
+                "wincraft-installer",
+                &[],
+            )
+        } else {
+            command_button(
+                "Install Wincraft",
+                "system-software-install-symbolic",
+                TERMINAL,
+                &["sudo", "/usr/bin/wincraft-setup"],
+            )
+        };
+        shortcuts.append(&install);
     }
     brand.append(&shortcuts);
     overlay.add_overlay(&brand);

@@ -42,6 +42,12 @@ In this order (compare Windows' implicit search order in
 `wincraft-setup install --unattend` (no path) and `wincraft-setup
 find-answer-file` use the same search.
 
+The graphical Setup works the same way: it writes an answer file from your
+choices (readable only by you, deleted afterwards) and runs
+`sudo -n wincraft-setup install --unattend FILE --progress json`, which
+prints one JSON object per line (`{"event":"progress",...}`, then
+`{"event":"done"}` or `{"event":"error","message":...}`).
+
 With `auto_start = true`, the live session's autostart entry runs the
 installation in a terminal window as soon as the desktop is up. Without it,
 start it by hand: `sudo wincraft-setup install --unattend`.

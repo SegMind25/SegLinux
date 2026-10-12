@@ -1,0 +1,15 @@
+[package]
+name = "wincraft-installer"
+description = "Wincraft Setup's graphical installer (GTK 4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+wincraft-setup.workspace = true
+wincraft-core.workspace = true
+anyhow.workspace = true
+toml.workspace = true
+gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }

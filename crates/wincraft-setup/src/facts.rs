@@ -270,7 +270,8 @@ pub fn parse_package_list(text: &str) -> Vec<String> {
     names
 }
 
-fn has_default_route() -> bool {
+/// Whether this computer has a default network route right now.
+pub fn has_default_route() -> bool {
     let v4 = fs::read_to_string("/proc/net/route").unwrap_or_default();
     let v6 = fs::read_to_string("/proc/net/ipv6_route").unwrap_or_default();
     parse_default_route(&v4, &v6)

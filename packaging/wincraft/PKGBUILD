@@ -6,8 +6,8 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=5
-pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, installer and gaming tuning"
+pkgrel=6
+pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
 # No license has been chosen for the Wincraft repository yet.
@@ -83,6 +83,7 @@ package() {
 
     install -Dm755 target/release/wcrun "$pkgdir/usr/bin/wcrun"
     install -Dm755 target/release/wincraft-setup "$pkgdir/usr/bin/wincraft-setup"
+    install -Dm755 target/release/wincraft-installer "$pkgdir/usr/bin/wincraft-installer"
     install -Dm644 crates/wincraft-setup/autounattend.example.toml \
         "$pkgdir/usr/share/wincraft/autounattend.example.toml"
 

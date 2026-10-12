@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use wincraft_core::cmd::Cmd;
 
 use wincraft_setup::answer::{Answer, EXAMPLE, Finish};
-use wincraft_setup::exec::{Executor, LOG_DIR, Log};
+use wincraft_setup::exec::{Event, Executor, LOG_DIR, Log};
 use wincraft_setup::facts::{Facts, find_answer_file};
 use wincraft_setup::ids::{IdSource, Random, Sequential};
 use wincraft_setup::{is_root, plan};
@@ -61,6 +61,18 @@ struct InstallArgs {
     /// Use predictable UUIDs and names (for comparing plans)
     #[arg(long, hide = true)]
     reproducible: bool,
+    /// How an unattended installation reports progress
+    #[arg(long, value_enum, default_value_t = ProgressFormat::Text)]
+    progress: ProgressFormat,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+enum ProgressFormat {
+    /// Lines for people
+    #[default]
+    Text,
+    /// One JSON object per line, for the graphical installer
+    Json,
 }
 
 fn main() -> ExitCode {
@@ -120,6 +132,27 @@ fn print_plan(args: &InstallArgs) -> Result<ExitCode> {
 }
 
 fn unattended(args: &InstallArgs) -> Result<ExitCode> {
+    let json = args.progress == ProgressFormat::Json;
+    match install_unattended(args, json) {
+        Ok(how) => {
+            if json {
+                println!("{}", Event::Done.to_json());
+            } else {
+                println!("\nWincraft is installed.");
+            }
+            finish(how)
+        }
+        Err(e) => {
+            if json {
+                let message = format!("{e:#}");
+                println!("{}", Event::Error { message }.to_json());
+            }
+            Err(e)
+        }
+    }
+}
+
+fn install_unattended(args: &InstallArgs, json: bool) -> Result<Finish> {
     if !is_root() {
         bail!("Setup must run as root (sudo wincraft-setup ...)");
     }
@@ -127,22 +160,27 @@ fn unattended(args: &InstallArgs) -> Result<ExitCode> {
     let (answer, _) = load_answer(&unattend)?;
     let facts = Facts::probe()?;
     let plan = plan::build(&answer, &facts, &mut Random, &args.target)?;
-    println!("{}", summary_of(&plan));
+    if !json {
+        println!("{}", summary_of(&plan));
+    }
     let mut log = Log::open(Path::new(LOG_DIR))?;
     let result = Executor::new(&args.target, facts.init, &mut log).run(&plan, &mut |p| {
-        println!(
-            "[{:>3}%] {} - {}",
-            p.percent(),
-            p.pass.windows_name(),
-            p.description
-        );
+        if json {
+            println!("{}", Event::from(&p).to_json());
+        } else {
+            println!(
+                "[{:>3}%] {} - {}",
+                p.percent(),
+                p.pass.windows_name(),
+                p.description
+            );
+        }
     });
     if let Err(e) = result {
         eprintln!("\nSetup failed. Details are in {LOG_DIR}/setupact.log and setuperr.log.");
         return Err(e);
     }
-    println!("\nWincraft is installed.");
-    finish(answer.setup.finish)
+    Ok(answer.setup.finish)
 }
 
 fn summary_of(plan: &plan::Plan) -> String {
@@ -255,5 +293,20 @@ mod tests {
         };
         assert_eq!(args.unattend, Some(PathBuf::from("a.toml")));
         assert_eq!(args.target, PathBuf::from("/mnt/wincraft"));
+        assert_eq!(args.progress, ProgressFormat::Text);
+
+        let cli = Cli::try_parse_from([
+            "wincraft-setup",
+            "install",
+            "--unattend",
+            "a.toml",
+            "--progress",
+            "json",
+        ])
+        .unwrap();
+        let Some(Command::Install(args)) = cli.command else {
+            panic!()
+        };
+        assert_eq!(args.progress, ProgressFormat::Json);
     }
 }

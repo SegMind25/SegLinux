@@ -10,7 +10,9 @@ low latency. Its own tools are written in Rust.
   plays the role of WinPE, a squashfs system image plays `install.wim`, and
   `wincraft-setup` plays `setup.exe`. It runs the same configuration passes
   (windowsPE, offlineServicing, specialize, oobeSystem, SetupComplete) and
-  reads `autounattend.toml`, the counterpart of `autounattend.xml`.
+  reads `autounattend.toml`, the counterpart of `autounattend.xml`. In the
+  live session **Install Wincraft** opens a graphical GTK 4 Setup wizard
+  (a text-mode one is in the menu too).
 * **Lightweight, looks like Windows.** A dark Wincraft shell written in Rust,
   with a searchable application launcher, taskbar and desktop preferences, on
   the labwc Wayland compositor; KDE Plasma remains available as a fallback.
@@ -37,6 +39,7 @@ crates/
   wincraft-core/      commands, XDG paths, offline service management (OpenRC/dinit/runit/s6)
   wcrun/              the Windows program launcher
   wincraft-setup/     the installer: answer files, planning, execution, text-mode wizard
+  wincraft-installer/ the graphical Setup wizard (GTK 4), which runs wincraft-setup
 data/                 defaults installed by the wincraft package (Plasma layout,
                       file associations, binfmt, NTSYNC, sysctl, branding)
 packaging/wincraft/   PKGBUILD for the wincraft package
@@ -88,8 +91,10 @@ cargo build --release
 target/release/wcrun info setup.exe
 target/release/wcrun run --dry-run setup.exe
 
-# Install Wincraft (in the live session, as root)
-wincraft-setup                                   # interactive
+# Install Wincraft (in the live session)
+wincraft-installer                               # graphical wizard
+target/release/wincraft-installer --demo         # try the wizard anywhere; installs nothing
+sudo wincraft-setup                              # text-mode wizard
 wincraft-setup install --unattend                # find autounattend.toml and install
 wincraft-setup plan --unattend answer.toml       # dry run: every command and file
 wincraft-setup validate answer.toml

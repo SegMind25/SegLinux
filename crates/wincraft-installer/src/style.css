@@ -1,0 +1,99 @@
+/* Wincraft Setup: a blue step list on the left, as in Windows XP Setup. */
+
+.sidebar {
+    background-image: linear-gradient(180deg, #0b3d91 0%, #1d5fc7 70%, #2b74e0 100%);
+    color: #ffffff;
+    padding: 28px 22px;
+    min-width: 230px;
+}
+
+.sidebar .brand {
+    font-size: 21px;
+    font-weight: 800;
+    margin-bottom: 22px;
+}
+
+.sidebar .step {
+    color: alpha(#ffffff, 0.6);
+    font-size: 14px;
+    padding: 5px 0;
+}
+
+.sidebar .step.done {
+    color: alpha(#ffffff, 0.85);
+}
+
+.sidebar .step.current {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.sidebar .hint {
+    color: alpha(#ffffff, 0.8);
+    font-size: 12px;
+}
+
+.page {
+    padding: 30px 36px 12px 36px;
+}
+
+.page-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.bullet {
+    margin-left: 8px;
+}
+
+.field-label {
+    font-weight: 600;
+}
+
+.disk-list checkbutton {
+    padding: 6px 4px;
+}
+
+.note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: alpha(#3584e4, 0.15);
+}
+
+.warning {
+    color: #e5a50a;
+}
+
+.error {
+    color: #ed333b;
+}
+
+.danger {
+    color: #ed333b;
+    font-weight: 700;
+}
+
+.pass {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.dim {
+    opacity: 0.75;
+}
+
+.output {
+    border: 1px solid alpha(currentColor, 0.15);
+    border-radius: 6px;
+}
+
+.message {
+    margin: 0 36px 6px 36px;
+}
+
+.buttonbar {
+    padding: 12px 24px;
+    border-top: 1px solid alpha(currentColor, 0.12);
+}

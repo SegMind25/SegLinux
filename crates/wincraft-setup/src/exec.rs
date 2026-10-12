@@ -78,6 +78,49 @@ impl Progress {
     }
 }
 
+/// What `wincraft-setup install --unattend FILE --progress json` prints, one
+/// JSON object per line. The graphical installer reads these.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "event", rename_all = "lowercase")]
+pub enum Event {
+    Progress {
+        /// Windows configuration pass name (`windowsPE`, `specialize`, ...).
+        pass: String,
+        /// What the pass does, for people.
+        title: String,
+        done: usize,
+        total: usize,
+        description: String,
+    },
+    /// Wincraft is installed.
+    Done,
+    /// Setup stopped.
+    Error { message: String },
+}
+
+impl From<&Progress> for Event {
+    fn from(p: &Progress) -> Event {
+        Event::Progress {
+            pass: p.pass.windows_name().into(),
+            title: p.pass.title().into(),
+            done: p.done,
+            total: p.total,
+            description: p.description.clone(),
+        }
+    }
+}
+
+impl Event {
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("events serialize")
+    }
+
+    /// Parses one line of the JSON progress output; other lines are `None`.
+    pub fn parse(line: &str) -> Option<Event> {
+        serde_json::from_str(line.trim()).ok()
+    }
+}
+
 pub struct Executor<'a> {
     target: PathBuf,
     init: InitSystem,
@@ -360,6 +403,33 @@ pub fn set_key(text: &str, key: &str, value: &str) -> String {
     let mut out = lines.join("\n");
     out.push('\n');
     out
+}
+
+#[cfg(test)]
+mod event_tests {
+    use super::*;
+
+    #[test]
+    fn events_round_trip_as_json_lines() {
+        let p = Progress {
+            pass: Pass::Specialize,
+            done: 3,
+            total: 40,
+            description: "Setting the time zone to \"UTC\"".into(),
+        };
+        let line = Event::from(&p).to_json();
+        assert!(!line.contains('\n'));
+        assert!(line.starts_with(r#"{"event":"progress","pass":"specialize""#));
+        assert_eq!(Event::parse(&line), Some(Event::from(&p)));
+        assert_eq!(Event::parse(r#"{"event":"done"}"#), Some(Event::Done));
+        assert_eq!(
+            Event::parse(r#" {"event":"error","message":"no disk"} "#),
+            Some(Event::Error {
+                message: "no disk".into()
+            })
+        );
+        assert_eq!(Event::parse("Using answer file /tmp/a.toml"), None);
+    }
 }
 
 #[cfg(test)]
