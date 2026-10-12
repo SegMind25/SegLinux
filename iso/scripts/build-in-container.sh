@@ -147,6 +147,8 @@ if [[ $profile == wincraft-lite ]]; then
     echo "$(grep -vc '^#' "$online") packages"
     # Smaller than artools' default zstd, at the cost of a slower live boot.
     export COMPRESSION=xz
+    echo "artools' mksquashfs options:"
+    grep -n -A6 'mksquashfs' "${LIBDIR:-/usr/share/artools/lib}/iso/squash.sh" || true
 fi
 
 if [[ $in_container == true ]]; then
