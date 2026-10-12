@@ -433,6 +433,7 @@ mod tests {
                 firmware: crate::facts::Firmware::Uefi,
                 init: InitSystem::OpenRc,
                 users: vec![],
+                online_packages: 0,
             },
             phases: vec![Phase {
                 pass: Pass::Specialize,

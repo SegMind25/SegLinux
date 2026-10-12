@@ -221,6 +221,8 @@ pub struct Summary {
     pub firmware: Firmware,
     pub init: InitSystem,
     pub users: Vec<String>,
+    /// Packages downloaded during Setup (Lite edition).
+    pub online_packages: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -269,6 +271,13 @@ impl fmt::Display for Plan {
         writeln!(f, "  Firmware:  {}, init system: {}", s.firmware, s.init)?;
         writeln!(f, "  Computer:  {}", s.hostname)?;
         writeln!(f, "  Users:     {}", s.users.join(", "))?;
+        if s.online_packages > 0 {
+            writeln!(
+                f,
+                "  Download:  {} packages (apps, drivers, games); needs a network connection",
+                s.online_packages
+            )?;
+        }
         for phase in &self.phases {
             writeln!(
                 f,
@@ -736,6 +745,19 @@ pub fn build(
             Action::chroot_optional(Cmd::new("pacman-key").args(["--populate", "artix"])),
         ],
     });
+    if !facts.online_packages.is_empty() {
+        sp.push(Step {
+            description: format!(
+                "Downloading Wincraft's apps, drivers and games ({} packages, needs a network connection)",
+                facts.online_packages.len()
+            ),
+            actions: vec![Action::chroot_optional(
+                Cmd::new("pacman")
+                    .args(["-Syu", "--noconfirm", "--needed"])
+                    .args(facts.online_packages.iter().cloned()),
+            )],
+        });
+    }
     if answer.drivers.nvidia == DriverChoice::Auto
         && let Some(gpu) = facts.gpus.iter().find(|g| g.nvidia_open_capable())
     {
@@ -960,6 +982,7 @@ pub fn build(
             firmware: facts.firmware,
             init,
             users: answer.users.iter().map(|u| u.name.clone()).collect(),
+            online_packages: facts.online_packages.len(),
         },
         phases,
     })
@@ -1046,6 +1069,8 @@ mod tests {
             image: Some("/run/artix/bootmnt/LiveOS/rootfs.img".into()),
             oem_dir: None,
             offline_packages: vec![],
+            online_packages: vec![],
+            network: true,
             memory: 4 * GIB,
             gpus: vec![],
             timezones: None,
@@ -1187,6 +1212,28 @@ mod tests {
                 .to_string()
                 .contains("nvidia-open")
         );
+    }
+
+    #[test]
+    fn lite_edition_downloads_the_rest() {
+        let a = answer("");
+        let mut f = facts();
+        f.online_packages = vec!["wine".into(), "steam".into(), "sddm-openrc".into()];
+        let plan = build_plan(&a, &f).unwrap();
+        let text = plan.to_string();
+        assert!(text.contains("Download:  3 packages"));
+        assert!(text.contains(
+            "(new system) $ pacman -Syu --noconfirm --needed wine steam sddm-openrc  # may fail"
+        ));
+        // After the keyring, before the initramfs and the services it installs.
+        let download = text.find("--needed wine").unwrap();
+        assert!(text.find("pacman-key --populate").unwrap() < download);
+        assert!(download < text.find("mkinitcpio -P").unwrap());
+        assert!(download < text.find("Enabling services").unwrap());
+
+        let full = build_plan(&a, &facts()).unwrap().to_string();
+        assert!(!full.contains("Download:"));
+        assert!(!full.contains("--needed wine"));
     }
 
     #[test]

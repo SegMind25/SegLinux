@@ -2,15 +2,18 @@
 # Build the Wincraft ISO. Runs as root on Artix Linux, normally inside the
 # container that iso/build.sh starts.
 #
-#   INIT=openrc|runit|dinit  KERNEL=linux-zen|linux|linux-lts  OUT_DIR=<dir> \
+#   PROFILE=wincraft|wincraft-lite  INIT=openrc|runit|dinit \
+#   KERNEL=linux-zen|linux|linux-lts  OUT_DIR=<dir> \
 #       iso/scripts/build-in-container.sh
 #
 # Steps: build the wincraft package from this checkout into a local pacman
 # repository, point artools at it, check the package lists, run buildiso
-# and copy the ISO (renamed wincraft-*.iso) plus its checksum to OUT_DIR.
+# and copy the ISO (renamed wincraft-*.iso or wincraft-lite-*.iso) plus its
+# checksum to OUT_DIR.
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/../.." && pwd)
+profile=${PROFILE:-wincraft}
 init=${INIT:-openrc}
 kernel=${KERNEL:-linux-zen}
 out=${OUT_DIR:-$repo/iso/out}
@@ -22,10 +25,16 @@ build_user=${BUILD_USER:-builder}
 step() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+case $profile in
+    wincraft | wincraft-lite) ;;
+    *) die "unknown profile '$profile' (wincraft or wincraft-lite)" ;;
+esac
 case $init in
     openrc | runit | dinit) ;;
     *) die "unsupported init system '$init' (Wincraft supports openrc, runit and dinit)" ;;
 esac
+# The Lite live session signs in through OpenRC's agetty (see its profile).
+[[ $profile != wincraft-lite || $init == openrc ]] || die "the Lite edition is built with OpenRC only"
 case $kernel in
     linux | linux-zen | linux-lts) ;;
     *) die "unsupported kernel '$kernel' (linux-zen, linux or linux-lts)" ;;
@@ -33,7 +42,7 @@ esac
 [[ $(id -u) == 0 ]] || die "run as root"
 [[ -f /etc/artix-release ]] || [[ $in_container == true ]] || die "this script must run on Artix Linux (use iso/build.sh for a container build)"
 for cmd in buildiso makepkg repo-add yq cargo; do
-    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools-base artools-iso base-devel rust go-yq gtk4 gtk4-layer-shell labwc wine procps-ng"
+    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools-base artools-iso base-devel rust go-yq gtk4 gtk4-layer-shell labwc procps-ng"
 done
 
 step "Building the wincraft package"
@@ -72,6 +81,13 @@ targets=("$XDG_CONFIG_HOME/artools/pacman.conf.d")
 [[ $in_container == true ]] && targets+=(/usr/share/artools/pacman.conf.d)
 for dir in "${targets[@]}"; do
     install -Dm644 "$repo/iso/pacman.conf.d/$conf" "$dir/$conf"
+    if [[ $profile == wincraft-lite ]]; then
+        # Keep documentation, manuals and translations off the Lite image.
+        # The installed system's own pacman.conf (root-overlay) has no such
+        # rule, so packages installed later are complete.
+        sed -i '/^\[options\]/a NoExtract = usr/share/doc/* usr/share/gtk-doc/* usr/share/help/* usr/share/info/* usr/share/man/*\nNoExtract = usr/share/locale/* !usr/share/locale/locale.alias' \
+            "$dir/$conf"
+    fi
 done
 
 # Stage the profiles so file modes can be fixed without touching the
@@ -83,6 +99,10 @@ cp -a "$repo/iso/iso-profiles" "$workspace/"
 chown -R root:root "$workspace/iso-profiles"
 chmod 0440 "$workspace"/iso-profiles/wincraft/live-overlay/etc/sudoers.d/*
 export WORKSPACE_DIR=$workspace
+# A profile can bring its own shared package list (the Lite edition does).
+if [[ -f $workspace/iso-profiles/$profile/common.yaml ]]; then
+    cp "$workspace/iso-profiles/$profile/common.yaml" "$workspace/iso-profiles/common/common.yaml"
+fi
 
 # Kernel: common.yaml names the stock kernel, which artools expects; swap in
 # the requested one. artools derives the live initramfs' kernel version from
@@ -110,8 +130,19 @@ use_kernel() {
 step "Using the $kernel kernel"
 use_kernel
 
-step "Checking package names ($init, $kernel)"
-"$repo/iso/scripts/check-packages.sh" -i "$init" -k "$kernel"
+step "Checking package names ($profile, $init, $kernel)"
+"$repo/iso/scripts/check-packages.sh" -i "$init" -k "$kernel" -p "$profile"
+if [[ $profile == wincraft-lite ]]; then
+    # Setup downloads the rest of the full edition: its list must resolve too.
+    "$repo/iso/scripts/check-packages.sh" -i "$init" -k "$kernel" -p wincraft
+    step "Listing the packages Setup downloads"
+    online=$workspace/iso-profiles/$profile/root-overlay/usr/share/wincraft/online-packages
+    mkdir -p "$(dirname "$online")"
+    "$repo/iso/scripts/online-packages.sh" -i "$init" -k "$kernel" > "$online"
+    echo "$(grep -vc '^#' "$online") packages"
+    # Smaller than artools' default zstd, at the cost of a slower live boot.
+    export COMPRESSION=xz
+fi
 
 if [[ $in_container == true ]]; then
     modprobe loop 2>/dev/null || true
@@ -121,14 +152,14 @@ if [[ $in_container == true ]]; then
     done
 fi
 
-step "Running buildiso (profile wincraft, init $init, kernel $kernel)"
-buildiso -p wincraft -i "$init"
+step "Running buildiso (profile $profile, init $init, kernel $kernel)"
+buildiso -p "$profile" -i "$init"
 
 step "Collecting the ISO"
-iso=$(find "$workspace/iso/wincraft" -maxdepth 1 -name '*.iso' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
+iso=$(find "$workspace/iso/$profile" -maxdepth 1 -name '*.iso' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
 [[ -n $iso ]] || die "buildiso did not produce an ISO"
 name=$(basename "$iso")
-name=${name/artix-wincraft/wincraft}
+name=${name/"artix-$profile"/$profile}
 mkdir -p "$out"
 mv "$iso" "$out/$name"
 (cd "$out" && sha256sum "$name" > "$name.sha256")

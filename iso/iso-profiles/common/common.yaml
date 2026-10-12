@@ -13,6 +13,8 @@ packages-base:
   - intel-ucode
   - amd-ucode
   - mkinitcpio
+  # buildiso copies its memtest.bin into the ISO's boot menu.
+  - memtest86+
   - grub
   - efibootmgr
   - os-prober

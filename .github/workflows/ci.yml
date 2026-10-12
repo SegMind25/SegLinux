@@ -45,11 +45,13 @@ jobs:
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart \
             data/desktop/wincraft-session data/desktop/wincraft-gaming-session \
-            data/desktop/labwc/autostart
+            data/desktop/labwc/autostart data/system/wincraft-terminal
+          shellcheck -s bash iso/iso-profiles/wincraft-lite/live-overlay/etc/skel/.bash_profile
       - name: YAML, JSON and XML syntax
         run: |
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
-            iso/iso-profiles/common/common.yaml iso/iso-profiles/wincraft/profile.yaml
+            iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
+            iso/iso-profiles/wincraft-lite/common.yaml
           python3 -m json.tool data/plasma/look-and-feel/org.wincraft.desktop/metadata.json > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml
       - name: Desktop entries
@@ -59,13 +61,18 @@ jobs:
             iso/iso-profiles/wincraft/live-overlay/usr/share/applications/*.desktop
 
   packages:
-    name: Artix package names (${{ matrix.init }}, linux-zen)
+    name: Artix package names (${{ matrix.profile }}, ${{ matrix.init }}, linux-zen)
     runs-on: ubuntu-latest
     container: docker.io/artixlinux/artixlinux:base
     strategy:
       fail-fast: false
       matrix:
+        profile: [wincraft]
         init: [openrc, runit, dinit]
+        include:
+          # The Lite edition is OpenRC only.
+          - profile: wincraft-lite
+            init: openrc
     steps:
       - uses: actions/checkout@v4
       - name: Install pacman tooling
@@ -73,4 +80,7 @@ jobs:
           pacman-key --init
           pacman-key --populate artix
           pacman -Sy --noconfirm --needed go-yq
-      - run: iso/scripts/check-packages.sh -i ${{ matrix.init }} -k linux-zen
+      - run: iso/scripts/check-packages.sh -p ${{ matrix.profile }} -i ${{ matrix.init }} -k linux-zen
+      - name: Packages the Lite edition downloads during Setup
+        if: matrix.profile == 'wincraft-lite'
+        run: iso/scripts/online-packages.sh -i openrc -k linux-zen

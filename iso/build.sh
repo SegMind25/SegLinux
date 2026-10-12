@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 # Build the Wincraft ISO.
 #
-#   iso/build.sh [-i openrc|runit|dinit] [-k linux-zen|linux|linux-lts]
+#   iso/build.sh [--lite] [-i openrc|runit|dinit] [-k linux-zen|linux|linux-lts]
 #                [-e docker|podman] [--native]
 #
-# Defaults: OpenRC and the linux-zen kernel. By default the build runs in a
-# privileged Artix container (docker or podman), so any Linux host works.
-# With --native it runs directly on an Artix host (see docs/building.md).
+# Defaults: the full edition, OpenRC and the linux-zen kernel. --lite builds
+# the small Lite edition (OpenRC only), whose Setup downloads the apps.
+# The build runs in a privileged Artix container (docker or podman), so any
+# Linux host works; --native runs it on an Artix host (docs/building.md).
 # The ISO and its .sha256 end up in iso/out/.
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
+profile=wincraft
 init=openrc
 kernel=linux-zen
 engine=
 native=false
 
-usage() { sed -n '2,11s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,12s/^# \{0,1\}//p' "$0"; }
 
 while (($#)); do
     case $1 in
+        --lite) profile=wincraft-lite; shift ;;
+        -p | --profile) profile=$2; shift 2 ;;
         -i | --init) init=$2; shift 2 ;;
         -k | --kernel) kernel=$2; shift 2 ;;
         -e | --engine) engine=$2; shift 2 ;;
@@ -29,10 +33,18 @@ while (($#)); do
     esac
 done
 
+case $profile in
+    wincraft | wincraft-lite) ;;
+    *) echo "error: profile must be wincraft or wincraft-lite" >&2; exit 2 ;;
+esac
 case $init in
     openrc | runit | dinit) ;;
     *) echo "error: init must be openrc, runit or dinit" >&2; exit 2 ;;
 esac
+if [[ $profile == wincraft-lite && $init != openrc ]]; then
+    echo "error: the Lite edition is built with OpenRC only" >&2
+    exit 2
+fi
 case $kernel in
     linux | linux-zen | linux-lts) ;;
     *) echo "error: kernel must be linux-zen, linux or linux-lts" >&2; exit 2 ;;
@@ -45,7 +57,7 @@ if $native; then
             exit 1
         fi
     done
-    exec sudo env INIT="$init" KERNEL="$kernel" OUT_DIR="$repo/iso/out" BUILD_USER="$(id -un)" \
+    exec sudo env PROFILE="$profile" INIT="$init" KERNEL="$kernel" OUT_DIR="$repo/iso/out" BUILD_USER="$(id -un)" \
         OWNER_UID="$(id -u)" OWNER_GID="$(id -g)" \
         "$repo/iso/scripts/build-in-container.sh"
 fi
@@ -74,6 +86,7 @@ image=wincraft-iso-builder
     -v "$repo:/src" \
     -v wincraft-artools:/var/lib/artools \
     -v wincraft-pacman-cache:/var/cache/pacman/pkg \
+    -e PROFILE="$profile" \
     -e INIT="$init" \
     -e KERNEL="$kernel" \
     -e OUT_DIR=/src/iso/out \

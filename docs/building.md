@@ -14,6 +14,7 @@ cd Wincraft
 ./iso/build.sh                  # OpenRC + linux-zen (default)
 ./iso/build.sh -i runit         # runit (or -i dinit)
 ./iso/build.sh -k linux         # stock Arch kernel instead of linux-zen
+./iso/build.sh --lite           # the small Lite edition (see below)
 ```
 
 The ISO and its checksum are written to `iso/out/`, for example
@@ -64,7 +65,8 @@ connection (about 4 GB of downloads) and 30-90 minutes.
 
    ```sh
    sudo modprobe loop
-   sudo ./iso/build.sh                 # OpenRC + linux-zen
+   sudo ./iso/build.sh                 # full edition: OpenRC + linux-zen
+   sudo ./iso/build.sh --lite          # Lite edition (smaller download)
    # other choices: sudo ./iso/build.sh -i runit     or     -k linux
    ```
 
@@ -83,10 +85,40 @@ Windows PCs: use a Linux virtual machine, or GitHub Actions (next section);
 Docker Desktop on WSL2 does not reliably provide the loop devices the build
 needs.
 
+## The Lite edition
+
+The full edition is a large image: the Plasma fallback, Steam, Wine,
+Firefox and every driver and firmware file are on it. The **Lite** edition
+(`iso/iso-profiles/wincraft-lite`) is the smallest image that still boots
+the Wincraft desktop, aiming at 500-600 MB:
+
+| | Full | Lite |
+|---|---|---|
+| Live desktop | Wincraft (Rust) on labwc, Plasma fallback, SDDM | Wincraft (Rust) on labwc, signed in on tty1 |
+| Terminal | Konsole | foot |
+| Firmware | all (`linux-firmware`) | AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
+| Wine, Steam, Firefox, Lutris, drivers... | on the image | **downloaded by Setup** |
+| Init systems | OpenRC, runit, dinit | OpenRC |
+| Image compression | zstd (artools default) | xz |
+| Manuals, documentation, translations | included | left out of the image |
+
+Setup on the Lite image installs the same system as the full edition: after
+copying the small image it runs `pacman -Syu` for everything else (the list
+is generated at build time by `iso/scripts/online-packages.sh` into
+`/usr/share/wincraft/online-packages`), so **installing Lite needs an
+internet connection** (wired networks connect by themselves; for Wi-Fi use
+*Network* in the panel, or `nmtui`). Setup's summary warns when there is no
+network. Without one, the installed system boots to a text login: sign in
+and run `wincraft-session`, then install the rest later with
+`sudo pacman -Syu --needed $(grep -v '^#' /usr/share/wincraft/online-packages)`.
+
+The size of each build is in its release notes.
+
 ## Building on GitHub instead
 
-Actions → **ISO** → *Run workflow*, pushing a `v*` tag, or pushing a commit
-whose message contains `[build iso]` builds the ISO on GitHub's servers
+Actions → **ISO** → *Run workflow*, pushing a `v*` tag (both editions), or
+pushing a commit whose message contains `[build iso]` (full edition),
+`[build lite iso]` (Lite edition) or both builds the ISO on GitHub's servers
 (OpenRC and linux-zen unless chosen otherwise in *Run workflow*) and
 publishes it under **Releases** as a pre-release. ISOs over 2 GB are split
 into `.part00`, `.part01`, ... files; join them with
@@ -111,7 +143,9 @@ go-yq) and runs `iso/scripts/build-in-container.sh` in it, which:
 5. Runs `iso/scripts/check-packages.sh`: every package name must exist and
    each layer must resolve, so a typo fails in seconds instead of after
    half an hour.
-6. Runs `buildiso -p wincraft -i <init>`, which builds:
+6. Runs `buildiso -p wincraft -i <init>` (`-p wincraft-lite` for Lite,
+   after copying its own `common.yaml` over the shared one and writing the
+   download list), which builds:
    * **rootfs** (`LiveOS/rootfs.img`): `common.yaml`'s base packages, the
      profile's `rootfs.packages`, and `root-overlay/`. This is the system
      `wincraft-setup` installs.
@@ -127,8 +161,8 @@ go-yq) and runs `iso/scripts/build-in-container.sh` in it, which:
 
 ```sh
 sudo pacman -Syu --needed artools-base artools-iso base-devel rust go-yq squashfs-tools \
-  gtk4 gtk4-layer-shell labwc wine procps-ng libisoburn mtools dosfstools grub sudo
-./iso/build.sh --native -i openrc
+  gtk4 gtk4-layer-shell labwc procps-ng libisoburn mtools dosfstools grub sudo
+./iso/build.sh --native -i openrc        # add --lite for the Lite edition
 ```
 
 The build must run with administrator privileges. Codex cannot enter your
@@ -157,7 +191,8 @@ Plasma remains selectable in SDDM as a fallback while the Rust desktop matures.
 * **An answer file baked into the ISO**: add
   `live-overlay/etc/wincraft/autounattend.toml`.
 * **Check package names** without building, on Artix or in the container:
-  `iso/scripts/check-packages.sh -i openrc`.
+  `iso/scripts/check-packages.sh -i openrc` (add `-p wincraft-lite` for
+  the Lite edition).
 
 ## Testing in QEMU
 

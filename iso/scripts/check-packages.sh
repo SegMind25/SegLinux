@@ -24,8 +24,10 @@ while getopts "i:k:p:c:h" opt; do
     esac
 done
 
-common=$iso_dir/iso-profiles/common/common.yaml
 prof=$iso_dir/iso-profiles/$profile/profile.yaml
+# A profile can bring its own shared package list (the Lite edition does).
+common=$iso_dir/iso-profiles/$profile/common.yaml
+[[ -f $common ]] || common=$iso_dir/iso-profiles/common/common.yaml
 [[ -f $prof ]] || { echo "no profile at $prof" >&2; exit 1; }
 command -v yq >/dev/null || { echo "yq (go-yq) is required" >&2; exit 1; }
 

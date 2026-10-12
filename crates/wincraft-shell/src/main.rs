@@ -172,16 +172,18 @@ fn background(config: &Config) -> gtk::Overlay {
     shortcuts.set_margin_top(30);
     for (label, icon, command) in [
         ("Home", "user-home-symbolic", "dolphin"),
-        ("Terminal", "utilities-terminal-symbolic", "konsole"),
+        ("Terminal", "utilities-terminal-symbolic", TERMINAL),
     ] {
-        shortcuts.append(&command_button(label, icon, command, &[]));
+        if installed(command) {
+            shortcuts.append(&command_button(label, icon, command, &[]));
+        }
     }
     if std::path::Path::new("/usr/lib/wincraft/live-autostart").exists() {
         shortcuts.append(&command_button(
             "Install Wincraft",
             "system-software-install-symbolic",
-            "konsole",
-            &["--hide-menubar", "-e", "sudo", "/usr/bin/wincraft-setup"],
+            TERMINAL,
+            &["sudo", "/usr/bin/wincraft-setup"],
         ));
     }
     brand.append(&shortcuts);
@@ -204,9 +206,13 @@ fn panel(app: &gtk::Application, menus: &Menus, preview: bool) -> gtk::Box {
     for (label, icon, command) in [
         ("Files", "system-file-manager-symbolic", "dolphin"),
         ("Web browser", "web-browser-symbolic", "firefox"),
-        ("Terminal", "utilities-terminal-symbolic", "konsole"),
+        ("Terminal", "utilities-terminal-symbolic", TERMINAL),
         ("Steam", "steam", "steam"),
     ] {
+        // The Lite edition installs most applications later.
+        if !installed(command) {
+            continue;
+        }
         let button = command_button("", icon, command, &[]);
         button.set_tooltip_text(Some(label));
         bar.append(&button);
@@ -332,7 +338,9 @@ fn launcher(_app: &gtk::Application) -> gtk::Popover {
     content.append(&scroll);
     content.append(&empty);
     let footer = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    footer.append(&command_button("Files", "folder-symbolic", "dolphin", &[]));
+    if installed("dolphin") {
+        footer.append(&command_button("Files", "folder-symbolic", "dolphin", &[]));
+    }
     footer.append(&command_button(
         "Settings",
         "preferences-system-symbolic",
@@ -355,12 +363,19 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
     let heading = gtk::Label::new(Some("Quick settings"));
     heading.add_css_class("heading");
     content.append(&heading);
+    // Without the graphical connection editor (Lite edition), nmtui runs in
+    // a terminal.
+    let (network, network_args) = if installed("nm-connection-editor") {
+        ("nm-connection-editor", vec![])
+    } else {
+        (TERMINAL, vec!["nmtui"])
+    };
     for (label, icon, command, args) in [
         (
             "Network connections",
             "network-wireless-symbolic",
-            "nm-connection-editor",
-            vec![],
+            network,
+            network_args,
         ),
         ("Sound", "audio-volume-high-symbolic", "pavucontrol", vec![]),
         (
@@ -376,6 +391,9 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
             vec!["-c", "090f1d"],
         ),
     ] {
+        if !installed(command) {
+            continue;
+        }
         let button = command_button(label, icon, command, &args);
         if preview && command == "swaylock" {
             button.set_sensitive(false);
@@ -437,6 +455,13 @@ fn command_button(label: &str, icon: &str, command: &str, args: &[&str]) -> gtk:
         }
     });
     button
+}
+
+/// Opens whichever terminal emulator is installed (see data/system/wincraft-terminal).
+const TERMINAL: &str = "wincraft-terminal";
+
+fn installed(command: &str) -> bool {
+    glib::find_program_in_path(command).is_some()
 }
 
 fn run(command: &str, args: &[String]) {

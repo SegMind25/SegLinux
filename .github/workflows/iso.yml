@@ -3,6 +3,11 @@ name: ISO
 on:
   workflow_dispatch:
     inputs:
+      edition:
+        description: Edition (lite is OpenRC only)
+        type: choice
+        options: [full, lite]
+        default: full
       init:
         description: Init system
         type: choice
@@ -17,7 +22,8 @@ on:
         description: Publish the ISO as a GitHub release
         type: boolean
         default: true
-  # Version tags, and any push whose commit message contains "[build iso]".
+  # Version tags (both editions), and any push whose commit message contains
+  # "[build iso]" (full edition) and/or "[build lite iso]" (Lite edition).
   push:
     tags: ["v*"]
     branches: ["**"]
@@ -27,14 +33,21 @@ permissions:
 
 jobs:
   iso:
-    name: Build the Wincraft ISO (${{ inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
+    name: Build the Wincraft ISO (${{ matrix.edition }}, ${{ matrix.edition == 'lite' && 'openrc' || inputs.init || 'openrc' }}, ${{ inputs.kernel || 'linux-zen' }})
     if: >-
       github.event_name != 'push' || github.ref_type == 'tag' ||
-      contains(github.event.head_commit.message, '[build iso]')
+      contains(github.event.head_commit.message, '[build iso]') ||
+      contains(github.event.head_commit.message, '[build lite iso]')
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.edition) || github.ref_type == 'tag' && '["full","lite"]' || contains(github.event.head_commit.message, '[build lite iso]') && (contains(github.event.head_commit.message, '[build iso]') && '["full","lite"]' || '["lite"]') || '["full"]') }}
     env:
-      INIT: ${{ inputs.init || 'openrc' }}
+      EDITION: ${{ matrix.edition }}
+      # The Lite edition is OpenRC only.
+      INIT: ${{ matrix.edition == 'lite' && 'openrc' || inputs.init || 'openrc' }}
       KERNEL: ${{ inputs.kernel || 'linux-zen' }}
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +59,10 @@ jobs:
       - name: Load the loop module
         run: sudo modprobe loop
       - name: Build
-        run: ./iso/build.sh -e docker -i "$INIT" -k "$KERNEL"
+        run: |
+          edition=()
+          [[ $EDITION == lite ]] && edition=(--lite)
+          ./iso/build.sh "${edition[@]}" -e docker -i "$INIT" -k "$KERNEL"
       - name: Show the result
         run: ls -l iso/out/ && cat iso/out/*.sha256
       # Workflow artifacts would exceed the Actions storage quota of private
@@ -62,10 +78,13 @@ jobs:
           if [[ $GITHUB_REF_TYPE == tag ]]; then
             tag=$GITHUB_REF_NAME
           else
-            tag="iso-$(date -u +%Y%m%d)-$INIT-$KERNEL-run$GITHUB_RUN_NUMBER"
+            tag="iso-$(date -u +%Y%m%d)-$EDITION-$INIT-$KERNEL-run$GITHUB_RUN_NUMBER"
           fi
+          title="Wincraft $tag"
+          [[ $EDITION == lite ]] && title="Wincraft Lite $tag"
+          size=$(stat -c %s "$iso")
           assets=("$iso.sha256")
-          if (( $(stat -c %s "$iso") > 2000000000 )); then
+          if (( size > 2000000000 )); then
             split -b 1900M -d -a 2 "$iso" "$iso.part"
             rm "$iso"
             assets+=("$iso".part*)
@@ -75,7 +94,8 @@ jobs:
             get="(single file)"
           fi
           cat > notes.md <<EOF
-          Wincraft live/installer ISO built from $GITHUB_SHA ($INIT, $KERNEL).
+          Wincraft live/installer ISO, $EDITION edition, built from $GITHUB_SHA ($INIT, $KERNEL).
+          Size: $(numfmt --to=iec --suffix=B "$size") ($size bytes).
 
           Download every asset, then:
 
@@ -87,6 +107,8 @@ jobs:
           Write it to a USB stick with \`sudo dd if=$iso of=/dev/sdX bs=4M status=progress oflag=sync\`
           (or Ventoy), disable Secure Boot and boot from it. See docs/building.md.
           EOF
+          # A version tag builds both editions into one release.
           gh release create "$tag" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Wincraft $tag" --notes-file notes.md --prerelease
+            --title "$title" --notes-file notes.md --prerelease ||
+            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY"

@@ -14,6 +14,11 @@ use crate::disk::{self, Disk};
 /// Where Artix's live initramfs mounts the install media.
 pub const BOOT_MOUNT: &str = "/run/artix/bootmnt";
 
+/// Packages the Lite edition leaves out of its image and Setup downloads
+/// into the new system: everything else the full edition ships. One name
+/// per line; written by the ISO build (iso/scripts/online-packages.sh).
+pub const ONLINE_PACKAGES: &str = "/usr/share/wincraft/online-packages";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum Firmware {
     Uefi,
@@ -98,6 +103,10 @@ pub struct Facts {
     pub image: Option<PathBuf>,
     pub oem_dir: Option<PathBuf>,
     pub offline_packages: Vec<PathBuf>,
+    /// Packages to download during Setup (Lite edition, see [`ONLINE_PACKAGES`]).
+    pub online_packages: Vec<String>,
+    /// Whether the live system has a default network route.
+    pub network: bool,
     pub memory: u64,
     pub gpus: Vec<Gpu>,
     /// Known values for validation and pick lists; `None` = not checked.
@@ -125,6 +134,10 @@ impl Facts {
             image: find_image(Path::new("/run/artix")),
             oem_dir: Some(boot.join("wincraft/oem")).filter(|p| p.is_dir()),
             offline_packages: list_packages(&boot.join("wincraft/packages")),
+            online_packages: fs::read_to_string(ONLINE_PACKAGES)
+                .map(|t| parse_package_list(&t))
+                .unwrap_or_default(),
+            network: has_default_route(),
             memory: memory_bytes().unwrap_or(0),
             gpus: list_gpus(Path::new("/sys/bus/pci/devices")),
             timezones: Some(list_timezones(Path::new("/usr/share/zoneinfo")))
@@ -236,6 +249,45 @@ pub fn list_packages(dir: &Path) -> Vec<PathBuf> {
         .unwrap_or_default();
     pkgs.sort();
     pkgs
+}
+
+/// Package names, one per line; `#` starts a comment. Anything that is not
+/// a valid pacman package name is dropped.
+pub fn parse_package_list(text: &str) -> Vec<String> {
+    let valid = |name: &str| {
+        !name.starts_with(['-', '.'])
+            && name
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "@._+-".contains(c))
+    };
+    let mut names: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let name = line.split('#').next().unwrap_or_default().trim();
+        if !name.is_empty() && valid(name) && !names.iter().any(|n| n == name) {
+            names.push(name.to_string());
+        }
+    }
+    names
+}
+
+fn has_default_route() -> bool {
+    let v4 = fs::read_to_string("/proc/net/route").unwrap_or_default();
+    let v6 = fs::read_to_string("/proc/net/ipv6_route").unwrap_or_default();
+    parse_default_route(&v4, &v6)
+}
+
+/// Whether `/proc/net/route` or `/proc/net/ipv6_route` has a default route
+/// (destination 0/0) on an interface other than loopback.
+pub fn parse_default_route(route: &str, ipv6_route: &str) -> bool {
+    let v4 = route.lines().skip(1).any(|line| {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        f.len() > 7 && f[0] != "lo" && f[1] == "00000000" && f[7] == "00000000"
+    });
+    let v6 = ipv6_route.lines().any(|line| {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        f.len() == 10 && f[9] != "lo" && f[0].bytes().all(|b| b == b'0') && f[1] == "00"
+    });
+    v4 || v6
 }
 
 pub fn memory_bytes() -> Option<u64> {
@@ -393,6 +445,37 @@ fn collect_removable(devices: &serde_json::Value, parent_removable: bool, out: &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn package_lists() {
+        let text = "# generated\nwine\nsteam # games\n\n  lib32-mesa  \nwine\nBad Name\n-rf\nqt6-base\nlibc++\n";
+        assert_eq!(
+            parse_package_list(text),
+            vec!["wine", "steam", "lib32-mesa", "qt6-base", "libc++"]
+        );
+        assert!(parse_package_list("").is_empty());
+    }
+
+    #[test]
+    fn default_routes() {
+        let header =
+            "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n";
+        let wired = format!(
+            "{header}enp1s0\t00000000\t0102A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\nenp1s0\t0002A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0\n"
+        );
+        let local_only =
+            format!("{header}enp1s0\t0002A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0\n");
+        let zero = "00000000000000000000000000000000";
+        let v6_default = format!(
+            "{zero} 00 {zero} 00 fe800000000000000000000000000001 00000400 00000001 00000000 00000003 wlan0\n"
+        );
+        let v6_lo = format!("{zero} 00 {zero} 00 {zero} ffffffff 00000001 00000000 00200200 lo\n");
+        assert!(parse_default_route(&wired, ""));
+        assert!(!parse_default_route(&local_only, ""));
+        assert!(!parse_default_route(header, &v6_lo));
+        assert!(parse_default_route(&local_only, &v6_default));
+        assert!(!parse_default_route("", ""));
+    }
 
     #[test]
     fn meminfo() {

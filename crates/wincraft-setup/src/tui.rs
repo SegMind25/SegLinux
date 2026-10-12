@@ -679,6 +679,14 @@ impl App {
             .take_while(|l| !l.starts_with("=="))
             .map(|l| Line::from(l.to_string()))
             .collect();
+        if plan.summary.online_packages > 0 && !self.facts.network {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "No network connection: Setup cannot download the apps, drivers and games. \
+                 Press F3, connect (Network in the panel, or nmtui in a terminal) and start Setup again.",
+                Style::new().fg(Color::Yellow).bg(BG),
+            )));
+        }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             format!(
@@ -810,6 +818,8 @@ mod tests {
             image: Some("/run/artix/bootmnt/LiveOS/rootfs.img".into()),
             oem_dir: None,
             offline_packages: vec![],
+            online_packages: vec![],
+            network: true,
             memory: 8 * GIB,
             gpus: vec![],
             timezones: Some(

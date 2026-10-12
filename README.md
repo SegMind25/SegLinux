@@ -43,7 +43,8 @@ packaging/wincraft/   PKGBUILD for the wincraft package
 iso/
   build.sh            builds the ISO (container or native Artix)
   Containerfile       Artix build environment
-  iso-profiles/       artools profiles: common.yaml + wincraft/profile.yaml and overlays
+  iso-profiles/       artools profiles: common.yaml, wincraft/ (full) and
+                      wincraft-lite/ (small image), with their overlays
   pacman.conf.d/      pacman configuration used by buildiso
   scripts/            build and package-check scripts
 docs/                 design notes and guides
@@ -54,10 +55,14 @@ docs/                 design notes and guides
 ```sh
 ./iso/build.sh                 # OpenRC + linux-zen (recommended)
 ./iso/build.sh -i runit        # or runit / dinit; -k linux for the stock kernel
+./iso/build.sh --lite          # Lite edition: ~500-600 MB, Setup downloads the apps
 ```
 
 Runs in a privileged Artix container (docker or podman) on any Linux host
-and writes `iso/out/wincraft-*.iso`. See [docs/building.md](docs/building.md)
+and writes `iso/out/wincraft-*.iso`. The Lite edition boots the same Rust
+desktop from a much smaller image and installs the same system, downloading
+Wine, Steam, Firefox and the drivers during Setup (so it needs internet to
+install). See [docs/building.md](docs/building.md)
 for step-by-step instructions for your PC, native builds, customisation and
 testing in QEMU. Ready-made ISOs are built by the **ISO** workflow and
 published under Releases.

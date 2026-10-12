@@ -17,7 +17,7 @@
     <default />
     <keybind key="W-space"><action name="Execute" command="gapplication action org.wincraft.Shell menu" /></keybind>
     <keybind key="W-e"><action name="Execute" command="dolphin" /></keybind>
-    <keybind key="W-Return"><action name="Execute" command="konsole" /></keybind>
+    <keybind key="W-Return"><action name="Execute" command="wincraft-terminal" /></keybind>
     <keybind key="W-l"><action name="Execute" command="swaylock -c 090f1d" /></keybind>
     <keybind key="W-d"><action name="ToggleShowDesktop" /></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>

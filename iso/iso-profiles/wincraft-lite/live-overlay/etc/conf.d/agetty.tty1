@@ -1,0 +1,4 @@
+# Wincraft Lite live session: sign the live user in on tty1 automatically,
+# once artix-live has created the account.
+agetty_options="--autologin wincraft --noclear"
+rc_after="artix-live"

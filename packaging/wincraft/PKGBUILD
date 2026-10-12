@@ -6,19 +6,23 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Wincraft: lightweight Rust desktop, Windows program and game launcher, installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
 # No license has been chosen for the Wincraft repository yet.
 license=('LicenseRef-Wincraft-unspecified')
-depends=('gcc-libs' 'glibc' 'wine' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
+# Wine is optional so that the Lite edition's image stays small; its Setup
+# downloads Wine with the rest of the full edition.
+depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
 makedepends=('cargo' 'pkgconf')
 optdepends=(
+    'wine: run Windows programs (wcrun)'
     'winetricks: install DXVK, VKD3D-Proton and Microsoft runtimes into prefixes'
     'steam: Proton for games'
     'dosbox: 16-bit DOS programs'
-    'konsole: start the installer from the live desktop'
+    'konsole: terminal (wincraft-terminal), full edition'
+    'foot: terminal (wincraft-terminal), Lite edition'
     'squashfs-tools: wincraft-setup (applies the system image)'
     'grub: wincraft-setup (boot manager)'
     'efibootmgr: wincraft-setup on UEFI machines'
@@ -84,6 +88,7 @@ package() {
     # Wincraft Rust desktop and its assets.
     install -Dm755 target/release/wincraft-shell "$pkgdir/usr/bin/wincraft-shell"
     install -Dm755 "$data/desktop/wincraft-session" "$pkgdir/usr/bin/wincraft-session"
+    install -Dm755 "$data/system/wincraft-terminal" "$pkgdir/usr/bin/wincraft-terminal"
     install -Dm644 "$data/desktop/wincraft.desktop" "$pkgdir/usr/share/wayland-sessions/wincraft.desktop"
     install -Dm755 "$data/desktop/wincraft-gaming-session" "$pkgdir/usr/bin/wincraft-gaming-session"
     install -Dm644 "$data/desktop/wincraft-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/wincraft-gaming.desktop"
