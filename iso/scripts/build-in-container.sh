@@ -171,4 +171,24 @@ mv "$iso" "$out/$name"
 if [[ -n ${OWNER_UID:-} ]]; then
     chown "$OWNER_UID:${OWNER_GID:-$OWNER_UID}" "$out" "$out/$name" "$out/$name.sha256"
 fi
-step "Done: $out/$name"
+
+# Where the space goes, for keeping the images small. Informational only.
+report_sizes() {
+    echo "Largest files on the image:"
+    xorriso -indev "$out/$name" -find / -type f -exec lsdl -- 2>/dev/null |
+        awk '$5 > 1048576 {printf "%9.1f MiB  %s\n", $5 / 1048576, $NF}' | sort -rn | head -15
+    local db=$artools_dir/buildiso/$profile/artix/rootfs/var/lib/pacman
+    [[ -d $db/local ]] || return 0
+    echo "Largest packages of the installed system (uncompressed):"
+    pacman --dbpath "$db" -Qi | awk '
+        /^Name / { name = $3 }
+        /^Installed Size/ {
+            unit = $5; size = $4
+            if (unit == "B") size /= 1048576; else if (unit == "KiB") size /= 1024; else if (unit == "GiB") size *= 1024
+            total += size; printf "%9.1f MiB  %s\n", size, name
+        }
+        END { printf "%9.1f MiB  TOTAL\n", total }' | sort -rn | head -40
+}
+step "What takes the space"
+report_sizes || true
+step "Done: $out/$name ($(du -h "$out/$name" | cut -f1))"
