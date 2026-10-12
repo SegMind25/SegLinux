@@ -40,7 +40,19 @@ rootfs:
     # buildiso copies the GRUB theme from rootfs.
     - artix-grub-theme
 
-    # Desktop: KDE Plasma laid out like Windows (Windows counterpart on the right)
+    # Wincraft's Rust shell uses labwc for Wayland window management.
+    - labwc
+    - gtk4
+    - gtk4-layer-shell
+    - polkit-gnome
+    - swaylock
+    - pavucontrol
+    - network-manager-applet
+    - wdisplays
+    - xdg-desktop-portal-wlr
+    - xdg-desktop-portal-gtk
+
+    # Plasma remains available as a fallback session during shell development.
     - plasma-desktop               # desktop, taskbar, Start menu
     - plasma-nm                    # network flyout
     - plasma-pa                    # volume flyout

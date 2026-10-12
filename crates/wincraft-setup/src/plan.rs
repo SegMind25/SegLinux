@@ -843,7 +843,7 @@ pub fn build(
             actions: vec![Action::write(
                 "/etc/sddm.conf.d/20-wincraft-autologin.conf",
                 format!(
-                    "[Autologin]\nUser={}\nSession=plasma\nRelogin=false\n",
+                    "[Autologin]\nUser={}\nSession=wincraft.desktop\nRelogin=false\n",
                     u.name
                 ),
             )],
@@ -1024,6 +1024,7 @@ mod tests {
         assert!(text.contains("| UUID=0000-0001  /boot/efi  vfat"));
         assert!(text.contains("write /etc/sudoers.d/10-wincraft (mode 440)"));
         assert!(text.contains("User=alice"));
+        assert!(text.contains("Session=wincraft.desktop"));
         assert!(text.contains("== Setting up user accounts (oobeSystem)"));
 
         let actions = all_actions(&plan);

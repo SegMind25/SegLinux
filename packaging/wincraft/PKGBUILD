@@ -6,14 +6,14 @@
 
 pkgname=wincraft
 pkgver=0.1.0
-pkgrel=1
-pkgdesc="Wincraft: Windows program launcher (wcrun), installer (wincraft-setup) and Windows-style desktop defaults"
+pkgrel=2
+pkgdesc="Wincraft: Rust desktop shell, Windows program launcher and installer"
 arch=('x86_64')
 url="https://github.com/SegMind25/Wincraft"
 # No license has been chosen for the Wincraft repository yet.
 license=('LicenseRef-Wincraft-unspecified')
-depends=('gcc-libs' 'glibc' 'wine' 'procps-ng')
-makedepends=('cargo')
+depends=('gcc-libs' 'glibc' 'wine' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
+makedepends=('cargo' 'pkgconf')
 optdepends=(
     'winetricks: install DXVK, VKD3D-Proton and Microsoft runtimes into prefixes'
     'steam: Proton for games'
@@ -25,6 +25,13 @@ optdepends=(
     'dosfstools: wincraft-setup (EFI system partition)'
     'btrfs-progs: wincraft-setup with btrfs'
     'xfsprogs: wincraft-setup with xfs'
+    'swaylock: screen locking in the Rust desktop'
+    'pavucontrol: sound controls in the Rust desktop'
+    'network-manager-applet: network connection editor'
+    'wdisplays: Wayland display settings'
+    'polkit-gnome: authentication agent in the Wincraft session'
+    'xdg-desktop-portal-wlr: screen sharing in the Rust desktop'
+    'xdg-desktop-portal-gtk: desktop file and URI portals'
 )
 backup=(
     'etc/wincraft/wcrun.toml'
@@ -70,6 +77,17 @@ package() {
     install -Dm755 target/release/wincraft-setup "$pkgdir/usr/bin/wincraft-setup"
     install -Dm644 crates/wincraft-setup/autounattend.example.toml \
         "$pkgdir/usr/share/wincraft/autounattend.example.toml"
+
+    # Wincraft Rust desktop and its assets.
+    install -Dm755 target/release/wincraft-shell "$pkgdir/usr/bin/wincraft-shell"
+    install -Dm755 "$data/desktop/wincraft-session" "$pkgdir/usr/bin/wincraft-session"
+    install -Dm644 "$data/desktop/wincraft.desktop" "$pkgdir/usr/share/wayland-sessions/wincraft.desktop"
+    install -Dm644 "$data/desktop/shell.toml" "$pkgdir/usr/share/wincraft/shell.example.toml"
+    install -Dm644 "$data/desktop/wincraft-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/wincraft-portals.conf"
+    install -Dm755 "$data/desktop/labwc/autostart" "$pkgdir/usr/share/wincraft/labwc/autostart"
+    install -Dm644 -t "$pkgdir/usr/share/wincraft/labwc" "$data/desktop/labwc/rc.xml" "$data/desktop/labwc/themerc-override"
+    install -Dm644 "$data/artwork/wincraft-dark.png" "$pkgdir/usr/share/backgrounds/wincraft/wincraft-dark.png"
+    install -Dm644 "$data/artwork/wincraft.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/wincraft.svg"
 
     # Windows-style Plasma desktop
     local lnf=usr/share/plasma/look-and-feel/org.wincraft.desktop

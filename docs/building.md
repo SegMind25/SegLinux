@@ -56,9 +56,21 @@ go-yq) and runs `iso/scripts/build-in-container.sh` in it, which:
 ## Building natively on Artix
 
 ```sh
-sudo pacman -S --needed artools base-devel rust go-yq squashfs-tools
+sudo pacman -Syu --needed artools-base artools-iso base-devel rust go-yq squashfs-tools \
+  gtk4 gtk4-layer-shell labwc wine procps-ng libisoburn mtools dosfstools grub sudo
 ./iso/build.sh --native -i openrc
 ```
+
+The build must run with administrator privileges. Codex cannot enter your
+sudo password. If native tooling is missing, install the prerequisites above
+in your own terminal and then run the build command. Allow at least 25 GB free;
+the full Plasma fallback, Windows compatibility packages and build caches make
+this a large image.
+
+The live session uses **Wincraft (Rust)**. `live-overlay/usr/share/artools/desktop.map`
+lets `artix-live` detect the new session instead of resetting it to Plasma.
+The installer also uses `wincraft.desktop` for optional automatic login.
+Plasma remains selectable in SDDM as a fallback while the Rust desktop matures.
 
 ## Changing what is on the ISO
 

@@ -16,6 +16,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install desktop build libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgtk-4-dev libwayland-dev meson ninja-build
+          git clone --depth 1 --branch v1.3.0 https://github.com/wmww/gtk4-layer-shell.git /tmp/gtk4-layer-shell
+          meson setup /tmp/gtk4-layer-shell/build /tmp/gtk4-layer-shell --prefix=/usr -Dintrospection=false -Dvapi=false -Dsmoke-tests=false
+          sudo ninja -C /tmp/gtk4-layer-shell/build install
+          sudo ldconfig
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --all-targets -- -D warnings
@@ -35,7 +43,8 @@ jobs:
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/wincraft/wincraft.install
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
-            iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart
+            iso/iso-profiles/wincraft/live-overlay/usr/lib/wincraft/live-autostart \
+            data/desktop/wincraft-session data/desktop/labwc/autostart
       - name: YAML and JSON syntax
         run: |
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
@@ -44,7 +53,7 @@ jobs:
       - name: Desktop entries
         run: |
           sudo apt-get install -y -qq desktop-file-utils > /dev/null
-          desktop-file-validate data/applications/*.desktop \
+          desktop-file-validate data/applications/*.desktop data/desktop/wincraft.desktop \
             iso/iso-profiles/wincraft/live-overlay/usr/share/applications/*.desktop
 
   packages:

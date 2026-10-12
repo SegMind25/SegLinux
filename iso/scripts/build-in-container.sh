@@ -15,6 +15,7 @@ out=${OUT_DIR:-$repo/iso/out}
 in_container=${WINCRAFT_CONTAINER:-false}
 artools_dir=${CHROOTS_DIR:-/var/lib/artools}
 local_repo=/var/lib/wincraft-repo
+build_user=${BUILD_USER:-builder}
 
 step() { printf '\n==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -26,7 +27,7 @@ esac
 [[ $(id -u) == 0 ]] || die "run as root"
 [[ -f /etc/artix-release ]] || [[ $in_container == true ]] || die "this script must run on Artix Linux (use iso/build.sh for a container build)"
 for cmd in buildiso makepkg repo-add yq cargo; do
-    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools base-devel rust go-yq"
+    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools-base artools-iso base-devel rust go-yq gtk4 gtk4-layer-shell labwc wine procps-ng"
 done
 
 step "Building the wincraft package"
@@ -41,9 +42,13 @@ tar -C "$repo" \
     --exclude='*.pkg.tar.*' --exclude='*.iso' \
     --transform "s,^\.,wincraft-$version," \
     -czf "$pkgwork/wincraft-$version.tar.gz" .
-id builder >/dev/null 2>&1 || useradd -m builder
-chown -R builder: "$pkgwork"
-(cd "$pkgwork" && sudo -u builder makepkg -f --noconfirm)
+if ! id "$build_user" >/dev/null 2>&1; then
+    [[ $build_user == builder ]] || die "unknown package build user: $build_user"
+    useradd -m builder
+fi
+[[ $(id -u "$build_user") != 0 ]] || die "the package build user must not be root"
+chown -R "$build_user:" "$pkgwork"
+(cd "$pkgwork" && sudo -H -u "$build_user" env CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" makepkg -f --noconfirm)
 
 step "Creating the local [wincraft] repository"
 rm -rf "$local_repo"
@@ -53,7 +58,10 @@ repo-add -q "$local_repo/wincraft.db.tar.gz" "$local_repo"/*.pkg.tar.zst
 
 step "Configuring artools"
 conf="iso-x86_64.conf"
-targets=("${XDG_CONFIG_HOME:-$HOME/.config}/artools/pacman.conf.d")
+# Use one explicit config location under both sudo and pkexec. artools
+# otherwise resolves SUDO_USER while this script resolves root HOME.
+export XDG_CONFIG_HOME="$artools_dir/wincraft-config"
+targets=("$XDG_CONFIG_HOME/artools/pacman.conf.d")
 # Inside the throw-away container also replace artools' default copy.
 [[ $in_container == true ]] && targets+=(/usr/share/artools/pacman.conf.d)
 for dir in "${targets[@]}"; do

@@ -5,6 +5,7 @@ members = [
     "crates/wincraft-core",
     "crates/wcrun",
     "crates/wincraft-setup",
+    "crates/wincraft-shell",
 ]
 
 [workspace.package]

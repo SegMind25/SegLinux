@@ -5,7 +5,7 @@ LookAndFeelPackage=org.wincraft.desktop
 widgetStyle=Breeze
 
 [General]
-ColorScheme=BreezeLight
+ColorScheme=BreezeDark
 
 [Icons]
-Theme=breeze
+Theme=breeze-dark

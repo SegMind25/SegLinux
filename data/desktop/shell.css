@@ -1,0 +1,24 @@
+window { background: transparent; color: #e8edf6; font-family: "Noto Sans", sans-serif; font-size: 13px; }
+.desktop { background: #090f1d; }
+.desktop-title { font-size: 40px; font-weight: 300; letter-spacing: -1px; color: #eef6ff; }
+.desktop-subtitle { font-size: 10px; letter-spacing: 3px; color: #8fa5bf; }
+.desktop button { background: alpha(#101c2e, 0.8); border: 1px solid alpha(#8eaed5, 0.15); padding: 12px 16px; }
+.panel { background: alpha(#111a29, 0.97); border-top: 1px solid #2b394e; padding: 7px 12px; min-height: 42px; }
+button { border-radius: 8px; background: transparent; box-shadow: none; border: 1px solid transparent; padding: 9px 12px; color: #e8edf6; }
+button:hover { background: #24344c; border-color: #3a5170; }
+button:focus-visible { outline: 2px solid #69b8ff; outline-offset: -2px; }
+.start { background: #245a93; border-radius: 9px; }
+.start button:hover { background: #3473b5; }
+.clock { margin: 0 10px; font-size: 11px; }
+popover > contents { background: #121d2e; border: 1px solid #35475f; border-radius: 14px; padding: 22px; box-shadow: 0 10px 30px alpha(black, 0.5); }
+.heading { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+entry { background: #0b1422; border: 1px solid #3b516c; border-radius: 8px; padding: 10px; color: #e8edf6; }
+list, row { background: transparent; }
+.app-row { padding: 10px; }
+separator { background: #2c3d53; min-width: 1px; margin: 4px; }
+.task { padding: 8px 12px; }
+.task.active { background: #263e5a; border-bottom: 2px solid #6ac0ff; }
+dialog { background: #121d2e; }
+
+.settings-window { background: #121d2e; }
+button { font-weight: 400; }

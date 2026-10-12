@@ -5,9 +5,16 @@ FROM docker.io/artixlinux/artixlinux:base-devel
 RUN pacman-key --init \
     && pacman-key --populate artix \
     && pacman -Syu --noconfirm --needed \
-        artools \
+        artools-base \
+        artools-iso \
         go-yq \
         rust \
+        gtk4 \
+        gtk4-layer-shell \
+        labwc \
+        wine \
+        procps-ng \
+        pkgconf \
         squashfs-tools \
         libisoburn \
         mtools \

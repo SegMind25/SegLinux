@@ -1,0 +1,3 @@
+# Copy to ~/.config/wincraft/shell.toml to customize the Rust shell.
+wallpaper = "/usr/share/backgrounds/wincraft/wincraft-dark.png"
+clock_format = "%H:%M\n%a, %d %b"

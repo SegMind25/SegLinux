@@ -1,0 +1,10 @@
+#!/bin/sh
+# labwc has now provided WAYLAND_DISPLAY and DISPLAY to its children.
+dbus-update-activation-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+xdg-user-dirs-update
+/usr/lib/wincraft/pipewire-session
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+if [ -x /usr/lib/wincraft/live-autostart ]; then
+    /usr/lib/wincraft/live-autostart &
+fi
+wincraft-shell &

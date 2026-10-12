@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Wincraft (Rust)
+Comment=Dark Wincraft desktop with a Rust shell and labwc window management
+Exec=wincraft-session
+TryExec=wincraft-session
+Type=Application

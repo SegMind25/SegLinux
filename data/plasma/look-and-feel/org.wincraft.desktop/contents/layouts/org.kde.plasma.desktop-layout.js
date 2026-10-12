@@ -21,7 +21,7 @@ var start = panel.addWidget("org.kde.plasma.kickoff");
 start.currentConfigGroup = ["Shortcuts"];
 start.writeConfig("global", "Alt+F1");
 start.currentConfigGroup = ["General"];
-start.writeConfig("icon", "start-here-kde-symbolic");
+start.writeConfig("icon", "wincraft");
 
 var tasks = panel.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
@@ -47,4 +47,6 @@ panel.addWidget("org.kde.plasma.showdesktop");
 var desktopsArray = desktopsForActivity(currentActivity());
 for (var j = 0; j < desktopsArray.length; j++) {
     desktopsArray[j].wallpaperPlugin = "org.kde.image";
+    desktopsArray[j].currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+    desktopsArray[j].writeConfig("Image", "file:///usr/share/backgrounds/wincraft/wincraft-dark.png");
 }

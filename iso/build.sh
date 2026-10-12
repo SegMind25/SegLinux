@@ -26,8 +26,19 @@ while (($#)); do
     esac
 done
 
+case $init in
+    openrc | dinit) ;;
+    *) echo "error: init must be openrc or dinit" >&2; exit 2 ;;
+esac
+
 if $native; then
-    exec sudo env INIT="$init" OUT_DIR="$repo/iso/out" \
+    for cmd in buildiso makepkg repo-add yq cargo; do
+        if ! command -v "$cmd" >/dev/null; then
+            echo "error: missing $cmd. See docs/building.md for the native prerequisites." >&2
+            exit 1
+        fi
+    done
+    exec sudo env INIT="$init" OUT_DIR="$repo/iso/out" BUILD_USER="$(id -un)" \
         OWNER_UID="$(id -u)" OWNER_GID="$(id -g)" \
         "$repo/iso/scripts/build-in-container.sh"
 fi

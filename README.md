@@ -10,9 +10,10 @@ Windows programs. Its own tools are written in Rust.
   `wincraft-setup` plays `setup.exe`. It runs the same configuration passes
   (windowsPE, offlineServicing, specialize, oobeSystem, SetupComplete) and
   reads `autounattend.toml`, the counterpart of `autounattend.xml`.
-* **Looks like Windows.** KDE Plasma with a Windows-style taskbar, Start
-  menu, Show Desktop corner, window buttons on the right, Alt+Tab
-  thumbnails, and familiar applications (File Explorer → Dolphin, Store →
+* **Looks like Windows.** A dark Wincraft shell written in Rust, with a searchable
+  application launcher, taskbar and desktop preferences. labwc provides
+  Wayland window management; KDE Plasma remains available as a fallback.
+  Familiar applications (File Explorer → Dolphin, Store →
   Discover, Office → LibreOffice, ...).
 * **Runs Windows programs.** Double-click an `.exe`, `.msi`, `.lnk` or
   `.bat`, or type `./setup.exe`: `wcrun` inspects the program, prepares a
@@ -25,6 +26,7 @@ Windows programs. Its own tools are written in Rust.
 
 ```
 crates/
+  wincraft-shell/     Rust/GTK4 desktop, launcher, taskbar, settings and Wayland integration
   wincraft-pe/        Windows file identification: PE headers, imports, .NET,
                       installer frameworks, MSI, shortcuts (no dependencies)
   wincraft-core/      commands, XDG paths, offline service management (OpenRC/dinit/runit/s6)
@@ -51,6 +53,18 @@ docs/                 design notes and guides
 Runs in a privileged Artix container (docker or podman) on any Linux host
 and writes `iso/out/wincraft-*.iso`. See [docs/building.md](docs/building.md)
 for requirements, native builds, customisation and testing in QEMU.
+
+## Preview the Rust desktop
+
+With GTK4 and gtk4-layer-shell development libraries installed:
+
+```sh
+cargo run -p wincraft-shell -- --preview --wallpaper "$PWD/data/artwork/wincraft-dark.png"
+```
+
+The preview opens a regular window. The packaged **Wincraft (Rust)** session
+uses labwc and a real Wayland panel with running-window buttons. See
+[the desktop guide](docs/desktop.md) for shortcuts, configuration and limitations.
 
 ## Use the tools
 
@@ -85,7 +99,8 @@ iso/scripts/check-packages.sh -i openrc     # on Artix / in the build container
 
 ## Status
 
-The Rust tools are complete and covered by unit tests. The installer's plan
+The Rust installer and Windows-launcher tools have unit tests. The new
+Rust desktop is an early implementation, not a feature-complete KDE replacement. The installer's plan
 is tested end to end in dry-run form, and its file and service actions are
 tested against temporary directories; the disk-writing steps need a real
 or virtual machine. The ISO profile follows artools 0.39+'s format. CI

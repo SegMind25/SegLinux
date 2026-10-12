@@ -1,0 +1,14 @@
+#!/bin/sh
+# A distinct desktop session: do not alter the user's Plasma configuration.
+set -eu
+export XDG_CURRENT_DESKTOP=Wincraft:wlroots
+export XDG_SESSION_DESKTOP=wincraft
+export XDG_SESSION_TYPE=wayland
+export GTK_THEME=Adwaita:dark
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export XCURSOR_THEME=breeze_cursors
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    exec dbus-run-session -- labwc -C /usr/share/wincraft/labwc
+fi
+exec labwc -C /usr/share/wincraft/labwc
