@@ -1,0 +1,33 @@
+# Temporary: shows how Artix packages greetd, for the SegLinux login screen.
+name: Package probe
+on:
+  push:
+    branches: [claude/kind-bohr-bsh5aj]
+    paths: [.github/workflows/probe.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    container: docker.io/artixlinux/artixlinux:base
+    steps:
+      - uses: actions/checkout@v4
+      - name: greetd
+        run: |
+          pacman -Syu --noconfirm --needed greetd greetd-openrc greetd-runit greetd-dinit xorg-xinit > /tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+          grep -iE 'hook|sysusers|tmpfiles|creating' /tmp/install.log || true
+          for p in greetd greetd-openrc greetd-runit greetd-dinit greetd-agreety; do echo "=== $p"; pacman -Qi $p | grep -E '^(Version|Depends On|Provides|Backup Files)'; pacman -Qlq $p | grep -v '/$'; done
+          echo "=== provides greetd-greeter"; pacman -Ss greetd; pacman -Si greetd-tuigreet greetd-regreet 2>/dev/null | grep -E '^(Name|Repository|Version|Provides|Depends On)'
+          echo "=== user"; getent passwd greeter; getent group greeter; id greeter || true
+          for f in /usr/lib/sysusers.d/greetd.conf /usr/lib/tmpfiles.d/greetd.conf /etc/greetd/config.toml /etc/pam.d/greetd /etc/pam.d/greetd-greeter /etc/init.d/greetd /etc/conf.d/greetd /etc/runit/sv/greetd/run /etc/dinit.d/greetd; do echo "=== $f"; cat "$f" 2>&1; done
+          echo "=== install scripts"; for p in greetd greetd-openrc; do pacman -Qii $p | sed -n '/^Install Script/,$p' | head -3; cat /var/lib/pacman/local/$p-*/install 2>/dev/null; done
+          echo "=== hooks"; ls /usr/share/libalpm/hooks/
+          pacman -Qi labwc 2>/dev/null | grep Version || pacman -Si labwc | grep -E '^Version'
+          ls -l /usr/bin/startx
+      - name: Brave from Chaotic-AUR
+        run: |
+          bash iso/scripts/chaotic-aur.sh > /dev/null
+          printf '\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n' >> /etc/pacman.conf
+          pacman -Sy > /dev/null
+          pacman -Si brave-bin | grep -E '^(Name|Version|Repository|Depends On|Installed Size)'
+          pacman -Sw --noconfirm brave-bin > /dev/null
+          bsdtar -tf /var/cache/pacman/pkg/brave-bin-*.pkg.tar.zst | grep -E 'applications/|bin/'
+          bsdtar -xOf /var/cache/pacman/pkg/brave-bin-*.pkg.tar.zst --include='usr/share/applications/*.desktop' | grep -E '^(Name|Exec|StartupWMClass|Actions|\[)'
