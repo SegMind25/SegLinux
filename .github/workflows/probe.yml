@@ -1,0 +1,27 @@
+name: Package probe
+on:
+  push:
+    branches: [claude/kind-bohr-bsh5aj]
+    paths: [.github/workflows/probe.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    container: docker.io/artixlinux/artixlinux:base-devel
+    steps:
+      - name: Which packages exist in Artix
+        run: |
+          pacman-key --init >/dev/null 2>&1; pacman-key --populate artix >/dev/null 2>&1
+          pacman -Sy --noconfirm >/dev/null 2>&1
+          grep '^\[' /etc/pacman.conf
+          for p in brave brave-bin brave-browser kitty greetd greetd-openrc greetd-runit greetd-dinit greetd-regreet greetd-tuigreet cage dolphin firefox flatpak sddm accountsservice; do
+            if info=$(pacman -Si "$p" 2>/dev/null); then
+              echo "FOUND $p $(printf '%s\n' "$info" | sed -n 's/^Repository *: //p;s/^Version *: //p;s/^Installed Size *: //p' | tr '\n' ' ')"
+            else
+              echo "MISSING $p"
+            fi
+          done
+          pacman -Si greetd 2>/dev/null | sed -n '/^Depends On/p'
+          pacman -Fy >/dev/null 2>&1; pacman -Fl greetd 2>/dev/null | head -30
+          for u in https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst https://cdn-mirror.chaotic.cx/chaotic-aur/x86_64/chaotic-aur.db; do
+            curl -sS -o /dev/null -w "%{http_code} $u\n" -L "$u"
+          done
