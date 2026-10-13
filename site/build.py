@@ -92,7 +92,7 @@ def main():
         if name.endswith(".webp"):
             shutil.copy2(os.path.join(images, name), assets)
 
-    build_docs(ROOT, args.out)
+    build_docs(ROOT, args.out, args.repo)
 
     if supplied_releases is not None:
         releases = supplied_releases

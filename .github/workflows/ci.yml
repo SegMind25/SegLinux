@@ -72,9 +72,21 @@ jobs:
       - name: Website assembles
         run: |
           node --check site/app.js
+          node --check site/preferences.js
+          # The same dependencies as the Vercel build (vercel.json).
+          python3 -m pip install --quiet --target /tmp/site-deps -r site/build-requirements.txt
           echo '[]' > /tmp/releases.json
-          python3 site/build.py --out /tmp/site --releases /tmp/releases.json
-          test -s /tmp/site/index.html && test -s /tmp/site/assets/logo.svg
+          PYTHONPATH=/tmp/site-deps python3 site/build.py --out /tmp/site --releases /tmp/releases.json
+          test -s /tmp/site/index.html && test -s /tmp/site/assets/logo.svg && test -s /tmp/site/docs/gaming.html
+          python3 site/tests/test_download.py
+      - name: Website behaviour in a browser
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: |
+          npm install --silent --no-save --prefix /tmp/playwright playwright@1.56.1
+          cp site/tests/releases.json /tmp/site/releases.json
+          SITE_DIR=/tmp/site CHROMIUM_PATH="$(command -v google-chrome)" NODE_PATH=/tmp/playwright/node_modules \
+            node site/tests/browser.cjs
       - name: Boot menu theme files exist
         run: |
           cd data/grub/seglinux
