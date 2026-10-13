@@ -8,8 +8,8 @@ Choose [SegLinux Lite or Full](/download), prepare a USB stick, and try the desk
 
 | Edition | Download | Best for |
 | --- | --- | --- |
-| Lite | One ISO, roughly 740 MB | A smaller download; Setup gets the remaining packages online |
-| Full | Roughly 2.8 GB | Installing with the included applications available offline |
+| Lite | One ISO, 736 MB | A smaller download; Setup gets the remaining packages online |
+| Full | 2.8 GB, in two parts | Installing with the included applications available offline |
 
 ## One Full ISO with the automatic helper
 

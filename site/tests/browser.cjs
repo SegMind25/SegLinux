@@ -21,6 +21,9 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await page.goto(url);await page.locator('.tabs button').first().focus();await page.keyboard.press('ArrowRight');
   await page.waitForFunction(()=>document.querySelector('#shot').src.endsWith('/assets/desktop.webp'));
   assert.equal((await page.locator('.tabs button[aria-selected=true]').textContent()).trim(),'Desktop');
+  // The sizes at the top follow the newest images (a 775 MB Lite in releases.json).
+  await page.waitForFunction(()=>document.querySelector('[data-iso-sizes]').textContent==='Lite 740 MB · Full 2.8 GB',null,{timeout:3000});
+  assert.equal((await page.locator('dt[data-iso-size=lite]').textContent()).trim(),'740 MB');
   await page.locator('#shot').click();await page.locator('dialog[open]').waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('#shot').evaluate(e=>e===document.activeElement),true);
   await page.locator('#motion-toggle').click();assert.equal(await page.locator('html').getAttribute('data-motion'),'reduced');
   assert.equal(await page.locator('.orbit-ticks').evaluate(e=>getComputedStyle(e).animationName),'none');
@@ -79,6 +82,6 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await fresh.waitForTimeout(800);assert.equal((await copy.textContent()).trim(),'Copy');
   await fresh.close();
 
-  assert.deepEqual(errors,[]);console.log('Website regression checks passed: navigation, gallery keyboard/focus, live motion, saved theme, download refresh, docs search, mobile overflow, reveal/hover transitions, section highlight, scroll marker, orbit pause, tab responsiveness, lightbox, copy fallback.');
+  assert.deepEqual(errors,[]);console.log('Website regression checks passed: navigation, ISO sizes, gallery keyboard/focus, live motion, saved theme, download refresh, docs search, mobile overflow, reveal/hover transitions, section highlight, scroll marker, orbit pause, tab responsiveness, lightbox, copy fallback.');
  } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exit(1)});
