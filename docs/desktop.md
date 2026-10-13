@@ -68,19 +68,51 @@ A compositor supporting layer-shell and foreign-toplevel is required.
 ## Preferences
 
 Run `seglinux-shell --settings`, open Settings from Start, or right-click the
-desktop. Choose an existing image by absolute path, a 12-hour or 24-hour
-clock, and whether the desktop shows icons. Changes apply next session. For
-the pinned applications and other clock formats, copy
-`/usr/share/seglinux/shell.example.toml` to `~/.config/seglinux/shell.toml`:
+desktop. The Rust settings window has four pages:
+
+- **Appearance:** choose an image with the file picker, cover/fit/stretch layout,
+  dark/light shell colors, a validated hex accent, text size and animations.
+- **Desktop & dock:** desktop icons and their size, dock size and top/bottom
+  placement, ordered pinned application IDs, and a custom clock format with
+  12-hour and 24-hour presets.
+- **Gaming:** Wine/Proton/umu runner, Windows environment, installer isolation,
+  GameMode, DXVK, VKD3D-Proton, esync/fsync, performance overlay, debug output,
+  and gamescope fullscreen, resolution, frame-rate and custom arguments.
+- **System:** opens installed network, audio, display, Bluetooth, printing,
+  Steam and Lutris tools. Missing tools are disabled and identified; these
+  controls do not install packages or pretend to replace their settings.
+
+Save appearance and desktop preferences together. **Shell changes apply after
+signing out and back in.** They affect the SegLinux shell, not GTK/KDE themes
+in other applications. Gaming preferences apply on the next `segrun` launch;
+Steam and Lutris retain their own settings. Existing per-game overrides and
+custom environment variables are preserved when gaming defaults are saved.
+
+These expanded controls require a build containing the settings update;
+previously published ISO images are not modified by updating the website.
+
+Preferences live in `~/.config/seglinux/shell.toml` (`XDG_CONFIG_HOME` is
+respected). The example at `/usr/share/seglinux/shell.example.toml` includes:
 
 ```toml
 wallpaper = "/usr/share/backgrounds/seglinux/seglinux-dark.jpg"
-clock_format = "%x  %H:%M"        # %x: the date in your language's format
-pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam", "net.lutris.Lutris"]
+clock_format = "%x  %H:%M"
+pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam"]
 desktop_icons = true
+theme = "dark"
+accent = "#3daee9"
+font_size = 13
+animations = true
+wallpaper_fit = "cover"
+dock_position = "bottom"
+dock_icon_size = 26
+desktop_icon_size = 48
 ```
-`XDG_CONFIG_HOME` is respected. Invalid configurations log a warning and use
-defaults. Settings are saved atomically.
+
+Existing configuration files keep their defaults for new options. Invalid
+configurations log a warning and use defaults. Saves are atomic; invalid UI
+input is rejected before overwriting preferences. An unchanged missing default
+wallpaper does not prevent saving unrelated settings.
 
 The compositor uses `/usr/share/seglinux/labwc`. These distribution defaults
 are deliberately independent of any existing personal labwc configuration.
@@ -93,7 +125,7 @@ This is a young desktop, not KDE feature parity. It does not yet implement
 notification history, a StatusNotifier tray for other applications' icons,
 Bluetooth UI, clipboard history, per-display wallpaper selection, moving,
 renaming or deleting desktop icons (use the Desktop folder in a file
-manager), pinning from the dock, or graphical theme editing. Network, sound, display management, file management and applications
+manager), pinning directly from the dock, or full application theme editing. Network, sound, display management, file management and applications
 are existing Linux tools. Window buttons currently show all windows on all
 monitors. Hardware power management, suspend/resume, accessibility, locking,
 GPU compatibility and installation require full ISO/VM and hardware testing.

@@ -6,6 +6,7 @@ mod common;
 mod config;
 mod desktop;
 mod dock;
+mod gaming;
 mod launcher;
 mod settings;
 mod tasks;
@@ -99,7 +100,7 @@ fn main() -> glib::ExitCode {
             return;
         }
         let css = gtk::CssProvider::new();
-        css.load_from_data(include_str!("../../../data/desktop/shell.css"));
+        css.load_from_data(&config.css());
         gtk::style_context_add_provider_for_display(
             &display,
             &css,
@@ -107,7 +108,8 @@ fn main() -> glib::ExitCode {
         );
         gtk::Settings::default()
             .unwrap()
-            .set_gtk_application_prefer_dark_theme(true);
+            .set_gtk_application_prefer_dark_theme(config.theme == config::Theme::Dark);
+        gtk::Settings::default().unwrap().set_gtk_enable_animations(config.animations);
         if settings {
             settings::open(app, &config);
         } else if preview {
@@ -119,9 +121,10 @@ fn main() -> glib::ExitCode {
                 .build();
             let overlay = desktop::background(&config, true, None);
             let bar = dock::dock(app, &menus, &config, true);
-            bar.set_valign(gtk::Align::End);
+            bar.set_valign(if config.dock_position == config::DockPosition::Top { gtk::Align::Start } else { gtk::Align::End });
             bar.set_halign(gtk::Align::Center);
             bar.set_margin_bottom(DOCK_MARGIN);
+            bar.set_margin_top(DOCK_MARGIN);
             overlay.add_overlay(&bar);
             window.set_child(Some(&overlay));
             window.present();
@@ -179,8 +182,9 @@ fn main() -> glib::ExitCode {
                         bar.set_layer(Layer::Top);
                         bar.set_monitor(Some(&monitor));
                         bar.set_keyboard_mode(KeyboardMode::OnDemand);
-                        bar.set_anchor(Edge::Bottom, true);
-                        bar.set_margin(Edge::Bottom, DOCK_MARGIN);
+                        let edge = if config.dock_position == config::DockPosition::Top { Edge::Top } else { Edge::Bottom };
+                        bar.set_anchor(edge, true);
+                        bar.set_margin(edge, DOCK_MARGIN);
                         bar.auto_exclusive_zone_enable();
                         bar.set_child(Some(&dock::dock(&app, &menus, &config, false)));
                         bar.present();

@@ -5,19 +5,12 @@
 
 const REPO = "SegMind25/SegLinux";
 const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-// ---- Theme -------------------------------------------------------------
-
-const root = document.documentElement;
-document.getElementById("theme-toggle").addEventListener("click", () => {
-  const next = root.dataset.theme === "light" ? "dark" : "light";
-  root.dataset.theme = next;
-  document.querySelector('meta[name="theme-color"]').content = next === "light" ? "#f3f2ee" : "#161719";
-  try {
-    localStorage.setItem("seglinux-theme", next);
-  } catch (e) {
-    // Private windows may refuse storage; the theme still switches.
+let reduceMotion = document.documentElement.dataset.motion === "reduced";
+window.addEventListener("seglinux-motion-change", () => {
+  reduceMotion = document.documentElement.dataset.motion === "reduced";
+  if (reduceMotion) {
+    document.getElementById("orbit")?.style.removeProperty("--spin");
+    document.querySelectorAll(".reveal-ready").forEach(node => node.classList.add("visible"));
   }
 });
 
@@ -35,6 +28,11 @@ links.addEventListener("click", (event) => {
     menu.setAttribute("aria-expanded", "false");
   }
 });
+
+function closeMenu() { links.classList.remove("open"); menu.setAttribute("aria-expanded", "false"); }
+document.addEventListener("keydown", event => { if (event.key === "Escape" && links.classList.contains("open")) { closeMenu(); menu.focus(); } });
+document.addEventListener("click", event => { if (!event.target.closest(".nav")) closeMenu(); });
+window.matchMedia("(min-width: 761px)").addEventListener("change", event => { if (event.matches) closeMenu(); });
 
 // The ruler on the right edge: a tick every 55 px, numbered every fifth,
 // with a marker that follows the scroll position.
@@ -80,14 +78,16 @@ onScroll();
 
 // Highlight the section in view, in the top bar and the index.
 const sectionLinks = document.querySelectorAll(".section-index a");
-const navLinks = document.querySelectorAll(".nav-links a[href^='#']");
+const navLinks = document.querySelectorAll(".nav-links a");
+const downloadPage = document.body.dataset.page === "download";
+if (downloadPage) navLinks.forEach(a => { a.classList.toggle("active", a.getAttribute("href") === "/download"); if(a.getAttribute("href") === "/download") a.setAttribute("aria-current", "page"); });
 const observer = new IntersectionObserver(
   (entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       const id = entry.target.id;
       sectionLinks.forEach((a) => a.classList.toggle("current", a.dataset.section === id));
-      navLinks.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === `#${id}`));
+      if (!downloadPage) navLinks.forEach(a => { const active = a.getAttribute("href") === `#${id}`; a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
     }
   },
   { rootMargin: "-45% 0px -50% 0px" },
@@ -103,16 +103,36 @@ const SHOTS = {
   "boot-menu": ["The boot menu of the SegLinux USB stick", "The boot menu of the DVD or USB stick."],
 };
 const shot = document.getElementById("shot");
-document.querySelectorAll(".tabs button").forEach((tab) => {
+const tabs = [...document.querySelectorAll(".tabs button")];
+let shotRequest = 0;
+const frame = shot.closest("figure"); frame.id = "screenshot-panel"; frame.setAttribute("role", "tabpanel");
+tabs.forEach((tab, index) => {
+  tab.id = `screenshot-tab-${index}`; tab.setAttribute("aria-controls", frame.id); tab.tabIndex = index === 0 ? 0 : -1;
   tab.addEventListener("click", () => {
+    const request = ++shotRequest;
     const name = tab.dataset.shot;
-    document.querySelectorAll(".tabs button").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
-    shot.src = `/assets/${name}.webp`;
-    shot.alt = SHOTS[name][0];
-    document.getElementById("shot-caption").textContent = SHOTS[name][1];
-    document.getElementById("shot-name").textContent = `seglinux — ${tab.textContent.toLowerCase()}`;
+    const next = new Image();
+    next.onload = () => {
+      if (request !== shotRequest) return;
+      tabs.forEach(t => { t.setAttribute("aria-selected", String(t === tab)); t.tabIndex = t === tab ? 0 : -1; });
+      frame.setAttribute("aria-labelledby", tab.id);
+      shot.src = next.src; shot.alt = SHOTS[name][0];
+      document.getElementById("shot-caption").textContent = SHOTS[name][1];
+      document.getElementById("shot-name").textContent = `seglinux — ${tab.textContent.toLowerCase()}`;
+    };
+    next.onerror = () => { if (request === shotRequest) document.getElementById("shot-caption").textContent = "This screenshot could not load. Please try again."; };
+    next.src = `/assets/${name}.webp`;
+  });
+  tab.addEventListener("keydown", event => {
+    let next;
+    if(event.key === "ArrowRight") next = (index + 1) % tabs.length;
+    if(event.key === "ArrowLeft") next = (index + tabs.length - 1) % tabs.length;
+    if(event.key === "Home") next = 0;
+    if(event.key === "End") next = tabs.length - 1;
+    if(next !== undefined) { event.preventDefault(); tabs[next].focus(); tabs[next].click(); }
   });
 });
+frame.setAttribute("aria-labelledby", tabs[0].id);
 
 // ---- Copy buttons ------------------------------------------------------
 
@@ -204,6 +224,10 @@ function fileLinks(build, primary) {
 }
 
 function renderEdition(card, build) {
+  const signature = JSON.stringify(build);
+  if (card.dataset.buildSignature === signature) return;
+  const expanded = card.querySelector("details")?.open;
+  card.dataset.buildSignature = signature;
   const field = (name) => card.querySelector(`[data-field="${name}"]`);
   if (!build) {
     field("meta").replaceChildren(el("li", {}, "No build published yet"));
@@ -222,6 +246,7 @@ function renderEdition(card, build) {
     files.push(el("details", {}, el("summary", {}, "Or download the parts manually"), ...fileLinks(build, true), el("p", { class: "edition-note" }, "Join in this order: ", el("code", {}, `cat ${build.isoName}.part* > ${build.isoName}`))));
   }
   field("files").replaceChildren(...files);
+  if (expanded && card.querySelector("details")) card.querySelector("details").open = true;
 }
 
 function render(releases, source) {
@@ -295,3 +320,5 @@ shot.addEventListener("click", openShot);
 shot.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); openShot(); } });
 lightbox.querySelector("button").addEventListener("click", () => lightbox.close());
 lightbox.addEventListener("click", e => { if(e.target === lightbox) lightbox.close(); });
+
+lightbox.addEventListener("close", () => shot.focus({ preventScroll: true }));

@@ -4,6 +4,22 @@ SegLinux is set up for games out of the box: Windows games run through Wine,
 Proton and DXVK, and the system is tuned for low latency. This page lists
 what is included and why.
 
+## Rust gaming settings
+
+In builds containing the expanded Settings app, open **Settings → Gaming**.
+It edits the existing `segrun` configuration and preserves per-application
+rules. Choose the runner and Windows environment, GameMode and Direct3D
+translation policies, performance overlay, esync/fsync, installer isolation,
+and debug logging. Enable gamescope to select fullscreen, output resolution,
+frame-rate limit, or advanced arguments (one argument per line).
+
+Zero for a gamescope width, height or frame-rate leaves that option at its
+default. Explicit controls override the corresponding `-W`, `-H`, `-r` and
+`-f` arguments; other custom arguments are retained. Installed tool status is
+shown below the controls. These settings take effect for the next program
+started with `segrun`; they do not override Steam/Proton or Lutris profiles.
+Changes to the code or website do not update previously published ISO files.
+
 ## Choices
 
 | Area | SegLinux default | Why |

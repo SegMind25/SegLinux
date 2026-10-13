@@ -19,7 +19,7 @@ from build_docs import build_docs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-PAGES = ("index.html", "style.css", "app.js", "download-full.py")
+PAGES = ("index.html", "style.css", "app.js", "preferences.js", "download-full.py")
 # The fields of a release the page uses (the same as in GitHub's API).
 RELEASE_FIELDS = ("tag_name", "name", "html_url", "published_at", "created_at", "prerelease", "draft")
 ASSET_FIELDS = ("name", "size", "browser_download_url")
@@ -68,6 +68,11 @@ def main():
     parser.add_argument("--releases", help="read the releases from this JSON file instead of GitHub")
     args = parser.parse_args()
 
+    supplied_releases = None
+    if args.releases:
+        with open(args.releases) as source:
+            supplied_releases = json.load(source)
+
     if os.path.isdir(args.out):
         shutil.rmtree(args.out)
     assets = os.path.join(args.out, "assets")
@@ -89,9 +94,8 @@ def main():
 
     build_docs(ROOT, args.out)
 
-    if args.releases:
-        with open(args.releases) as f:
-            releases = json.load(f)
+    if supplied_releases is not None:
+        releases = supplied_releases
     else:
         try:
             releases = fetch_releases(args.repo)

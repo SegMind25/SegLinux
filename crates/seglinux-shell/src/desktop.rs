@@ -78,11 +78,18 @@ pub fn background(config: &Config, icons: bool, size: Option<(i32, i32)>) -> gtk
     let overlay = gtk::Overlay::new();
     overlay.add_css_class("desktop");
     let picture = wallpaper(&config.wallpaper, size);
-    picture.set_content_fit(gtk::ContentFit::Cover);
+    picture.set_content_fit(match config.wallpaper_fit {
+        crate::config::WallpaperFit::Cover => gtk::ContentFit::Cover,
+        crate::config::WallpaperFit::Contain => gtk::ContentFit::Contain,
+        crate::config::WallpaperFit::Fill => gtk::ContentFit::Fill,
+    });
     picture.set_can_shrink(true);
     overlay.set_child(Some(&picture));
     if icons && config.desktop_icons {
-        overlay.add_overlay(&icon_view());
+        overlay.add_overlay(&icon_view(
+            config.desktop_icon_size as i32,
+            config.dock_position == crate::config::DockPosition::Top,
+        ));
     }
     context_menu(&overlay);
     overlay
@@ -121,7 +128,7 @@ fn describe(item: &Item) -> (String, gio::Icon) {
     (name, icon)
 }
 
-fn icon_view() -> gtk::FlowBox {
+fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
     let flow = gtk::FlowBox::new();
     flow.add_css_class("desktop-icons");
     flow.set_orientation(gtk::Orientation::Vertical);
@@ -133,7 +140,7 @@ fn icon_view() -> gtk::FlowBox {
     flow.set_column_spacing(4);
     flow.set_halign(gtk::Align::Start);
     flow.set_valign(gtk::Align::Start);
-    flow.set_margin_top(12);
+    flow.set_margin_top(if dock_top { 96 } else { 12 });
     flow.set_margin_start(12);
     flow.set_margin_bottom(72);
 
@@ -153,7 +160,7 @@ fn icon_view() -> gtk::FlowBox {
                 let tile = gtk::Box::new(gtk::Orientation::Vertical, 4);
                 tile.add_css_class("desktop-icon");
                 let image = gtk::Image::from_gicon(&icon);
-                image.set_pixel_size(48);
+                image.set_pixel_size(icon_size);
                 tile.append(&image);
                 let label = gtk::Label::new(Some(&name));
                 label.set_wrap(true);

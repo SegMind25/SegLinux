@@ -14,13 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Unbounded:wght@800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
-  <script>
-    // Apply the saved theme before the page paints.
-    try {
-      const saved = localStorage.getItem("seglinux-theme");
-      if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
-    } catch (e) {}
-  </script>
+  <script src="/preferences.js"></script>
 </head>
 <body>
   <header class="nav" id="top">

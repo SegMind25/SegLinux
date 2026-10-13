@@ -5,7 +5,7 @@ use crate::config::Config;
 use gtk::{gio, glib, prelude::*};
 use std::time::Duration;
 
-pub fn tray(app: &gtk::Application, preview: bool) -> gtk::Box {
+pub fn tray(app: &gtk::Application, preview: bool, config: &Config) -> gtk::Box {
     let tray = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     tray.add_css_class("tray");
     tray.append(&network());
@@ -19,7 +19,7 @@ pub fn tray(app: &gtk::Application, preview: bool) -> gtk::Box {
         .build();
     settings.set_popover(Some(&quick_settings(app, preview)));
     tray.append(&settings);
-    tray.append(&clock());
+    tray.append(&clock(&config.clock_format));
     tray
 }
 
@@ -191,7 +191,7 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
 }
 
 /// The clock; a click shows the calendar.
-fn clock() -> gtk::MenuButton {
+fn clock(format: &str) -> gtk::MenuButton {
     let label = gtk::Label::new(None);
     label.add_css_class("clock");
     let button = gtk::MenuButton::builder().child(&label).build();
@@ -204,7 +204,7 @@ fn clock() -> gtk::MenuButton {
     content.append(&gtk::Calendar::new());
     popover.set_child(Some(&content));
     button.set_popover(Some(&popover));
-    let format = Config::load().clock_format;
+    let format = format.to_string();
     let tick = move |label: &gtk::Label, today: &gtk::Label| {
         if let Ok(now) = glib::DateTime::now_local() {
             if let Ok(text) = now.format(&format) {

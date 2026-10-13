@@ -19,7 +19,7 @@ jobs:
       - name: Install desktop build libraries
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libgtk-4-dev libwayland-dev meson ninja-build
+          sudo apt-get install -y libgtk-4-dev libwayland-dev meson ninja-build xvfb xauth dbus-x11
           git clone --depth 1 --branch v1.3.0 https://github.com/wmww/gtk4-layer-shell.git /tmp/gtk4-layer-shell
           meson setup /tmp/gtk4-layer-shell/build /tmp/gtk4-layer-shell --prefix=/usr -Dintrospection=false -Dvapi=false -Dsmoke-tests=false
           sudo ninja -C /tmp/gtk4-layer-shell/build install
@@ -29,6 +29,16 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo clippy --locked -p seglinux-setup --no-default-features --all-targets -- -D warnings
       - run: cargo test --locked
+      - name: Rust Settings save integration
+        env:
+          GTK_A11Y: none
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+        run: |
+          settings_test_dir=$(mktemp -d)
+          XDG_CONFIG_HOME="$settings_test_dir" SEGLINUX_SETTINGS_TEST_ROOT="$settings_test_dir" \
+            xvfb-run -a dbus-run-session -- cargo test --locked -p seglinux-shell \
+              settings_save_validates_and_preserves_game_overrides -- --ignored --test-threads=1
       - name: Validate the example answer file
         run: cargo run --locked -q -p seglinux-setup -- validate crates/seglinux-setup/autounattend.example.toml
       - name: Validate the default segrun configuration

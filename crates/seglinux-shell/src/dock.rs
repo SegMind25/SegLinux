@@ -110,6 +110,7 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
             .filter_map(|id| apps::lookup(id).map(|a| (id.clone(), a)))
             .collect(),
     );
+    let icon_size = config.dock_icon_size as i32;
     let render = {
         let apps_box = apps_box.clone();
         let handle = handle.clone();
@@ -123,7 +124,7 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
                     Some(i) => Some(pins[i].1.clone()),
                     None => apps::for_window(&slot.app_id),
                 };
-                apps_box.append(&app_button(&slot, app, handle.clone()));
+                apps_box.append(&app_button(&slot, app, handle.clone(), icon_size));
             }
         }
     };
@@ -134,7 +135,7 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
     }
 
     bar.append(&gtk::Separator::new(gtk::Orientation::Vertical));
-    bar.append(&tray::tray(app, preview));
+    bar.append(&tray::tray(app, preview, config));
     bar
 }
 
@@ -142,11 +143,12 @@ fn app_button(
     slot: &Slot,
     app: Option<gio::DesktopAppInfo>,
     handle: Rc<OnceCell<Tasks>>,
+    icon_size: i32,
 ) -> gtk::Button {
     let button = gtk::Button::new();
     button.add_css_class("app");
     let image = gtk::Image::from_gicon(&apps::icon(app.as_ref()));
-    image.set_pixel_size(26);
+    image.set_pixel_size(icon_size);
     button.set_child(Some(&image));
     if !slot.windows.is_empty() {
         button.add_css_class("running");

@@ -7,3 +7,13 @@ clock_format = "%x  %H:%M"
 pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam", "net.lutris.Lutris"]
 # Files and folders in ~/Desktop as icons on the desktop.
 desktop_icons = true
+
+# Shell appearance (does not change other applications' themes).
+theme = "dark"                  # dark or light
+accent = "#3daee9"               # six-digit hex color
+font_size = 13                   # 10..24 pixels
+animations = true
+wallpaper_fit = "cover"          # cover, contain or fill
+dock_position = "bottom"         # bottom or top
+dock_icon_size = 26              # 20..64 pixels
+desktop_icon_size = 48           # 24..96 pixels
