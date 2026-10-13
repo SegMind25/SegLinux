@@ -717,6 +717,21 @@ pub fn build(
             "clock",
             format!("\"{clock_name}\""),
         ));
+        // The kernel sets the system clock from a UTC hardware clock at boot
+        // (rtc_hctosys), so OpenRC's hwclock need not read it again. Where
+        // the clock's update interrupt never arrives (a UEFI virtual machine
+        // did this), that read held up every boot service for about a
+        // minute. A local-time clock (dual boot with Windows) still needs
+        // it; either way the time is saved to the hardware clock at shutdown.
+        let read_at_boot = match region.hardware_clock {
+            HardwareClock::Utc => "\"NO\"",
+            HardwareClock::Local => "\"YES\"",
+        };
+        tz.push(Action::set_key(
+            "/etc/conf.d/hwclock",
+            "clock_hctosys",
+            read_at_boot,
+        ));
     }
     sp.push(Step {
         description: format!("Setting the time zone to {}", region.timezone),
@@ -1216,6 +1231,20 @@ mod tests {
         }));
         // The password never appears in the printed plan.
         assert!(!text.contains("s3cr3t-Pa55"));
+    }
+
+    #[test]
+    fn hardware_clock_read_at_boot_only_in_local_time() {
+        let text = build_plan(&answer(""), &facts()).unwrap().to_string();
+        assert!(
+            text.contains("set clock=\"UTC\" in /etc/conf.d/hwclock"),
+            "{text}"
+        );
+        assert!(text.contains("set clock_hctosys=\"NO\" in /etc/conf.d/hwclock"));
+        let local = answer("[region]\nhardware_clock = \"local\"\n");
+        let text = build_plan(&local, &facts()).unwrap().to_string();
+        assert!(text.contains("set clock=\"local\" in /etc/conf.d/hwclock"));
+        assert!(text.contains("set clock_hctosys=\"YES\" in /etc/conf.d/hwclock"));
     }
 
     #[test]
