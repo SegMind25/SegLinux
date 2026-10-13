@@ -51,7 +51,9 @@ prints it):
 
 | Windows | SegLinux |
 |---------|----------|
-| Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: bottom taskbar with Start, pinned programs (Files, browser, terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
+| Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: a floating dock with Start, pinned programs (Files, browser, terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
+| Settings (Win+I), Personalization, Mouse, Keyboard | SegLinux Settings (Super+I): theme, accent, wallpaper, dock, clock, window focus and workspaces, keyboard layouts, mouse and touchpad, gaming; applied at once (see [desktop.md](desktop.md#settings)) |
+| Virtual desktops (Win+Ctrl+Left/Right) | labwc workspaces, with the same shortcut; their number is set in Settings |
 | Xbox app / Game Bar, Game Mode | Steam, Lutris, MangoHud, GameMode and the SegLinux Gaming Mode session (see [gaming.md](gaming.md)) |
 | Window buttons (minimize, maximize, close on the right), Alt+Tab thumbnails | KWin defaults in `/etc/xdg/kwinrc` |
 | File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, Spectacle, Gwenview, System Monitor, Partition Manager |

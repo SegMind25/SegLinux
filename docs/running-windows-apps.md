@@ -74,6 +74,10 @@ Compatibility.
 
 ## Configuration
 
+**Settings → Gaming** (Super+I) edits all of this with controls: the runner
+(installed Proton builds are listed), the Windows environment, DXVK,
+VKD3D-Proton, GameMode, gamescope, environment variables and per-game
+profiles, keeping anything it has no control for. By hand:
 `/etc/seglinux/segrun.toml` holds the defaults; copy it to
 `~/.config/seglinux/segrun.toml` to change them. `segrun config` prints the
 settings in effect.

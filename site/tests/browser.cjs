@@ -35,7 +35,10 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   // Animations, with motion enabled again.
   const fresh=await browser.newPage({viewport:{width:1280,height:900}});fresh.on('pageerror',e=>errors.push(e.message));
   await fresh.route('https://api.github.com/**',route=>route.fulfill({json:JSON.parse(fs.readFileSync(path.join(root,'releases.json')))}));
-  await fresh.goto(url);
+  // Hold the Setup screenshot from the start: the hero's background loads it
+  // too, and a copy already in memory would never reach a later route.
+  const heldShots=[];await fresh.route('**/assets/setup.webp',route=>new Promise(resolve=>heldShots.push(async()=>{await route.continue();resolve()})));
+  await fresh.goto(url,{waitUntil:'domcontentloaded'});
   // Revealed elements get their own transitions back: the guide cards lift on hover.
   await fresh.locator('#documentation').scrollIntoViewIfNeeded();
   const card=fresh.locator('.doc-card').first();
@@ -56,11 +59,11 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await fresh.evaluate(()=>scrollTo(0,0));
   await fresh.waitForFunction(()=>getComputedStyle(document.querySelector('.orbit-ticks')).animationPlayState==='running',null,{timeout:3000});
   // A screenshot tab answers at once, even while its image downloads.
-  let releaseShot;await fresh.route('**/assets/setup.webp',route=>new Promise(resolve=>{releaseShot=async()=>{await route.continue();resolve()}}));
   await fresh.locator('.tabs button[data-shot=setup]').click();
   assert.equal(await fresh.locator('.tabs button[data-shot=setup]').getAttribute('aria-selected'),'true');
   assert.equal(await fresh.locator('#screenshot-panel').getAttribute('aria-busy'),'true');
-  await releaseShot();
+  await Promise.all(heldShots.splice(0).map(release=>release()));
+  await fresh.unroute('**/assets/setup.webp');
   await fresh.waitForFunction(()=>document.querySelector('#shot').src.endsWith('/assets/setup.webp')&&!document.querySelector('#screenshot-panel').hasAttribute('aria-busy'));
   // The enlarged screenshot stays open on clicks inside it, closes outside.
   await fresh.locator('#shot').click();await fresh.locator('dialog[open]').waitFor();

@@ -49,7 +49,7 @@ list, row { background: transparent; }
 .power button { padding: 7px; }
 separator { background: alpha(#ffffff, 0.12); min-width: 1px; margin: 4px; }
 calendar { background: transparent; border: none; color: #eff0f1; }
-calendar > grid > label.today { background: #3daee9; color: #ffffff; border-radius: 4px; }
+calendar > grid > label.today { background: #3daee9; color: #fffffe; border-radius: 4px; }
 dialog, .settings-window { background: #202326; }
 
 /* Settings */
@@ -63,9 +63,10 @@ dialog, .settings-window { background: #202326; }
 .settings-section > button { margin: 4px 10px; }
 .dim-label { opacity: 0.72; }
 .caption { font-size: 12px; }
-.error { color: #ed1515; opacity: 1; }
-.success { color: #27ae60; }
-.suggested-action { background: #3daee9; color: #ffffff; font-weight: 600; padding: 7px 18px; }
+.error { color: #ff7b7b; opacity: 1; }
+.success { color: #3ddc84; }
+/* #fffffe: the text color on the accent, chosen for contrast (Config::css). */
+.suggested-action { background: #3daee9; color: #fffffe; font-weight: 600; padding: 7px 18px; }
 .suggested-action:hover { background: alpha(#3daee9, 0.85); }
 .swatches { padding: 4px 10px 10px 10px; }
 .swatch { min-width: 28px; min-height: 28px; padding: 0; border-radius: 50%; border: 2px solid alpha(#ffffff, 0.25); }
