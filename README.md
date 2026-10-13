@@ -40,8 +40,8 @@ and the website's download page:
 
 | Edition | Size | What it is |
 |---|---|---|
-| **Lite** | about 740 MB | the desktop, Setup and drivers; Setup downloads the rest (Steam, Wine, ...) while it installs, so it needs an internet connection |
-| **Full** | about 2.8 GB, in two parts | everything on the image, for installing offline |
+| **Lite** | 736 MB | the desktop, Setup and drivers; Setup downloads the rest (Steam, Wine, ...) while it installs, so it needs an internet connection |
+| **Full** | 2.8 GB, in two parts | everything on the image, for installing offline |
 
 Write the ISO to a USB stick (`sudo dd if=seglinux-....iso of=/dev/sdX bs=4M status=progress oflag=sync`,
 or Ventoy, or Rufus in DD mode), disable Secure Boot and boot from it. Join a

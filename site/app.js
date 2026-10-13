@@ -284,6 +284,16 @@ function render(releases, source) {
   for (const card of document.querySelectorAll(".edition")) {
     renderEdition(card, builds.find((b) => b.edition === card.dataset.edition));
   }
+  // The sizes quoted at the top of the page follow the newest images too.
+  const newest = (edition) => builds.find((b) => b.edition === edition);
+  for (const node of document.querySelectorAll("[data-iso-size]")) {
+    const build = newest(node.dataset.isoSize);
+    if (build) node.textContent = formatSize(build.size);
+  }
+  const lite = newest("lite"), full = newest("full");
+  for (const node of document.querySelectorAll("[data-iso-sizes]")) {
+    if (lite && full) node.textContent = `Lite ${formatSize(lite.size)} · Full ${formatSize(full.size)}`;
+  }
   const rows = builds.map((build) =>
     el(
       "tr",

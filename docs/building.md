@@ -90,8 +90,9 @@ needs.
 The full edition is a large image: the Plasma fallback, Steam, Wine,
 Firefox and every driver and firmware file are on it. The **Lite** edition
 (`iso/iso-profiles/seglinux-lite`) is the smallest image that still boots
-the SegLinux desktop and gets online: about 740 MB (the first build was
-868 MB before trimming), and each release's notes give its size:
+the SegLinux desktop and gets online: 736 MB, against 2.8 GB for the full
+edition (October 2026; the first Lite build was 868 MB before trimming).
+Each release's notes give its exact size:
 
 | | Full | Lite |
 |---|---|---|
