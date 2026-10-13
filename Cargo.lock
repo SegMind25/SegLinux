@@ -1726,6 +1726,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "seglinux-greeter"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "gtk4-layer-shell",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "seglinux-installer"
 version = "0.1.0"
 dependencies = [

@@ -7,6 +7,9 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     container: docker.io/artixlinux/artixlinux:base
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +20,8 @@ jobs:
           for p in greetd greetd-dinit greetd-agreety; do echo "=== $p"; pacman -Qi $p | grep -E '^(Version|Depends On|Provides|Backup Files)'; pacman -Qlq $p | grep -v '/$'; done
           echo "=== provides greetd-greeter"; pacman -Ss greetd; pacman -Si greetd-tuigreet greetd-regreet 2>/dev/null | grep -E '^(Name|Repository|Version|Provides|Depends On)'
           echo "=== user"; getent passwd greeter; getent group greeter; id greeter || true
-          for f in /usr/lib/sysusers.d/greetd.conf /usr/lib/tmpfiles.d/greetd.conf /etc/greetd/config.toml /etc/pam.d/greetd /etc/pam.d/greetd-greeter /etc/init.d/greetd /etc/conf.d/greetd /etc/runit/sv/greetd/run /etc/dinit.d/greetd; do echo "=== $f"; cat "$f" 2>&1; done
-          echo "=== install scripts"; for p in greetd greetd-dinit; do pacman -Qii $p | sed -n '/^Install Script/,$p' | head -3; cat /var/lib/pacman/local/$p-*/install 2>/dev/null; done
+          for f in /usr/lib/sysusers.d/greetd.conf /usr/lib/tmpfiles.d/greetd.conf /etc/greetd/config.toml /etc/pam.d/greetd /etc/pam.d/greetd-greeter /etc/init.d/greetd /etc/conf.d/greetd /etc/runit/sv/greetd/run /etc/dinit.d/greetd; do echo "=== $f"; cat "$f" 2>&1 || true; done
+          echo "=== install scripts"; for p in greetd greetd-dinit; do pacman -Qii $p | sed -n '/^Install Script/,$p' | head -3; cat /var/lib/pacman/local/$p-*/install 2>/dev/null || true; done
           echo "=== hooks"; ls /usr/share/libalpm/hooks/
           pacman -Qi labwc 2>/dev/null | grep Version || pacman -Si labwc | grep -E '^Version'
           pacman -Si xorg-xinit | grep -E '^(Name|Version)' || true
