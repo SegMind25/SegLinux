@@ -480,8 +480,12 @@ impl Config {
                 &format!("font-size: {}px", self.font_size + 4),
             );
         if self.theme == Theme::Light {
-            // Dark text on light surfaces; lines and hover shades in black.
+            // Dark text on light surfaces; text fields in white rather than
+            // shaded (a grey field looks disabled); lines and hover shades in
+            // black.
             css = css
+                .replace("background: alpha(#000000, 0.25);", "background: #ffffff;")
+                .replace("background: alpha(#000000, 0.2);", "background: #ffffff;")
                 .replace("#202326", "#f3f4f6")
                 .replace("#eff0f1", "#202326")
                 .replace("alpha(#ffffff,", "alpha(#000000,")
@@ -611,6 +615,11 @@ mod tests {
         assert!(c.css().contains("#abcdef"));
         assert!(c.css().contains("#f3f4f6"));
         assert!(!c.css().contains("alpha(#ffffff,"));
+        assert!(c.css().contains("entry { background: #ffffff;"));
+        assert!(
+            c.css()
+                .contains("textview, textview text { background: #ffffff;")
+        );
         c.dock_opacity = 10;
         assert!(c.validate().is_err());
         c.dock_opacity = 50;
@@ -630,6 +639,8 @@ mod tests {
             "font-size: 17px",
             "#eff0f1",
             "alpha(#ffffff,",
+            "background: alpha(#000000, 0.25);",
+            "background: alpha(#000000, 0.2);",
             "#fffffe",
             "#ff7b7b",
             "#3ddc84",

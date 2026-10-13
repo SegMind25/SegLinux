@@ -180,9 +180,11 @@ runs a copy of artools' `buildiso` that:
   DVD or USB stick) and its EFI partition `SEGLINUX`;
 * loads `iso/scripts/buildiso-hooks.sh` after artools' libraries, which puts
   the SegLinux theme on the boot menu, renames its entries ("Start SegLinux
-  (DVD or ISO image)", "Start SegLinux (USB stick or hard disk)") and sets
-  the image's application and publisher fields. The build log lists the
-  boot menu entries.
+  (DVD or ISO image)", "Start SegLinux (USB stick or hard disk)"), makes
+  "Start SegLinux (DVD or ISO image)" the default, started after a 10 second
+  countdown (artools' menu waits forever on its keyboard layout entry), and
+  sets the image's application and publisher fields. The build log lists
+  the boot menu entries.
 
 Setup gives installed systems the same theme (`GRUB_THEME`), `SegLinux` as
 the UEFI boot entry and "Seg Linux" in the GRUB menu (GRUB adds " Linux"

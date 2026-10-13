@@ -30,6 +30,19 @@ seglinux_theme_source() {
     done < <(seglinux_layers "$@")
 }
 
+# artools' menu rests on its third entry (the keyboard layout) and waits
+# forever (timeout=-1): Enter opened the keyboard list instead of starting
+# the system. Start SegLinux is the default, after a 10 second countdown.
+seglinux_default_entry() {
+    local grub=$1
+    if [[ -f $grub/kernels.cfg ]] && ! grep -q '^default="Start SegLinux' "$grub/kernels.cfg"; then
+        printf '\n# SegLinux: start the live system by default (after the menu sets default=2).\ndefault="Start SegLinux (DVD or ISO image)"\n' >> "$grub/kernels.cfg"
+    fi
+    if [[ -f $grub/variable.cfg ]]; then
+        sed -i 's/^timeout=-1$/timeout=10/' "$grub/variable.cfg"
+    fi
+}
+
 # Rename what the boot menu shows; kernel arguments and paths stay.
 seglinux_brand_grub() {
     # shellcheck disable=SC2154 # iso_root is set by buildiso
@@ -58,6 +71,7 @@ seglinux_brand_grub() {
             "$head$title\""
         }e;
     ' "${cfgs[@]}"
+    seglinux_default_entry "$grub"
     echo "seglinux: boot menu entries:"
     grep -ho '^[[:space:]]*\(menuentry\|submenu\|menu\) [^{]*SegLinux[^{]*' "${cfgs[@]}" | sed 's/^[[:space:]]*/    /'
     if grep -n -i 'artix' "${cfgs[@]}" | grep -v -i 'artix\(label\|basedir\)\|/artix\b' | grep -q .; then

@@ -123,7 +123,7 @@ env = { MESA_GL_VERSION_OVERRIDE = "4.6" }
 
 | File | Why |
 |------|-----|
-| `/etc/modules-load.d/ntsync.conf`, `/usr/lib/udev/rules.d/70-seglinux-ntsync.rules` | Loads NTSYNC (Linux 6.14+) and lets users open `/dev/ntsync`, which Wine 11 and Proton use for Windows synchronisation objects |
+| `/etc/modules-load.d/10-ntsync.conf`, `/usr/lib/udev/rules.d/70-seglinux-ntsync.rules` | Loads NTSYNC (Linux 6.14+) and lets users open `/dev/ntsync`, which Wine 11 and Proton use for Windows synchronisation objects |
 | `/etc/security/limits.d/90-seglinux-esync.conf` | File descriptor limit esync needs |
 | `/etc/sysctl.d/80-seglinux-gaming.conf` | `vm.max_map_count` as on SteamOS |
 | `/etc/binfmt.d/wine.conf` | `./program.exe` starts through segrun |

@@ -35,8 +35,23 @@ Open Start: gapplication action org.seglinux.Shell menu";
 /// Applies the parts of the configuration GTK handles itself.
 fn apply_gtk_settings(config: &Config) {
     if let Some(settings) = gtk::Settings::default() {
-        settings.set_gtk_application_prefer_dark_theme(config.theme == config::Theme::Dark);
+        set_dark_theme(&settings, config.theme == config::Theme::Dark);
         settings.set_gtk_enable_animations(config.animations);
+    }
+}
+
+/// GTK 4.20 replaced gtk-application-prefer-dark-theme with
+/// gtk-interface-color-scheme and warns when the old setting is used; older
+/// GTK only knows the old one.
+fn set_dark_theme(settings: &gtk::Settings, dark: bool) {
+    const SCHEME: &str = "gtk-interface-color-scheme";
+    let scheme = settings
+        .find_property(SCHEME)
+        .and_then(|pspec| glib::EnumClass::with_type(pspec.value_type()))
+        .and_then(|class| class.to_value_by_nick(if dark { "dark" } else { "light" }));
+    match scheme {
+        Some(value) => settings.set_property_from_value(SCHEME, &value),
+        None => settings.set_gtk_application_prefer_dark_theme(dark),
     }
 }
 
