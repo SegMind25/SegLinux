@@ -80,3 +80,13 @@ switch:checked > slider { background: #ffffff; }
 textview, textview text { background: alpha(#000000, 0.2); color: #eff0f1; }
 spinbutton, dropdown > button { border: 1px solid alpha(#ffffff, 0.15); }
 actionbar > revealer > box { padding: 8px 12px; border-top: 1px solid alpha(#ffffff, 0.10); }
+
+/* Start menu: categories on the left, applications on the right, as in Kickoff */
+.launcher-categories { background: transparent; }
+.launcher-categories row { padding: 8px 10px; border-radius: 8px; margin: 1px 0; }
+.launcher-categories row:selected { background: alpha(#3daee9, 0.22); color: #eff0f1; }
+.new-badge { background: #3daee9; color: #fffffe; border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 600; }
+.launcher .hint { margin: 24px 16px; color: alpha(#eff0f1, 0.75); }
+popover.menu separator { margin: 4px 2px; min-height: 1px; }
+popover.menu button { padding: 6px 10px; }
+popover.menu button label { margin-right: 12px; }

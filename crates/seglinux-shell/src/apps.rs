@@ -66,6 +66,23 @@ pub fn icon(app: Option<&gio::DesktopAppInfo>) -> gio::Icon {
         .unwrap_or_else(|| gio::ThemedIcon::new("application-x-executable").upcast())
 }
 
+/// Menu buttons for the application's own actions, such as Firefox's
+/// "New Private Window", which Plasma's menus list too.
+pub fn action_buttons(app: &gio::DesktopAppInfo) -> Vec<gtk::Button> {
+    app.list_actions()
+        .into_iter()
+        .map(|action| {
+            let button = crate::common::menu_item(&app.action_name(&action));
+            let app = app.clone();
+            button.connect_clicked(move |b| {
+                app.launch_action(&action, crate::common::launch_context().as_ref());
+                crate::common::close_popover(b);
+            });
+            button
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

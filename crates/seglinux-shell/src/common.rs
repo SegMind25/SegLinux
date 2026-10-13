@@ -1,5 +1,6 @@
 //! Small helpers shared by the desktop, dock and menus.
 use gtk::{gdk, gio, glib, prelude::*};
+use std::{cell::OnceCell, rc::Rc};
 
 /// Opens whichever terminal emulator is installed (see data/system/seglinux-terminal).
 pub const TERMINAL: &str = "seglinux-terminal";
@@ -50,6 +51,61 @@ pub fn close_popover(widget: &impl IsA<gtk::Widget>) {
     {
         popover.popdown();
     }
+}
+
+/// An item of a right-click menu: a flat button with its label at the
+/// start, as in Plasma's menus.
+pub fn menu_item(label: &str) -> gtk::Button {
+    let button = gtk::Button::new();
+    let text = gtk::Label::new(Some(label));
+    text.set_xalign(0.0);
+    button.set_child(Some(&text));
+    button
+}
+
+/// Opens the menu `build` makes on a right click or a long press on
+/// `widget`. The menu is made the first time it opens: a list of a hundred
+/// applications does not hold a hundred menus nobody opened. The widget's
+/// tooltip is kept hidden while the menu is open, so it does not cover it.
+pub fn context_menu(widget: &impl IsA<gtk::Widget>, build: impl Fn() -> gtk::Popover + 'static) {
+    let widget = widget.as_ref();
+    let menu: Rc<OnceCell<gtk::Popover>> = Rc::default();
+    let owned = menu.clone();
+    widget.connect_destroy(move |_| {
+        if let Some(menu) = owned.get() {
+            menu.unparent();
+        }
+    });
+    let had_tooltip = widget.has_tooltip();
+    let open = {
+        let widget = widget.downgrade();
+        Rc::new(move || {
+            let Some(widget) = widget.upgrade() else {
+                return;
+            };
+            let menu = menu.get_or_init(|| {
+                let menu = build();
+                menu.set_parent(&widget);
+                let restore = widget.downgrade();
+                menu.connect_closed(move |_| {
+                    if let Some(widget) = restore.upgrade() {
+                        widget.set_has_tooltip(had_tooltip);
+                    }
+                });
+                menu
+            });
+            widget.set_has_tooltip(false);
+            menu.popup();
+        })
+    };
+    let right = gtk::GestureClick::new();
+    right.set_button(gdk::BUTTON_SECONDARY);
+    let right_open = open.clone();
+    right.connect_pressed(move |_, _, _, _| right_open());
+    widget.add_controller(right);
+    let press = gtk::GestureLongPress::new();
+    press.connect_pressed(move |_, _, _| open());
+    widget.add_controller(press);
 }
 
 pub fn command_button(label: &str, icon: &str, command: &str, args: &[&str]) -> gtk::Button {

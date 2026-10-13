@@ -1,6 +1,7 @@
 //! The floating dock at the bottom of the screen, like Plasma's floating
 //! panel: Start, show desktop, one icon per application (pinned, running or
 //! both), the tray and the clock.
+use crate::pins::{self, Change};
 use crate::tasks::{self, Action, Task, Tasks};
 use crate::{apps, common, config::Config, launcher, tray};
 use gtk::{gdk, gio, glib, prelude::*};
@@ -78,7 +79,21 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
         .tooltip_text("Start (Super+Space)")
         .build();
     start.add_css_class("start");
-    start.set_popover(Some(&launcher::menu(preview)));
+    let menu = launcher::menu(preview, &config.pinned);
+    // Start's tooltip would cover the open menu.
+    let tip = start.downgrade();
+    menu.connect_show(move |_| {
+        if let Some(start) = tip.upgrade() {
+            start.set_has_tooltip(false);
+        }
+    });
+    let tip = start.downgrade();
+    menu.connect_closed(move |_| {
+        if let Some(start) = tip.upgrade() {
+            start.set_has_tooltip(true);
+        }
+    });
+    start.set_popover(Some(&menu));
     menus.borrow_mut().push(start.downgrade());
     bar.append(&start);
 
@@ -127,11 +142,17 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
             }
             let ids: Vec<String> = pins.iter().map(|(id, _)| id.clone()).collect();
             for slot in slots(&ids, windows) {
-                let app = match slot.pin {
-                    Some(i) => Some(pins[i].1.clone()),
-                    None => apps::for_window(&slot.app_id),
+                let (app, place) = match slot.pin {
+                    Some(i) => (
+                        Some(pins[i].1.clone()),
+                        Some(Place {
+                            previous: i.checked_sub(1).map(|p| ids[p].clone()),
+                            next: ids.get(i + 1).cloned(),
+                        }),
+                    ),
+                    None => (apps::for_window(&slot.app_id), None),
                 };
-                apps_box.append(&app_button(&slot, app, handle.clone(), icon_size));
+                apps_box.append(&app_button(&slot, app, place, handle.clone(), icon_size));
             }
         }
     };
@@ -146,9 +167,16 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
     bar
 }
 
+/// Where a pinned icon is among the pinned icons shown: its neighbours.
+struct Place {
+    previous: Option<String>,
+    next: Option<String>,
+}
+
 fn app_button(
     slot: &Slot,
     app: Option<gio::DesktopAppInfo>,
+    place: Option<Place>,
     handle: Rc<OnceCell<Tasks>>,
     icon_size: i32,
 ) -> gtk::Button {
@@ -202,27 +230,99 @@ fn app_button(
     });
     button.add_controller(middle);
 
-    // Right click: new window, close.
+    // The application's desktop file id: what pinning saves.
+    let id = if place.is_some() {
+        Some(slot.app_id.clone())
+    } else {
+        app.as_ref().and_then(pins::desktop_id)
+    };
+    if let (Some(id), Some(_)) = (&id, &place) {
+        drag_to_reorder(&button, &image, id);
+    }
+
+    // Right click: the application's actions, new window, pin, unpin and
+    // move, close.
+    let windows: Vec<u32> = slot.windows.iter().map(|w| w.id).collect();
+    common::context_menu(&button, move || {
+        app_menu(
+            &name,
+            app.as_ref(),
+            id.as_deref(),
+            place.as_ref(),
+            &windows,
+            &handle,
+        )
+    });
+    button
+}
+
+/// A dock icon's menu (see app_button); `windows` are the ids of its windows.
+fn app_menu(
+    name: &str,
+    app: Option<&gio::DesktopAppInfo>,
+    id: Option<&str>,
+    place: Option<&Place>,
+    windows: &[u32],
+    handle: &Rc<OnceCell<Tasks>>,
+) -> gtk::Popover {
     let menu = gtk::Popover::new();
+    menu.add_css_class("menu");
     let items = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    let title = gtk::Label::new(Some(&name));
+    items.set_width_request(190);
+    let title = gtk::Label::new(Some(name));
     title.add_css_class("menu-title");
+    title.set_xalign(0.0);
     items.append(&title);
-    if let Some(app) = app.clone() {
-        let open = gtk::Button::with_label("New window");
+    if let Some(app) = app {
+        for action in apps::action_buttons(app) {
+            items.append(&action);
+        }
+        let open = common::menu_item("New window");
+        let app = app.clone();
         open.connect_clicked(move |b| {
             common::launch_app(&app);
             common::close_popover(b);
         });
         items.append(&open);
     }
-    if !slot.windows.is_empty() {
-        let close = gtk::Button::with_label(if slot.windows.len() == 1 {
+    if let Some(id) = id {
+        items.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+        let pinned = place.is_some();
+        items.append(&change_button(
+            if pinned {
+                "Unpin from dock"
+            } else {
+                "Pin to dock"
+            },
+            id,
+            if pinned { Change::Unpin } else { Change::Pin },
+        ));
+        if let Some(place) = place {
+            if let Some(previous) = &place.previous {
+                items.append(&change_button(
+                    "Move left",
+                    id,
+                    Change::TakePlaceOf(previous.clone()),
+                ));
+            }
+            if let Some(next) = &place.next {
+                items.append(&change_button(
+                    "Move right",
+                    id,
+                    Change::TakePlaceOf(next.clone()),
+                ));
+            }
+        }
+    }
+    if !windows.is_empty() {
+        items.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+        let close = common::menu_item(if windows.len() == 1 {
             "Close window"
         } else {
             "Close all windows"
         });
-        let ids: Vec<u32> = slot.windows.iter().map(|w| w.id).collect();
+        let ids = windows.to_vec();
+        let handle = handle.clone();
         close.connect_clicked(move |b| {
             if let Some(tasks) = handle.get() {
                 for id in &ids {
@@ -234,14 +334,45 @@ fn app_button(
         items.append(&close);
     }
     menu.set_child(Some(&items));
-    menu.set_parent(&button);
-    let owned = menu.clone();
-    button.connect_destroy(move |_| owned.unparent());
-    let right = gtk::GestureClick::new();
-    right.set_button(gdk::BUTTON_SECONDARY);
-    right.connect_pressed(move |_, _, _, _| menu.popup());
-    button.add_controller(right);
+    menu
+}
+
+/// A menu button that changes the pins.
+fn change_button(label: &str, id: &str, change: Change) -> gtk::Button {
+    let button = common::menu_item(label);
+    let id = id.to_string();
+    button.connect_clicked(move |b| {
+        common::close_popover(b);
+        pins::update(&id, change.clone());
+    });
     button
+}
+
+/// Pinned icons can be dragged onto one another to change their order.
+fn drag_to_reorder(button: &gtk::Button, image: &gtk::Image, id: &str) {
+    let source = gtk::DragSource::new();
+    source.set_actions(gdk::DragAction::MOVE);
+    let dragged = id.to_string();
+    source
+        .connect_prepare(move |_, _, _| Some(gdk::ContentProvider::for_value(&dragged.to_value())));
+    let icon = image.downgrade();
+    source.connect_drag_begin(move |source, _| {
+        if let Some(icon) = icon.upgrade() {
+            source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&icon))), 0, 0);
+        }
+    });
+    button.add_controller(source);
+
+    let target = gtk::DropTarget::new(glib::Type::STRING, gdk::DragAction::MOVE);
+    let onto = id.to_string();
+    target.connect_drop(move |_, value, _, _| match value.get::<String>() {
+        Ok(dragged) if dragged != onto => {
+            pins::update(&dragged, Change::TakePlaceOf(onto.clone()));
+            true
+        }
+        _ => false,
+    });
+    button.add_controller(target);
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 //! dock with Start menu, applications, tray and clock, on the labwc Wayland
 //! compositor (which manages the windows, like KWin under Plasma).
 mod apps;
+mod catalog;
 mod common;
 mod compositor;
 mod config;
@@ -10,6 +11,7 @@ mod dock;
 mod gaming;
 mod launcher;
 mod managed;
+mod pins;
 mod settings;
 mod tasks;
 mod tray;
@@ -170,6 +172,7 @@ fn main() -> glib::ExitCode {
     let startup_failed = failed.clone();
     // Kept for the life of the application.
     let config_monitor: Rc<RefCell<Option<gio::FileMonitor>>> = Rc::default();
+    let apps_monitor: Rc<RefCell<Option<gio::AppInfoMonitor>>> = Rc::default();
     app.connect_activate(move |app| {
         if let Some(window) = app.windows().first() {
             window.present();
@@ -308,6 +311,24 @@ fn main() -> glib::ExitCode {
             rebuild
         };
         rebuild();
+
+        // Installing or removing applications updates the dock and Start,
+        // once the package manager is done writing their files.
+        let monitor = gio::AppInfoMonitor::get();
+        let pending = Rc::new(Cell::new(false));
+        let on_apps = rebuild.clone();
+        monitor.connect_changed(move |_| {
+            if pending.replace(true) {
+                return;
+            }
+            let pending = pending.clone();
+            let on_apps = on_apps.clone();
+            glib::timeout_add_local_once(Duration::from_millis(1500), move || {
+                pending.set(false);
+                on_apps();
+            });
+        });
+        *apps_monitor.borrow_mut() = Some(monitor);
 
         // Settings take effect as soon as they are saved.
         let config = config.clone();

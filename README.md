@@ -208,9 +208,10 @@ iso/scripts/check-packages.sh -i openrc     # on Artix / in the build container
 
 ## Status
 
-The Rust installer, Windows launcher and desktop have 155 unit tests; CI also
+The Rust installer, Windows launcher and desktop have 163 unit tests; CI also
 runs the Settings window under Xvfb (it applies, rejects invalid input and
-keeps hand-edited files), the website's downloader tests and a browser
+keeps hand-edited files), the Start menu (favorites, categories, search, new
+applications) and pinning, the website's downloader tests and a browser
 regression test of the website. The Rust desktop is young, not a
 feature-complete KDE replacement; its idle footprint (compositor, desktop and
 D-Bus) is about 56 to 59 MB of proportional memory (see
