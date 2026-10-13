@@ -13,6 +13,10 @@ set -euo pipefail
 key=3056513887B78AEB
 cdn=https://cdn-mirror.chaotic.cx/chaotic-aur
 
+# Signing the key locally needs pacman's own key, which a fresh container
+# may not have yet (this does nothing when it has).
+pacman-key --init
+
 received=false
 for attempt in 1 2 3; do
     if pacman-key --recv-key "$key" --keyserver keyserver.ubuntu.com; then

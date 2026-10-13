@@ -1,0 +1,67 @@
+/* SegLinux's sign-in screen: the desktop's dark, translucent look over the
+   wallpaper. #3daee9 is replaced by the accent of greeter.toml. */
+
+window { background: #101216; color: #eff0f1; font-family: "Noto Sans", sans-serif; font-size: 14px; }
+.no-wallpaper { background-image: linear-gradient(170deg, #c45b74 0%, #6b3e8c 42%, #233a9c 70%, #3e68d8 100%); }
+.scrim { background-image: linear-gradient(180deg, alpha(black, 0.10) 0%, alpha(black, 0.35) 55%, alpha(black, 0.55) 100%); }
+
+.column { margin-bottom: 40px; }
+.clock { font-size: 76px; font-weight: 300; color: #ffffff; text-shadow: 0 2px 12px alpha(black, 0.5); }
+.date { font-size: 18px; color: alpha(#ffffff, 0.9); margin-bottom: 34px; text-shadow: 0 1px 6px alpha(black, 0.6); }
+
+.card {
+    background: alpha(#202326, 0.72);
+    border: 1px solid alpha(#ffffff, 0.12);
+    border-radius: 18px;
+    padding: 26px 28px 18px 28px;
+    min-width: 340px;
+    box-shadow: 0 12px 40px alpha(black, 0.45);
+}
+.avatar {
+    min-width: 88px; min-height: 88px; border-radius: 50%;
+    background-image: linear-gradient(160deg, shade(#3daee9, 1.15), shade(#3daee9, 0.75));
+    color: #ffffff; font-size: 38px; font-weight: 600;
+    box-shadow: 0 0 0 3px alpha(#ffffff, 0.18);
+}
+.user-name { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+
+entry, .field {
+    background: alpha(#000000, 0.28); border: 1px solid alpha(#ffffff, 0.16);
+    border-radius: 8px; padding: 9px 11px; color: #eff0f1; min-height: 22px;
+}
+entry:focus-within { border-color: #3daee9; box-shadow: 0 0 0 1px #3daee9; }
+.shake { animation: shake 0.4s ease-in-out; border-color: #ff7b7b; }
+@keyframes shake {
+    0% { margin-left: 0; margin-right: 0; }
+    20% { margin-left: 0; margin-right: 12px; }
+    40% { margin-left: 12px; margin-right: 0; }
+    60% { margin-left: 0; margin-right: 12px; }
+    80% { margin-left: 12px; margin-right: 0; }
+    100% { margin-left: 0; margin-right: 0; }
+}
+
+button { border-radius: 8px; background: transparent; box-shadow: none; border: 1px solid transparent; padding: 8px 12px; color: #eff0f1; }
+button:hover { background: alpha(#3daee9, 0.18); border-color: alpha(#3daee9, 0.35); }
+button:focus-visible { outline: 2px solid #3daee9; outline-offset: -2px; }
+.suggested-action, .sign-in { background: #3daee9; color: #ffffff; min-width: 26px; }
+.suggested-action:hover { background: shade(#3daee9, 1.1); }
+.message { min-height: 20px; margin-top: 2px; font-size: 13px; }
+.message.error { color: #ff7b7b; }
+.message.warning { color: #ffcf6b; }
+
+.users { margin-top: 22px; }
+.person { padding: 8px 10px; border-radius: 12px; opacity: 0.72; color: #ffffff; text-shadow: 0 1px 4px alpha(black, 0.8); }
+.person.selected { opacity: 1; background: alpha(#ffffff, 0.10); }
+.small-avatar {
+    min-width: 44px; min-height: 44px; border-radius: 50%;
+    background: alpha(#202326, 0.8); border: 2px solid alpha(#ffffff, 0.25);
+    font-size: 19px; font-weight: 600; color: #ffffff; text-shadow: none;
+}
+.person.selected .small-avatar { border-color: #3daee9; background: alpha(#3daee9, 0.45); }
+
+.bar { padding: 14px 22px; }
+.bar image { color: alpha(#ffffff, 0.85); }
+.bar button, .session button { color: #ffffff; text-shadow: 0 1px 4px alpha(black, 0.8); }
+.session > button { background: alpha(#202326, 0.55); border: 1px solid alpha(#ffffff, 0.12); }
+popover > contents { background: alpha(#202326, 0.97); border: 1px solid alpha(#ffffff, 0.12); border-radius: 10px; padding: 6px; color: #eff0f1; }
+.power button { background: alpha(#202326, 0.45); border: 1px solid alpha(#ffffff, 0.10); margin-left: 6px; }

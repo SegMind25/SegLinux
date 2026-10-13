@@ -1,0 +1,11 @@
+# SegLinux's sign-in screen (seglinux-greeter). Uncomment a line and change
+# it; the next time the sign-in screen appears, it uses it.
+#
+# The picture behind the clock (JPEG or PNG; readable by everyone).
+# wallpaper = "/usr/share/backgrounds/seglinux/seglinux-dark.jpg"
+#
+# The color of the sign-in button, focus rings and the round picture.
+# accent = "#3daee9"
+#
+# The clock, in strftime(3) notation: "%H:%M" is 24-hour, "%I:%M %p" 12-hour.
+# clock_format = "%H:%M"

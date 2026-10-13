@@ -1,0 +1,14 @@
+# The live session: greetd signs the live user in to the SegLinux desktop
+# at once; signing out shows the sign-in screen (password: seglinux).
+# Installed systems use /usr/share/seglinux/greeter/greetd.toml.
+
+[terminal]
+vt = 7
+
+[default_session]
+command = "seglinux-greeter-session"
+user = "greeter"
+
+[initial_session]
+command = "seglinux-session"
+user = "seglinux"

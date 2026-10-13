@@ -40,7 +40,7 @@ prints it):
 | `ComputerName` `*` → `DESKTOP-XXXXXXX` | `[computer] name = "auto"` → `DESKTOP-XXXXXXX` |
 | **oobeSystem**: `UserAccounts` | Users created with `useradd`; administrators join `wheel` and may use `sudo` |
 | Built-in Administrator account disabled | `root` locked unless the answer file sets a password |
-| `AutoLogon` | `[[users]] autologin = true` → SDDM autologin |
+| `AutoLogon` | `[[users]] autologin = true` → greetd's `initial_session` |
 | `SetupComplete.cmd` | Executables in `/etc/seglinux/setupcomplete.d/` and `[[run]] pass = "setup-complete"`; failures are logged, not fatal |
 | `Panther\setupact.log`, `setuperr.log` | `/var/log/seglinux/setupact.log`, `setuperr.log` (copied into the new system) |
 | Implicit answer file search | Command line → `seglinux.unattend=` kernel parameter → media root → root of other removable drives → `/etc/seglinux/autounattend.toml` |
@@ -51,6 +51,7 @@ prints it):
 
 | Windows | SegLinux |
 |---------|----------|
+| Sign-in screen (LogonUI) | `seglinux-greeter` on greetd: clock, accounts, password, the desktop to start, sleep, restart and shut down (see [desktop.md](desktop.md#sign-in-screen)) |
 | Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: a floating dock with Start, pinned programs (Dolphin, Brave, the kitty terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
 | Settings (Win+I), Personalization, Mouse, Keyboard | SegLinux Settings (Super+I): theme, accent, wallpaper, dock, clock, window focus and workspaces, keyboard layouts, mouse and touchpad, gaming; applied at once (see [desktop.md](desktop.md#settings)) |
 | Virtual desktops (Win+Ctrl+Left/Right) | labwc workspaces, with the same shortcut; their number is set in Settings |

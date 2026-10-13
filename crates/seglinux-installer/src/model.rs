@@ -197,7 +197,7 @@ pub fn demo_facts() -> Facts {
         image: Some("/run/artix/bootmnt/LiveOS/rootfs.img".into()),
         oem_dir: None,
         offline_packages: vec![],
-        online_packages: ["steam", "wine", "firefox", "lutris", "sddm"]
+        online_packages: ["steam", "wine", "brave-bin", "lutris", "kitty"]
             .map(String::from)
             .to_vec(),
         network: true,

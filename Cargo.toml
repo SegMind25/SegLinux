@@ -7,6 +7,7 @@ members = [
     "crates/seglinux-setup",
     "crates/seglinux-shell",
     "crates/seglinux-installer",
+    "crates/seglinux-greeter",
 ]
 
 [workspace.package]

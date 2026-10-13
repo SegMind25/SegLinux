@@ -25,7 +25,7 @@ live-session:
     - cupsd
     - syslog-ng
     - NetworkManager
-    - sddm
+    - greetd
     - power-profiles-daemon
   # No init-specific user services: both desktop sessions start PipeWire
   # themselves (/usr/lib/seglinux/pipewire-session), so the same profile
@@ -69,8 +69,8 @@ rootfs:
     - breeze-gtk
     - kwallet-pam                  # Credential Manager
     - xdg-desktop-portal-kde
-    - sddm                         # sign-in screen
-    - sddm-kcm
+    - greetd                       # sign-in service; SegLinux's sign-in screen
+                                   # (seglinux-greeter) runs in it
     - print-manager                # Devices and Printers
     - discover                     # Microsoft Store
     - flatpak
@@ -148,19 +148,19 @@ rootfs:
   packages-init:
     openrc:
       - networkmanager-openrc
-      - sddm-openrc
+      - greetd-openrc
       - cups-openrc
       - bluez-openrc
       - syslog-ng-openrc
     runit:
       - networkmanager-runit
-      - sddm-runit
+      - greetd-runit
       - cups-runit
       - bluez-runit
       - syslog-ng-runit
     dinit:
       - networkmanager-dinit
-      - sddm-dinit
+      - greetd-dinit
       - cups-dinit
       - bluez-dinit
       - syslog-ng-dinit

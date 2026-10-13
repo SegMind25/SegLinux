@@ -71,7 +71,8 @@ older ISO gets the command once with the two lines in
 * **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
   a floating dock with Start menu, one icon per application, tray and clock,
   written in Rust (GTK 4) on the labwc Wayland compositor, and the default
-  session; KDE Plasma remains available as a fallback. Its Settings app
+  session; KDE Plasma remains available as a fallback. The sign-in screen
+  is SegLinux's own too (Rust, on greetd, in place of SDDM). Its Settings app
   (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
   Familiar applications by default: Dolphin for files, Brave for the web,

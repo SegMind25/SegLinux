@@ -33,12 +33,15 @@ rootfs:
     - adwaita-icon-theme           # icons and cursors for the GTK shell
     - networkmanager
     - polkit                       # lets the live user manage connections (nmtui)
+    - greetd                       # the installed system's sign-in service
+                                   # (seglinux-greeter); not started live
     # Chaotic-AUR's key and mirrors: Setup downloads Brave from there.
     - chaotic-keyring
     - chaotic-mirrorlist
   packages-init:
     openrc:
       - networkmanager-openrc
+      - greetd-openrc
 
 livefs:
   packages:

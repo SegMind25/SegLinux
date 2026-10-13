@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- labwc for SegLinux's sign-in screen (seglinux-greeter-session).
+     One shortcut and one mouse binding that do nothing, so that labwc's
+     defaults (a terminal, the desktop menu) are not loaded: nothing but the
+     sign-in screen runs here. Ctrl+Alt+F1...F6 still switch to a console. -->
+<labwc_config>
+  <core>
+    <decoration>client</decoration>
+  </core>
+  <theme>
+    <name>SegLinux</name>
+  </theme>
+  <keyboard>
+    <numlock>on</numlock>
+    <keybind key="W-F24"><action name="None" /></keybind>
+  </keyboard>
+  <mouse>
+    <context name="Root">
+      <mousebind button="Middle" action="Press"><action name="None" /></mousebind>
+    </context>
+  </mouse>
+</labwc_config>

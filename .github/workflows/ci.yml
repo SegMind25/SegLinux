@@ -67,7 +67,7 @@ jobs:
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
             data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
             data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
-            data/system/profile-gaming.sh
+            data/system/profile-gaming.sh data/greeter/seglinux-greeter-session
           shellcheck -s bash iso/iso-profiles/seglinux-lite/live-overlay/etc/skel/.bash_profile
       - name: YAML, JSON and XML syntax
         run: |
@@ -75,7 +75,8 @@ jobs:
             iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
             iso/iso-profiles/seglinux-lite/common.yaml
           python3 -m json.tool data/plasma/look-and-feel/org.seglinux.desktop/metadata.json > /dev/null
-          python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml
+          python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml \
+            data/greeter/labwc/rc.xml data/greeter/labwc/menu.xml
       - name: Overlay links resolve
         run: |
           broken=$(find iso/iso-profiles -xtype l)

@@ -25,8 +25,14 @@ pub const DEFAULT_TARGET: &str = "/mnt/seglinux";
 /// Scripts run at the end of setup, like `%WINDIR%\Setup\Scripts\SetupComplete.cmd`.
 pub const SETUPCOMPLETE_DIR: &str = "/etc/seglinux/setupcomplete.d";
 
-/// SDDM's memory of the last session and user, which it preselects.
-pub const SDDM_STATE: &str = "/var/lib/sddm/state.conf";
+/// What the sign-in screen (seglinux-greeter) preselects: the account and
+/// desktop session used last.
+pub const GREETER_STATE: &str = "/var/lib/seglinux-greeter/state.toml";
+
+/// greetd, the sign-in service, and SegLinux's configuration of it (the
+/// image has it already; Setup adds automatic sign-in).
+pub const GREETD_CONFIG: &str = "/etc/greetd/config.toml";
+pub const GREETD_DEFAULTS: &str = include_str!("../../../data/greeter/greetd.toml");
 
 /// Reinstalls the packages whose files the Lite image leaves out
 /// (data/system/restore-trimmed-files).
@@ -932,15 +938,19 @@ pub fn build(
     // The sign-in screen preselects the SegLinux desktop (not Plasma) and
     // the first account, as it would after they had been used once.
     if let Some(first) = answer.users.first() {
+        let folder = GREETER_STATE
+            .rsplit_once('/')
+            .map_or(GREETER_STATE, |(dir, _)| dir);
         oobe.push(Step {
             description: "Making the SegLinux desktop the default session".into(),
-            actions: vec![Action::write(
-                SDDM_STATE,
-                format!(
-                    "[Last]\nUser={}\nSession=/usr/share/wayland-sessions/seglinux.desktop\n",
-                    first.name
+            actions: vec![
+                Action::write(
+                    GREETER_STATE,
+                    format!("user = \"{}\"\nsession = \"seglinux\"\n", first.name),
                 ),
-            )],
+                // The sign-in screen runs as greetd's user and updates it.
+                Action::chroot_optional(Cmd::new("chown").args(["-R", "greeter:greeter", folder])),
+            ],
         });
     }
     let autologin = answer.users.iter().find(|u| u.autologin);
@@ -948,10 +958,10 @@ pub fn build(
         oobe.push(Step {
             description: format!("Signing in {} automatically", u.name),
             actions: vec![Action::write(
-                "/etc/sddm.conf.d/20-seglinux-autologin.conf",
+                GREETD_CONFIG,
                 format!(
-                    "[Autologin]\nUser={}\nSession=seglinux.desktop\nRelogin=false\n",
-                    u.name
+                    "{GREETD_DEFAULTS}\n# Setup: {} is signed in to the SegLinux desktop at startup;\n# signing out shows the sign-in screen.\n[initial_session]\ncommand = \"seglinux-session\"\nuser = \"{}\"\n",
+                    u.name, u.name
                 ),
             )],
         });
@@ -1196,9 +1206,15 @@ mod tests {
         ));
         assert!(text.contains("set rc_parallel=\"YES\" in /etc/rc.conf"));
         // The sign-in screen preselects the SegLinux desktop and the user.
-        assert!(text.contains("/var/lib/sddm/state.conf"), "{text}");
-        assert!(text.contains("| User=alice"));
-        assert!(text.contains("| Session=/usr/share/wayland-sessions/seglinux.desktop"));
+        assert!(
+            text.contains("/var/lib/seglinux-greeter/state.toml"),
+            "{text}"
+        );
+        assert!(text.contains("| user = \"alice\""));
+        assert!(text.contains("| session = \"seglinux\""));
+        assert!(text.contains(
+            "(new system) $ chown -R greeter:greeter /var/lib/seglinux-greeter  # may fail"
+        ));
         assert!(text.contains("(new system) $ pacman-key --populate  # may fail"));
         assert!(text.contains("(new system) $ seglinux-update --setup  # may fail"));
         assert!(text.contains("$ mkfs.fat -F 32 -n SYSTEM -i 00000001 /dev/vda1"));
@@ -1215,14 +1231,18 @@ mod tests {
         assert!(text.contains("set hostname=\"DESKTOP-0000003\" in /etc/conf.d/hostname"));
         assert!(text.contains("| UUID=0000-0001  /boot/efi  vfat"));
         assert!(text.contains("write /etc/sudoers.d/10-seglinux (mode 440)"));
-        assert!(text.contains("| User=alice"));
-        assert!(text.contains("| Session=seglinux.desktop"));
+        // Automatic sign-in: greetd starts alice's session at startup.
+        assert!(text.contains("write /etc/greetd/config.toml"), "{text}");
+        assert!(text.contains("| [initial_session]"));
+        assert!(text.contains("| command = \"seglinux-session\""));
+        assert!(text.contains("| user = \"alice\""));
+        assert!(text.contains("| command = \"seglinux-greeter-session\""));
         assert!(text.contains("== Setting up user accounts (oobeSystem)"));
         // No NVIDIA GPU, no driver step.
         assert!(!text.contains("nvidia"));
 
         let actions = all_actions(&plan);
-        assert!(actions.contains(&&Action::EnableService("sddm".into())));
+        assert!(actions.contains(&&Action::EnableService("greetd".into())));
         assert!(
             actions
                 .iter()
@@ -1439,6 +1459,72 @@ mod tests {
         let plan = build_plan(&answer(""), &facts()).unwrap();
         assert!(plan.step_count() > 15);
         assert_eq!(plan.summary.layout.esp().size, Some(512 * MIB));
+    }
+
+    /// The text Setup writes to `path`.
+    fn written<'a>(plan: &'a Plan, path: &str) -> Option<&'a str> {
+        all_actions(plan).into_iter().find_map(|a| match a {
+            Action::WriteFile {
+                path: p, contents, ..
+            } if p == path => Some(contents.as_str()),
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn sign_in_screen() {
+        // With automatic sign-in: greetd starts alice's desktop at once, and
+        // shows the sign-in screen after she signs out.
+        let plan = build_plan(&answer(""), &facts()).unwrap();
+        let config: toml::Table = written(&plan, GREETD_CONFIG).unwrap().parse().unwrap();
+        assert_eq!(config["initial_session"]["user"].as_str(), Some("alice"));
+        assert_eq!(
+            config["initial_session"]["command"].as_str(),
+            Some("seglinux-session")
+        );
+        assert_eq!(
+            config["default_session"]["command"].as_str(),
+            Some("seglinux-greeter-session")
+        );
+        assert_eq!(config["default_session"]["user"].as_str(), Some("greeter"));
+        assert_eq!(config["terminal"]["vt"].as_integer(), Some(7));
+        let state: toml::Table = written(&plan, GREETER_STATE).unwrap().parse().unwrap();
+        assert_eq!(state["user"].as_str(), Some("alice"));
+        assert_eq!(state["session"].as_str(), Some("seglinux"));
+
+        // Without it, the image's configuration stays as it is.
+        let manual = Answer::parse(
+            "[disk]\ndevice = \"auto\"\nwipe = true\n[[users]]\nname = \"bob\"\npassword = \"s3cr3t-Pa55\"\n",
+        )
+        .unwrap();
+        let plan = build_plan(&manual, &facts()).unwrap();
+        assert_eq!(written(&plan, GREETD_CONFIG), None);
+        assert!(
+            written(&plan, GREETER_STATE)
+                .unwrap()
+                .contains("user = \"bob\"")
+        );
+    }
+
+    #[test]
+    fn images_carry_the_greetd_defaults() {
+        for overlay in [
+            include_str!("../../../iso/iso-profiles/seglinux/root-overlay/etc/greetd/config.toml"),
+            include_str!(
+                "../../../iso/iso-profiles/seglinux-lite/root-overlay/etc/greetd/config.toml"
+            ),
+        ] {
+            assert_eq!(overlay, GREETD_DEFAULTS);
+        }
+        // The live session signs its user in at once, to the same screen.
+        let live: toml::Table =
+            include_str!("../../../iso/iso-profiles/seglinux/live-overlay/etc/greetd/config.toml")
+                .parse()
+                .unwrap();
+        let defaults: toml::Table = GREETD_DEFAULTS.parse().unwrap();
+        assert_eq!(live["default_session"], defaults["default_session"]);
+        assert_eq!(live["terminal"], defaults["terminal"]);
+        assert_eq!(live["initial_session"]["user"].as_str(), Some("seglinux"));
     }
 
     #[test]
