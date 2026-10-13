@@ -293,7 +293,20 @@ downloader tests and browser regression test (Playwright), and
 `check-packages.sh` for OpenRC, runit and dinit (and the Lite edition's
 online packages) inside an Artix container.
 `.github/workflows/iso.yml` builds the ISO on demand (Actions → ISO → Run
-workflow) and for `v*` tags, and uploads it as a workflow artifact.
+workflow), for `v*` tags (both editions), and for pushes to `main` whose
+commit message contains `[build iso]` (Full) and/or `[build lite iso]`
+(Lite). A Full build takes about 20 minutes, Lite about 15. Each image is
+published as a GitHub release (a pre-release named
+`iso-DATE-EDITION-INIT-KERNEL-runN`), with a `.sha256` file; images over
+2 GB are split into `.partNN` pieces.
+
+The website's download page then offers it without any manual step: the
+page asks GitHub for the releases in the visitor's browser (the repository
+is public), shows the newest image of each edition on the Lite and Full
+cards and every image in **All builds**. The workflow also asks Vercel to
+rebuild the site when the `VERCEL_DEPLOY_HOOK` secret is set, so the list
+built into the page is current too. Previously published images are not
+changed by new commits: download a newer build to get them.
 
 ## Troubleshooting
 
