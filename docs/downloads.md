@@ -80,7 +80,7 @@ Use [Ventoy](https://www.ventoy.net/) or [Rufus](https://rufus.ie/) in DD mode. 
 
 1. Disable Secure Boot in your firmware settings; the current boot chain is not signed for it.
 2. Select the USB stick in your computer's boot menu.
-3. Choose **Start SegLinux** and try the live desktop.
+3. Choose **Start SegLinux** and try the live desktop. It is selected already and starts by itself after 10 seconds; choose the keyboard layout, language or time zone entries first to change them.
 4. Open **Install SegLinux** and follow Setup. Lite needs an internet connection to obtain its remaining packages.
 5. After installing, press **Super+I** for Settings: theme, wallpaper, dock, keyboard layout, mouse and gaming options, applied at once.
 

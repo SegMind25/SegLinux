@@ -252,9 +252,7 @@ pub fn open(app: &gtk::Application, config: &Config, page: &str, css: &gtk::CssP
                 // The Settings window follows the new look at once, too.
                 css.load_from_data(&next.shell.css());
                 if let Some(settings) = gtk::Settings::default() {
-                    settings.set_gtk_application_prefer_dark_theme(
-                        next.shell.theme == crate::config::Theme::Dark,
-                    );
+                    crate::set_dark_theme(&settings, next.shell.theme == crate::config::Theme::Dark);
                 }
                 let changed = next != previous;
                 *state.borrow_mut() = next;

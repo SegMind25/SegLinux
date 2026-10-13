@@ -103,7 +103,7 @@ gamescope_args = ["-W", "2560", "-H", "1440", "-r", "165", "--adaptive-sync"]
 | `nmi_watchdog=0`, `nowatchdog`, watchdog modules blacklisted | kernel command line (Setup), `/usr/lib/modprobe.d/seglinux-nowatchdog.conf` | Fewer periodic interrupts |
 | `fs.inotify.max_user_watches` | sysctl | Launchers watching many files |
 | I/O schedulers: NVMe none, SSD mq-deadline, HDD BFQ | `/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules` | Low latency while games stream assets |
-| NTSYNC | `/etc/modules-load.d/ntsync.conf`, udev rule | Windows synchronisation in the kernel, used by Wine 11 and Proton |
+| NTSYNC | `/etc/modules-load.d/10-ntsync.conf`, udev rule | Windows synchronisation in the kernel, used by Wine 11 and Proton |
 | esync file limit | `/etc/security/limits.d/90-seglinux-esync.conf` | For Proton/wine-staging's esync |
 | zram + `vm.swappiness = 180` | written by Setup | Compressed swap in RAM; `zswap.enabled=0` avoids double compression |
 | Quiet boot, `loglevel=3` | kernel command line (Setup) | Faster, quieter boot |
