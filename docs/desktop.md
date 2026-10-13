@@ -20,14 +20,28 @@ Laid out like a Plasma desktop with a floating panel:
   Desktop folder, or the desktop settings.
 - **Floating dock**: centred at the bottom, rounded and translucent, only as
   wide as its contents, on every monitor:
-  - **Start** (Super+Space): your name, search across installed
-    applications, Files, Settings, sign out, restart and shut down;
+  - **Start** (Super+Space), like Plasma's Kickoff: your name, search
+    (names, descriptions and keywords; Enter starts the first result),
+    *Favorites* (the dock's pins, in their order), *All applications* and
+    the categories in use (Games, Internet, Multimedia, Graphics, Office,
+    Development, ...), then Files, Settings, sign out, restart and shut
+    down. Right-click an application (or press and hold) for its own
+    actions (Firefox's *New Private Window*), *Pin to dock* or *Unpin from
+    dock*, and *Add to desktop*. The list follows installs: the desktop
+    refreshes when applications are installed or removed, and ones
+    installed since you first opened Start are marked *New* until you open
+    them (the list of known applications is
+    `~/.local/state/seglinux/known-apps`);
   - **Show desktop**: minimizes every window, or restores them;
   - **applications**: pinned launchers and running windows share one icon
     per application (matched by Wayland app id), with a line under running
     ones and a highlight for the active one. Click to start, focus or
     minimize; click again to cycle through several windows; middle-click
-    for a new window; right-click for *New window* and *Close*;
+    for a new window; right-click for the application's own actions, *New
+    window*, *Pin to dock* or *Unpin from dock*, *Move left* / *Move right*
+    and *Close*. Drag a pinned icon onto another to reorder them. Pins are
+    the `pinned` list of `shell.toml`, so they can be changed in Settings
+    too;
   - **tray**: network state (click for the connection editor, or nmtui),
     volume (click for the mixer, scroll to change), battery on laptops,
     quick settings, and the date and time (click for a calendar).
@@ -152,7 +166,8 @@ This is a young desktop, not KDE feature parity. It does not yet implement
 notification history, a StatusNotifier tray for other applications' icons,
 Bluetooth UI, clipboard history, per-display wallpaper selection, moving,
 renaming or deleting desktop icons (use the Desktop folder in a file
-manager), pinning directly from the dock, per-monitor display arrangement
+manager), dragging applications from Start onto the dock, window previews,
+per-monitor display arrangement
 (use the Displays tool) or full application theme editing. Network, sound, display management, file management and applications
 are existing Linux tools. Window buttons currently show all windows on all
 monitors. Hardware power management, suspend/resume, accessibility, locking,

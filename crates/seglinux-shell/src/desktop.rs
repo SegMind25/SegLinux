@@ -41,6 +41,34 @@ pub fn desktop_dir() -> PathBuf {
         .unwrap_or_else(|| glib::home_dir().join("Desktop"))
 }
 
+/// Puts a launcher for `app` on the desktop, as Plasma's "Add to Desktop":
+/// a copy of its desktop file in ~/Desktop. Returns where it is.
+pub fn add_launcher(app: &gio::DesktopAppInfo) -> Result<PathBuf, String> {
+    let source = app
+        .filename()
+        .ok_or_else(|| format!("{} has no launcher file.", app.display_name()))?;
+    copy_launcher(&source, &desktop_dir())
+}
+
+/// Copies the desktop file `source` into `dir`, unless one of that name is
+/// there already.
+pub fn copy_launcher(source: &std::path::Path, dir: &std::path::Path) -> Result<PathBuf, String> {
+    use std::os::unix::fs::PermissionsExt;
+    let name = source
+        .file_name()
+        .ok_or_else(|| format!("{} is not a file.", source.display()))?;
+    let dest = dir.join(name);
+    if !dest.exists() {
+        let failed =
+            |e: std::io::Error| format!("Cannot add {} to the desktop: {e}", source.display());
+        std::fs::create_dir_all(dir).map_err(failed)?;
+        std::fs::copy(source, &dest).map_err(failed)?;
+        // Executable, as file managers expect of trusted launchers.
+        std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755)).map_err(failed)?;
+    }
+    Ok(dest)
+}
+
 /// The background of one monitor. Only the first monitor shows icons.
 /// The wallpaper, decoded at the size it is shown at (`size`, in pixels):
 /// a 2560 x 1440 image shown on a 1366 x 768 screen takes 4 MB of memory
@@ -315,5 +343,28 @@ mod tests {
             ]
         );
         assert!(list(&dir.path().join("missing")).is_empty());
+    }
+
+    #[test]
+    fn launchers_are_copied_once_and_executable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("firefox.desktop");
+        std::fs::write(&source, "[Desktop Entry]\nName=Firefox\n").unwrap();
+        let desktop = dir.path().join("Desktop");
+        let dest = copy_launcher(&source, &desktop).unwrap();
+        assert_eq!(dest, desktop.join("firefox.desktop"));
+        assert_eq!(
+            std::fs::read_to_string(&dest).unwrap(),
+            "[Desktop Entry]\nName=Firefox\n"
+        );
+        assert_eq!(
+            std::fs::metadata(&dest).unwrap().permissions().mode() & 0o777,
+            0o755
+        );
+        // A launcher already there, perhaps edited, is kept.
+        std::fs::write(&dest, "edited").unwrap();
+        assert_eq!(copy_launcher(&source, &desktop).unwrap(), dest);
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "edited");
     }
 }

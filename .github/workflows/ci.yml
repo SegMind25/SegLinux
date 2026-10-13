@@ -39,6 +39,17 @@ jobs:
           XDG_CONFIG_HOME="$settings_test_dir" SEGLINUX_SETTINGS_TEST_ROOT="$settings_test_dir" \
             xvfb-run -a dbus-run-session -- cargo test --locked -p seglinux-shell \
               settings_apply_validates_and_preserves_game_overrides -- --ignored --test-threads=1
+      - name: Rust Start menu and pins integration
+        env:
+          GTK_A11Y: none
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+        run: |
+          start_test_dir=$(mktemp -d)
+          XDG_CONFIG_HOME="$start_test_dir/config" XDG_DATA_HOME="$start_test_dir/data" \
+            XDG_STATE_HOME="$start_test_dir/state" SEGLINUX_SETTINGS_TEST_ROOT="$start_test_dir" \
+            xvfb-run -a dbus-run-session -- cargo test --locked -p seglinux-shell \
+              start_menu_favorites_categories_search_and_new_applications -- --ignored --test-threads=1
       - name: Validate the example answer file
         run: cargo run --locked -q -p seglinux-setup -- validate crates/seglinux-setup/autounattend.example.toml
       - name: Validate the default segrun configuration
