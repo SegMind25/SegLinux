@@ -135,7 +135,10 @@ private repository's Actions minutes count towards your plan.
 
 `iso/build.sh` builds `iso/Containerfile` (based on
 `docker.io/artixlinux/artixlinux:base-devel` plus artools, Rust and
-go-yq) and runs `iso/scripts/build-in-container.sh` in it, which:
+go-yq, installed by `iso/scripts/container-packages.sh`, which refreshes
+the keyring first and moves on to the next mirror when one serves a
+package whose signature does not match, as happens mid-sync) and runs
+`iso/scripts/build-in-container.sh` in it, which:
 
 1. Packs the working tree and builds the `seglinux` package with
    `makepkg` (as an unprivileged `builder` user; `check()` runs the Rust

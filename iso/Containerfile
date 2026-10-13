@@ -2,26 +2,9 @@
 # Used by iso/build.sh; works with docker and podman on any Linux host.
 FROM docker.io/artixlinux/artixlinux:base-devel
 
-RUN pacman-key --init \
-    && pacman-key --populate artix \
-    && pacman -Syu --noconfirm --needed \
-        artools-base \
-        artools-iso \
-        go-yq \
-        rust \
-        gtk4 \
-        gtk4-layer-shell \
-        labwc \
-        procps-ng \
-        pkgconf \
-        squashfs-tools \
-        libisoburn \
-        mtools \
-        dosfstools \
-        grub \
-        sudo \
-        perl \
-    && pacman -Scc --noconfirm
+# The build tools, retried on other mirrors when one is mid-sync.
+COPY scripts/container-packages.sh /usr/local/lib/seglinux/container-packages.sh
+RUN bash /usr/local/lib/seglinux/container-packages.sh
 
 ENV SEGLINUX_CONTAINER=true \
     CHROOTS_DIR=/var/lib/artools
