@@ -4,7 +4,7 @@
     "website": {
       "root": "site",
       "installCommand": "true",
-      "buildCommand": "python3 -m pip install --target /tmp/seglinux-site-deps -r requirements.txt && PYTHONPATH=/tmp/seglinux-site-deps python3 build.py --out _site",
+      "buildCommand": "python3 -m pip install --target /tmp/seglinux-site-deps -r build-requirements.txt && PYTHONPATH=/tmp/seglinux-site-deps python3 build.py --out _site",
       "outputDirectory": "_site",
       "rewrites": [
         {

@@ -111,7 +111,7 @@ public before sharing the site.
 To preview it locally:
 
 ```sh
-python3 -m pip install -r site/requirements.txt
+python3 -m pip install -r site/build-requirements.txt
 python3 site/build.py --out _site   # GH_TOKEN=... lists the releases of a private repository
 python3 -m http.server -d _site 8000
 ```
