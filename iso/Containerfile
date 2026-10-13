@@ -2,7 +2,9 @@
 # Used by iso/build.sh; works with docker and podman on any Linux host.
 FROM docker.io/artixlinux/artixlinux:base-devel
 
-# The build tools, retried on other mirrors when one is mid-sync.
+# The build tools, retried on other mirrors when one is mid-sync, and Rust
+# from rustup, shared by every user through RUSTUP_HOME.
+ENV RUSTUP_HOME=/opt/rustup
 COPY scripts/container-packages.sh /usr/local/lib/seglinux/container-packages.sh
 RUN bash /usr/local/lib/seglinux/container-packages.sh
 

@@ -42,7 +42,7 @@ esac
 [[ $(id -u) == 0 ]] || die "run as root"
 [[ -f /etc/artix-release ]] || [[ $in_container == true ]] || die "this script must run on Artix Linux (use iso/build.sh for a container build)"
 for cmd in buildiso makepkg repo-add yq cargo; do
-    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools-base artools-iso base-devel rust go-yq gtk4 gtk4-layer-shell labwc procps-ng"
+    command -v "$cmd" >/dev/null || die "'$cmd' is missing: pacman -S artools-base artools-iso base-devel rust (or rustup) go-yq gtk4 gtk4-layer-shell labwc procps-ng"
 done
 
 step "Building the seglinux package"
@@ -63,7 +63,9 @@ if ! id "$build_user" >/dev/null 2>&1; then
 fi
 [[ $(id -u "$build_user") != 0 ]] || die "the package build user must not be root"
 chown -R "$build_user:" "$pkgwork"
-(cd "$pkgwork" && sudo -H -u "$build_user" env CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" makepkg -f --noconfirm)
+# sudo resets the environment: pass on where rustup keeps the toolchain.
+(cd "$pkgwork" && sudo -H -u "$build_user" env CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" \
+    ${RUSTUP_HOME:+"RUSTUP_HOME=$RUSTUP_HOME"} makepkg -f --noconfirm)
 
 step "Creating the local [seglinux] repository"
 rm -rf "$local_repo"

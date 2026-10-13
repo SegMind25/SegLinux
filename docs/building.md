@@ -137,7 +137,8 @@ private repository's Actions minutes count towards your plan.
 `docker.io/artixlinux/artixlinux:base-devel` plus artools, Rust and
 go-yq, installed by `iso/scripts/container-packages.sh`, which refreshes
 the keyring first and moves on to the next mirror when one serves a
-package whose signature does not match, as happens mid-sync) and runs
+package whose signature does not match, as happens mid-sync; Rust comes
+from rustup with the official stable toolchain) and runs
 `iso/scripts/build-in-container.sh` in it, which:
 
 1. Packs the working tree and builds the `seglinux` package with
