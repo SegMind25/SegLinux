@@ -1,5 +1,14 @@
+# The key SegLinux's updates are signed with, once pacman has a keyring
+# (SegLinux Setup creates the installed system's).
+trust_update_key() {
+    if [[ -f /usr/share/pacman/keyrings/seglinux.gpg && -d /etc/pacman.d/gnupg ]]; then
+        pacman-key --populate seglinux >/dev/null 2>&1 || true
+    fi
+}
+
 post_install() {
     /usr/lib/seglinux/apply-branding
+    trust_update_key
     cat <<'MSG'
 ==> Windows programs: double-click an .exe, or run `segrun program.exe`.
 ==> `segrun doctor` checks Wine, Vulkan, NTSYNC and binfmt support.
@@ -8,4 +17,5 @@ MSG
 
 post_upgrade() {
     /usr/lib/seglinux/apply-branding
+    trust_update_key
 }

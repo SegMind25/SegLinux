@@ -44,7 +44,7 @@ impl Default for Config {
             clock_format: CLOCK_24H.into(),
             pinned: [
                 "org.kde.dolphin",
-                "firefox",
+                "brave-browser",
                 "seglinux-terminal",
                 "steam",
                 "net.lutris.Lutris",
@@ -568,7 +568,7 @@ mod tests {
         assert_eq!(c.clock_format, "%I:%M %p");
         assert!(c.wallpaper.is_absolute());
         assert!(c.desktop_icons);
-        assert!(c.pinned.iter().any(|p| p == "firefox"));
+        assert!(c.pinned.iter().any(|p| p == "brave-browser"));
         assert!(toml::from_str::<Config>("wallpapre = 'oops'").is_err());
         assert!(toml::from_str::<Config>("[windows]\ngapp = 3").is_err());
         let c: Config = toml::from_str("pinned = ['steam']\ndesktop_icons = false").unwrap();

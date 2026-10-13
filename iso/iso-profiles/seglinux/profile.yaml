@@ -39,6 +39,11 @@ rootfs:
     # The seglinux package brings the boot menu theme; buildiso-hooks.sh
     # puts it on the image in place of Artix's.
 
+    # Chaotic-AUR's key and mirrors: Brave and its updates come from there
+    # (see iso/scripts/chaotic-aur.sh).
+    - chaotic-keyring
+    - chaotic-mirrorlist
+
     # SegLinux's Rust shell uses labwc for Wayland window management.
     - labwc
     - gtk4
@@ -76,7 +81,7 @@ rootfs:
 
     # Accessories
     - dolphin                      # File Explorer
-    - konsole                      # Terminal
+    - kitty                        # Terminal
     - kate                         # Notepad
     - kcalc                        # Calculator
     - spectacle                    # Snipping Tool
@@ -89,7 +94,7 @@ rootfs:
     - kdenetwork-filesharing       # share folders with Windows PCs
     - ffmpegthumbs
     - kdegraphics-thumbnailers
-    - firefox                      # Edge
+    - brave-bin                    # Edge: Brave, the default browser (Chaotic-AUR)
     - vlc                          # Media Player
 
     # Sound

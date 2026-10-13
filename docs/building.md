@@ -88,7 +88,7 @@ needs.
 ## The Lite edition
 
 The full edition is a large image: the Plasma fallback, Steam, Wine,
-Firefox and every driver and firmware file are on it. The **Lite** edition
+Brave and every driver and firmware file are on it. The **Lite** edition
 (`iso/iso-profiles/seglinux-lite`) is the smallest image that still boots
 the SegLinux desktop and gets online: 736 MB, against 2.8 GB for the full
 edition (October 2026; the first Lite build was 868 MB before trimming).
@@ -97,9 +97,9 @@ Each release's notes give its exact size:
 | | Full | Lite |
 |---|---|---|
 | Live desktop | SegLinux (Rust) on labwc, Plasma fallback, SDDM | SegLinux (Rust) on labwc, signed in on tty1 |
-| Terminal | Konsole | foot |
+| Terminal | kitty | foot |
 | Firmware | all (`linux-firmware`) | graphics and Wi-Fi/Ethernet of PCs: AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
-| Wine, Steam, Firefox, Lutris, drivers... | on the image | **downloaded by Setup** |
+| Wine, Steam, Brave, Lutris, drivers... | on the image | **downloaded by Setup** |
 | Init systems | OpenRC, runit, dinit | OpenRC |
 | Image compression | zstd (artools default) | xz, 1 MiB blocks, x86 filter |
 | Manuals, documentation, translations; Bluetooth, camera and server firmware | included | left out of the image ([list](../iso/iso-profiles/seglinux-lite/pacman-noextract.conf)), restored by Setup |

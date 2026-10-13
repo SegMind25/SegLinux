@@ -63,6 +63,10 @@ if [[ $installed != true ]]; then
     exit 1
 fi
 
+# Brave comes from Chaotic-AUR (iso/pacman.conf.d/iso-x86_64.conf).
+bash "$(dirname "$0")/chaotic-aur.sh"
+rm -rf /var/cache/pacman/pkg/*
+
 rustup toolchain install stable --profile minimal
 rustup default stable
 # The package is built by an unprivileged user.

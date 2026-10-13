@@ -1,6 +1,12 @@
-# Double-clicking a Windows program, installer or shortcut opens it with
-# segrun, which picks the Wine prefix, runner and graphics layers.
+# SegLinux's default applications. Double-clicking a Windows program,
+# installer or shortcut opens it with segrun, which picks the Wine prefix,
+# runner and graphics layers; web pages open in Brave and folders in Dolphin.
 [Default Applications]
+x-scheme-handler/http=brave-browser.desktop
+x-scheme-handler/https=brave-browser.desktop
+text/html=brave-browser.desktop
+application/xhtml+xml=brave-browser.desktop
+inode/directory=org.kde.dolphin.desktop
 application/x-ms-dos-executable=segrun.desktop
 application/x-msdownload=segrun.desktop
 application/vnd.microsoft.portable-executable=segrun.desktop

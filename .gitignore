@@ -14,3 +14,6 @@ _site/
 
 # Python build caches
 __pycache__/
+
+# Written by CI from the SEGLINUX_SIGNING_KEY secret (docs/updating.md).
+/data/keyrings/

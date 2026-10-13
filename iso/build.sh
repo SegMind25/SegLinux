@@ -92,5 +92,6 @@ image=seglinux-iso-builder
     -e OUT_DIR=/src/iso/out \
     -e OWNER_UID="$(id -u)" \
     -e OWNER_GID="$(id -g)" \
+    -e SEGLINUX_PKGVER="${SEGLINUX_PKGVER:-}" \
     "$image" /src/iso/scripts/build-in-container.sh
 echo "ISO written to $repo/iso/out/"

@@ -35,6 +35,20 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.getElementById('motion-toggle').disabled,null,{timeout:3000});
   await page.emulateMedia({reducedMotion:'no-preference'});
 
+  // Each build shows when it was released, to the minute, in the visitor's
+  // time zone, with UTC in the tooltip (the Lite build of releases.json was
+  // published at 10:00 UTC).
+  const tokyo=await browser.newPage({viewport:{width:1280,height:900},timezoneId:'Asia/Tokyo'});tokyo.on('pageerror',e=>errors.push(e.message));
+  await tokyo.route('https://api.github.com/**',route=>route.fulfill({json:JSON.parse(fs.readFileSync(path.join(root,'releases.json')))}));
+  await tokyo.goto(url+'/download');
+  const released=tokyo.locator('.edition[data-edition=lite] [data-field=meta] li',{hasText:'Released'});
+  await released.waitFor();
+  assert.equal((await released.textContent()).trim(),'Released Oct 12, 2026, 19:00 GMT+9');
+  assert.equal(await released.locator('time').getAttribute('datetime'),'2026-10-12T10:00:00.000Z');
+  assert.equal(await released.locator('time').getAttribute('title'),'Oct 12, 2026, 10:00 UTC');
+  assert.equal((await tokyo.locator('#builds tr').first().locator('td').first().textContent()).trim(),'Oct 12, 2026, 19:00 GMT+9');
+  await tokyo.close();
+
   // Animations, with motion enabled again.
   const fresh=await browser.newPage({viewport:{width:1280,height:900}});fresh.on('pageerror',e=>errors.push(e.message));
   await fresh.route('https://api.github.com/**',route=>route.fulfill({json:JSON.parse(fs.readFileSync(path.join(root,'releases.json')))}));
@@ -82,6 +96,6 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await fresh.waitForTimeout(800);assert.equal((await copy.textContent()).trim(),'Copy');
   await fresh.close();
 
-  assert.deepEqual(errors,[]);console.log('Website regression checks passed: navigation, ISO sizes, gallery keyboard/focus, live motion, saved theme, download refresh, docs search, mobile overflow, reveal/hover transitions, section highlight, scroll marker, orbit pause, tab responsiveness, lightbox, copy fallback.');
+  assert.deepEqual(errors,[]);console.log('Website regression checks passed: navigation, ISO sizes, release times, gallery keyboard/focus, live motion, saved theme, download refresh, docs search, mobile overflow, reveal/hover transitions, section highlight, scroll marker, orbit pause, tab responsiveness, lightbox, copy fallback.');
  } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exit(1)});
