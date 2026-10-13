@@ -67,7 +67,7 @@ start it by hand: `sudo seglinux-setup install --unattend`.
 | `[oem] path` | `"auto"` | `$OEM$` | Folder copied over `/` (`seglinux/oem` on the media) |
 | `[oem] packages` | `"auto"` | offlineServicing packages | Folder of `.pkg.tar.zst` files installed offline (`seglinux/packages` on the media) |
 | `[region] locale` | `"en_US.UTF-8"` | `UILanguage`, `UserLocale` | |
-| `[region] keyboard` | `"us"` | `InputLocale` | X layout name; also used for the console |
+| `[region] keyboard` | `"us"` | `InputLocale` | X layout name; also used for the console and the SegLinux desktop (changeable later in Settings) |
 | `[region] timezone` | `"UTC"` | `TimeZone` | `Region/City` |
 | `[region] hardware_clock` | `"utc"` | | `"local"` when dual-booting Windows |
 | `[computer] name` | `"auto"` | `ComputerName` | `"auto"` → `DESKTOP-XXXXXXX` |

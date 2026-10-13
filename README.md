@@ -208,8 +208,13 @@ iso/scripts/check-packages.sh -i openrc     # on Artix / in the build container
 
 ## Status
 
-The Rust installer and Windows-launcher tools have unit tests. The new
-Rust desktop is an early implementation, not a feature-complete KDE replacement. The installer's plan
+The Rust installer, Windows launcher and desktop have 155 unit tests; CI also
+runs the Settings window under Xvfb (it applies, rejects invalid input and
+keeps hand-edited files), the website's downloader tests and a browser
+regression test of the website. The Rust desktop is young, not a
+feature-complete KDE replacement; its idle footprint (compositor, desktop and
+D-Bus) is about 56 to 59 MB of proportional memory (see
+[the desktop guide](docs/desktop.md#resource-use)). The installer's plan
 is tested end to end in dry-run form, and its file and service actions are
 tested against temporary directories; the disk-writing steps need a real
 or virtual machine. The ISO profile follows artools 0.39+'s format. CI

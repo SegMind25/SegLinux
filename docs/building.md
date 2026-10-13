@@ -286,9 +286,12 @@ can enroll your own keys and sign the kernel and GRUB with `sbctl`.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push: Rust formatting, clippy and
-tests, shellcheck, YAML and answer-file validation, and
-`check-packages.sh` for OpenRC and dinit inside an Artix container.
+`.github/workflows/ci.yml` runs on every push and pull request: Rust
+formatting, clippy and tests, the Settings window's integration test under
+Xvfb, shellcheck, YAML, XML and answer-file validation, the website's build,
+downloader tests and browser regression test (Playwright), and
+`check-packages.sh` for OpenRC, runit and dinit (and the Lite edition's
+online packages) inside an Artix container.
 `.github/workflows/iso.yml` builds the ISO on demand (Actions → ISO → Run
 workflow) and for `v*` tags, and uploads it as a workflow artifact.
 

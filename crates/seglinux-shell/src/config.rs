@@ -378,6 +378,35 @@ pub fn valid_keyboard_layout(layout: &str) -> bool {
             }))
 }
 
+/// WCAG relative luminance of a `#rrggbb` color.
+fn luminance(hex: &str) -> f64 {
+    let channel = |i: usize| {
+        let c = f64::from(u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0)) / 255.0;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+}
+
+/// WCAG contrast ratio between two `#rrggbb` colors.
+pub fn contrast(a: &str, b: &str) -> f64 {
+    let (a, b) = (luminance(a), luminance(b));
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+/// White or near-black, whichever reads better on the accent color.
+pub fn on_accent(accent: &str) -> &'static str {
+    const DARK: &str = "#111214";
+    if contrast("#ffffff", accent) >= contrast(DARK, accent) {
+        "#ffffff"
+    } else {
+        DARK
+    }
+}
+
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
         if self.accent.len() != 7
@@ -432,6 +461,7 @@ impl Config {
     pub fn css(&self) -> String {
         let alpha = f64::from(self.dock_opacity) / 100.0;
         let mut css = include_str!("../../../data/desktop/shell.css")
+            .replace("#fffffe", on_accent(&self.accent))
             .replace("#3daee9", &self.accent)
             .replace(
                 "alpha(#202326, 0.86)",
@@ -454,7 +484,10 @@ impl Config {
             css = css
                 .replace("#202326", "#f3f4f6")
                 .replace("#eff0f1", "#202326")
-                .replace("alpha(#ffffff,", "alpha(#000000,");
+                .replace("alpha(#ffffff,", "alpha(#000000,")
+                // Darker status colors, readable on light surfaces.
+                .replace("#ff7b7b", "#c62828")
+                .replace("#3ddc84", "#1b7a3d");
         }
         css.push_str(&format!(
             "\nwindow {{ font-size: {}px; }}\n.dock .start image, .dock .app image {{ -gtk-icon-size: {}px; }}\n",
@@ -597,9 +630,32 @@ mod tests {
             "font-size: 17px",
             "#eff0f1",
             "alpha(#ffffff,",
+            "#fffffe",
+            "#ff7b7b",
+            "#3ddc84",
         ] {
             assert!(sheet.contains(token), "{token}");
         }
+    }
+
+    #[test]
+    fn text_on_the_accent_is_readable() {
+        // Checked with the WCAG formula, as replica-design's contrast.py does.
+        assert!((contrast("#ffffff", "#000000") - 21.0).abs() < 0.01);
+        assert_eq!(on_accent("#3daee9"), "#111214");
+        assert_eq!(on_accent("#1d3557"), "#ffffff");
+        for (_, accent) in ACCENTS {
+            assert!(contrast(on_accent(accent), accent) >= 4.4, "{accent}");
+        }
+        let css = Config::default().css();
+        assert!(css.contains(".suggested-action { background: #3daee9; color: #111214;"));
+        assert!(!css.contains("#fffffe"));
+        let light = Config {
+            theme: Theme::Light,
+            ..Config::default()
+        }
+        .css();
+        assert!(light.contains(".error { color: #c62828;"));
     }
 
     #[test]

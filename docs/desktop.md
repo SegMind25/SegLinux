@@ -117,6 +117,35 @@ The keyboard layout chosen during Setup is used until another one is set in
 Settings. These are settings of the SegLinux session; the Plasma session
 keeps its own.
 
+## Resource use
+
+The desktop's idle footprint, re-measured on 13 October 2026 with release
+builds: labwc on a 1920×1080 headless output (CPU renderer), the shell
+started as the session's autostart does (`GSK_RENDERER=cairo`), and D-Bus,
+25 seconds after start, then CPU over 60 seconds of idle:
+
+| Process | RSS | PSS |
+| --- | --- | --- |
+| labwc | 30 MB | 19 MB |
+| seglinux-shell | 46 MB | 35 MB |
+| dbus-daemon and dbus-run-session | 7 MB | 2 MB |
+| **Total** | **83 MB** | **56 MB** |
+
+CPU: 0.2% of one core. PSS counts each shared library once across the
+processes, which is the fair way to add them up; RSS counts GTK and the C
+library in every process. The 59 MB quoted on the website was measured the
+same way (PSS, on a virtual screen) when the shell moved to GTK's CPU
+renderer: shell 39.5 MB, labwc 16.4 MB, D-Bus 3 MB, 0.25% CPU. The live
+settings did not change it (55 MB before, 56 MB after, within noise). The number covers the desktop,
+not the whole system: the kernel, PipeWire, the polkit agent, Xwayland (when
+an X11 program runs) and services come on top. To check on your computer:
+
+```sh
+for p in labwc seglinux-shell dbus-daemon; do
+  pid=$(pgrep -nx "$p") && grep -H '^Pss:' /proc/$pid/smaps_rollup
+done
+```
+
 ## Current limitations
 
 This is a young desktop, not KDE feature parity. It does not yet implement
