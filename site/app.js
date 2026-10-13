@@ -10,7 +10,7 @@ window.addEventListener("seglinux-motion-change", () => {
   reduceMotion = document.documentElement.dataset.motion === "reduced";
   if (reduceMotion) {
     document.getElementById("orbit")?.style.removeProperty("--spin");
-    document.querySelectorAll(".reveal-ready").forEach(node => node.classList.add("visible"));
+    document.querySelectorAll(".reveal-ready").forEach(finishReveal);
   }
 });
 
@@ -56,6 +56,15 @@ function drawRuler() {
 }
 
 const orbit = document.getElementById("orbit");
+const hero = document.getElementById("home");
+// The orbit only turns while the hero is on screen: its endless tick
+// animation repaints a large blurred SVG, which costs battery for nothing
+// once the visitor has scrolled past it (or switched tabs).
+let heroVisible = true;
+new IntersectionObserver(([entry]) => {
+  heroVisible = entry.isIntersecting;
+  document.documentElement.classList.toggle("hero-hidden", !heroVisible);
+}).observe(hero);
 let ticking = false;
 function onScroll() {
   if (ticking) return;
@@ -63,8 +72,9 @@ function onScroll() {
   requestAnimationFrame(() => {
     const max = document.documentElement.scrollHeight - window.innerHeight;
     const progress = max > 0 ? window.scrollY / max : 0;
-    marker.style.top = `${12 + progress * (ticks.clientHeight - 24)}px`;
-    if (!reduceMotion) orbit.style.setProperty("--spin", `${window.scrollY * 0.04}deg`);
+    // A transform moves the marker without a layout on every scrolled frame.
+    marker.style.transform = `translateY(${progress * Math.max(ticks.clientHeight - 24, 0)}px)`;
+    if (!reduceMotion && heroVisible) orbit.style.setProperty("--spin", `${window.scrollY * 0.04}deg`);
     ticking = false;
   });
 }
@@ -80,6 +90,10 @@ onScroll();
 const sectionLinks = document.querySelectorAll(".section-index a");
 const navLinks = document.querySelectorAll(".nav-links a");
 const downloadPage = document.body.dataset.page === "download";
+// The section each top-bar link stands for: "#features" for in-page links,
+// and the sections the Download and Docs pages continue on the home page.
+const PAGE_SECTIONS = { "/download": "download", "/docs": "documentation" };
+const linkSection = (a) => { const href = a.getAttribute("href"); return href.startsWith("#") ? href.slice(1) : PAGE_SECTIONS[href]; };
 if (downloadPage) navLinks.forEach(a => { a.classList.toggle("active", a.getAttribute("href") === "/download"); if(a.getAttribute("href") === "/download") a.setAttribute("aria-current", "page"); });
 const observer = new IntersectionObserver(
   (entries) => {
@@ -87,7 +101,7 @@ const observer = new IntersectionObserver(
       if (!entry.isIntersecting) continue;
       const id = entry.target.id;
       sectionLinks.forEach((a) => a.classList.toggle("current", a.dataset.section === id));
-      if (!downloadPage) navLinks.forEach(a => { const active = a.getAttribute("href") === `#${id}`; a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
+      if (!downloadPage) navLinks.forEach(a => { const active = linkSection(a) === id; a.classList.toggle("active", active); if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
     }
   },
   { rootMargin: "-45% 0px -50% 0px" },
@@ -109,18 +123,27 @@ const frame = shot.closest("figure"); frame.id = "screenshot-panel"; frame.setAt
 tabs.forEach((tab, index) => {
   tab.id = `screenshot-tab-${index}`; tab.setAttribute("aria-controls", frame.id); tab.tabIndex = index === 0 ? 0 : -1;
   tab.addEventListener("click", () => {
-    const request = ++shotRequest;
     const name = tab.dataset.shot;
+    if (tab.getAttribute("aria-selected") === "true" && shot.getAttribute("src") === `/assets/${name}.webp`) return;
+    const request = ++shotRequest;
+    // The tab answers at once; the picture fades over when it has loaded,
+    // instead of the tab waiting for the download and the image jumping.
+    tabs.forEach(t => { t.setAttribute("aria-selected", String(t === tab)); t.tabIndex = t === tab ? 0 : -1; });
+    frame.setAttribute("aria-labelledby", tab.id);
+    document.getElementById("shot-name").textContent = `seglinux — ${tab.textContent.toLowerCase()}`;
+    frame.setAttribute("aria-busy", "true");
     const next = new Image();
     next.onload = () => {
       if (request !== shotRequest) return;
-      tabs.forEach(t => { t.setAttribute("aria-selected", String(t === tab)); t.tabIndex = t === tab ? 0 : -1; });
-      frame.setAttribute("aria-labelledby", tab.id);
       shot.src = next.src; shot.alt = SHOTS[name][0];
       document.getElementById("shot-caption").textContent = SHOTS[name][1];
-      document.getElementById("shot-name").textContent = `seglinux — ${tab.textContent.toLowerCase()}`;
+      frame.removeAttribute("aria-busy");
     };
-    next.onerror = () => { if (request === shotRequest) document.getElementById("shot-caption").textContent = "This screenshot could not load. Please try again."; };
+    next.onerror = () => {
+      if (request !== shotRequest) return;
+      frame.removeAttribute("aria-busy");
+      document.getElementById("shot-caption").textContent = "This screenshot could not load. Please try again.";
+    };
     next.src = `/assets/${name}.webp`;
   });
   tab.addEventListener("keydown", event => {
@@ -137,15 +160,21 @@ frame.setAttribute("aria-labelledby", tabs[0].id);
 // ---- Copy buttons ------------------------------------------------------
 
 document.querySelectorAll(".code .copy").forEach((button) => {
+  let reset;
   button.addEventListener("click", async () => {
-    const text = button.parentElement.querySelector("code").innerText;
+    const code = button.parentElement.querySelector("code");
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(code.innerText);
       button.textContent = "Copied";
     } catch (e) {
-      button.textContent = "Select";
+      // No clipboard access (plain http, permissions): select the command
+      // so Ctrl+C copies it.
+      getSelection().selectAllChildren(code);
+      button.textContent = "Selected";
     }
-    setTimeout(() => (button.textContent = "Copy"), 1600);
+    // A second click restarts the delay instead of resetting the label early.
+    clearTimeout(reset);
+    reset = setTimeout(() => (button.textContent = "Copy"), 1600);
   });
 });
 
@@ -302,9 +331,22 @@ async function loadReleases() {
 loadReleases();
 
 // Gentle entrance motion, with all content visible when scripting is unavailable.
+// Once an element has arrived, the reveal classes are removed again: left in
+// place, their transition and transform would replace the element's own
+// (the lift of the guide cards, the hover glow of the editions and features).
+function finishReveal(node) {
+  node.classList.remove("reveal-ready", "visible");
+}
 if (!reduceMotion) {
   const reveals = new IntersectionObserver(entries => entries.forEach(entry => {
-    if (entry.isIntersecting) { entry.target.classList.add("visible"); reveals.unobserve(entry.target); }
+    if (!entry.isIntersecting) return;
+    const node = entry.target;
+    reveals.unobserve(node);
+    node.classList.add("visible");
+    const done = (event) => { if (event.target === node && event.propertyName === "opacity") { node.removeEventListener("transitionend", done); finishReveal(node); } };
+    node.addEventListener("transitionend", done);
+    // In case the transition never runs (motion reduced meanwhile, hidden tab).
+    setTimeout(() => finishReveal(node), 1000);
   }), { threshold: 0.08 });
   document.querySelectorAll(".feature,.edition,.doc-card,.gallery,.steps li").forEach(node => {
     node.classList.add("reveal-ready"); reveals.observe(node);
@@ -319,6 +361,11 @@ function openShot() { const img = lightbox.querySelector("img"); img.src = shot.
 shot.addEventListener("click", openShot);
 shot.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); openShot(); } });
 lightbox.querySelector("button").addEventListener("click", () => lightbox.close());
-lightbox.addEventListener("click", e => { if(e.target === lightbox) lightbox.close(); });
+// Close on a click on the backdrop only, not on the dialog's own padding.
+lightbox.addEventListener("click", e => {
+  if (e.target !== lightbox) return;
+  const r = lightbox.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) lightbox.close();
+});
 
 lightbox.addEventListener("close", () => shot.focus({ preventScroll: true }));

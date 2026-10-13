@@ -51,3 +51,31 @@ separator { background: alpha(#ffffff, 0.12); min-width: 1px; margin: 4px; }
 calendar { background: transparent; border: none; color: #eff0f1; }
 calendar > grid > label.today { background: #3daee9; color: #ffffff; border-radius: 4px; }
 dialog, .settings-window { background: #202326; }
+
+/* Settings */
+.settings-sidebar { background: alpha(#000000, 0.12); }
+.settings-sidebar row { padding: 10px 16px; border-radius: 8px; margin: 2px 8px; }
+.settings-sidebar row:selected { background: alpha(#3daee9, 0.22); color: #eff0f1; }
+.section-title { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+.settings-section { background: alpha(#ffffff, 0.04); border: 1px solid alpha(#ffffff, 0.08); border-radius: 10px; padding: 2px 0; }
+.settings-row { padding: 9px 14px; min-height: 34px; }
+.settings-row + .settings-row { border-top: 1px solid alpha(#ffffff, 0.06); }
+.settings-section > button { margin: 4px 10px; }
+.dim-label { opacity: 0.72; }
+.caption { font-size: 12px; }
+.error { color: #ed1515; opacity: 1; }
+.success { color: #27ae60; }
+.suggested-action { background: #3daee9; color: #ffffff; font-weight: 600; padding: 7px 18px; }
+.suggested-action:hover { background: alpha(#3daee9, 0.85); }
+.swatches { padding: 4px 10px 10px 10px; }
+.swatch { min-width: 28px; min-height: 28px; padding: 0; border-radius: 50%; border: 2px solid alpha(#ffffff, 0.25); }
+.swatch:hover { border-color: #eff0f1; }
+switch:checked { background: #3daee9; border-color: #3daee9; }
+switch:checked > slider { background: #ffffff; }
+.wallpapers { padding: 10px; }
+.wallpaper-choice { padding: 3px; border-radius: 8px; }
+.wallpaper-choice picture { border-radius: 6px; }
+.text-area { border: 1px solid alpha(#ffffff, 0.15); border-radius: 6px; }
+textview, textview text { background: alpha(#000000, 0.2); color: #eff0f1; }
+spinbutton, dropdown > button { border: 1px solid alpha(#ffffff, 0.15); }
+actionbar > revealer > box { padding: 8px 12px; border-top: 1px solid alpha(#ffffff, 0.10); }

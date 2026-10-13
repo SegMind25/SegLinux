@@ -1,7 +1,7 @@
 //! Open windows, from wlroots foreign-toplevel (never process-name
 //! guessing): the dock lists them and can activate, minimize, close them and
 //! show the desktop.
-use gtk::glib;
+use gtk::{glib, prelude::*};
 use std::{collections::BTreeMap, sync::mpsc, time::Duration};
 use wayland_client::{
     Connection, Dispatch, Proxy, QueueHandle, WEnum,
@@ -88,8 +88,10 @@ impl State {
 }
 
 /// Follows the open windows. `on_update` runs on the GTK main loop whenever
-/// the list changes.
-pub fn watch(on_update: impl Fn(&[Task]) + 'static) -> Tasks {
+/// the list changes, for as long as `owner` exists: when the dock is
+/// rebuilt (new monitor, changed settings), the old one's timer stops, and
+/// its compositor connection closes once its `Tasks` are dropped.
+pub fn watch(owner: &impl IsA<gtk::Widget>, on_update: impl Fn(&[Task]) + 'static) -> Tasks {
     let (updates_tx, updates_rx) = mpsc::channel();
     let (actions_tx, actions_rx) = mpsc::channel::<Action>();
     std::thread::spawn(move || {
@@ -133,7 +135,11 @@ pub fn watch(on_update: impl Fn(&[Task]) + 'static) -> Tasks {
             std::thread::sleep(Duration::from_millis(35));
         }
     });
+    let owner = owner.downgrade();
     glib::timeout_add_local(Duration::from_millis(100), move || {
+        if owner.upgrade().is_none() {
+            return glib::ControlFlow::Break;
+        }
         if let Some(tasks) = updates_rx.try_iter().last() {
             on_update(&tasks);
         }

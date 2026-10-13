@@ -19,11 +19,38 @@ export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
 # refuses unless allowed. A real GPU is always preferred when there is one.
 export WLR_RENDERER_ALLOW_SOFTWARE=1
 
+# The keyboard layout chosen in Setup, which is written for X11: labwc only
+# reads XKB_DEFAULT_LAYOUT. A layout set in SegLinux Settings (the
+# compositor's environment file) takes precedence.
+keyboard_conf=/etc/X11/xorg.conf.d/00-keyboard.conf
+if [ -z "${XKB_DEFAULT_LAYOUT:-}" ] && [ -r "$keyboard_conf" ]; then
+    layout=$(sed -n 's/^[[:space:]]*Option[[:space:]]*"XkbLayout"[[:space:]]*"\([^"]*\)".*/\1/p' "$keyboard_conf" | head -n 1)
+    if [ -n "$layout" ]; then
+        export XKB_DEFAULT_LAYOUT="$layout"
+    fi
+fi
+
+# labwc reads its configuration from the user's folder, which SegLinux
+# Settings writes when window or input settings change (and labwc then
+# reloads). Until then its files link to the distribution's defaults.
+system_labwc=/usr/share/seglinux/labwc
+labwc_dir="${XDG_CONFIG_HOME:-$HOME/.config}/seglinux/labwc"
+if mkdir -p "$labwc_dir" 2>/dev/null; then
+    for file in rc.xml autostart themerc-override; do
+        if [ ! -e "$labwc_dir/$file" ] && ! ln -sfn "$system_labwc/$file" "$labwc_dir/$file"; then
+            labwc_dir=$system_labwc
+            break
+        fi
+    done
+else
+    labwc_dir=$system_labwc
+fi
+
 run_labwc() {
     if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-        dbus-run-session -- labwc -C /usr/share/seglinux/labwc
+        dbus-run-session -- labwc -C "$labwc_dir"
     else
-        labwc -C /usr/share/seglinux/labwc
+        labwc -C "$labwc_dir"
     fi
 }
 

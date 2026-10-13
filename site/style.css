@@ -210,12 +210,14 @@ em {
 
 .ruler-marker {
   position: absolute;
+  top: 12px;
   right: 0;
   width: 30px;
   height: 2px;
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent);
-  transition: top 0.15s linear;
+  transition: transform 0.15s linear;
+  will-change: transform;
 }
 
 .section-index {
@@ -323,6 +325,11 @@ em {
   opacity: 0.8;
   transform-origin: 500px 500px;
   animation: spin 240s linear infinite;
+}
+
+/* Scrolled past the hero: stop turning what nobody sees. */
+.hero-hidden .orbit-ticks {
+  animation-play-state: paused;
 }
 
 .arc {
@@ -629,6 +636,12 @@ em {
   aspect-ratio: 16 / 9;
   object-fit: contain;
   background: #05070d;
+  transition: opacity 0.25s ease;
+}
+
+/* While the next screenshot downloads. */
+.frame[aria-busy="true"] img {
+  opacity: 0.55;
 }
 
 .frame figcaption {

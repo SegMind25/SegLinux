@@ -1,0 +1,51 @@
+[
+ {
+  "tag_name": "iso-20261012-lite-openrc-linux-zen-run15",
+  "name": "Lite",
+  "html_url": "https://github.com/SegMind25/SegLinux/releases/tag/iso-20261012-lite-openrc-linux-zen-run15",
+  "published_at": "2026-10-12T10:00:00Z",
+  "created_at": "2026-10-12T10:00:00Z",
+  "prerelease": false,
+  "draft": false,
+  "body": "",
+  "assets": [
+   {
+    "name": "seglinux-lite-openrc-20261012-x86_64.iso",
+    "size": 775000000,
+    "browser_download_url": "https://example.invalid/lite.iso"
+   },
+   {
+    "name": "seglinux-lite-openrc-20261012-x86_64.iso.sha256",
+    "size": 100,
+    "browser_download_url": "https://example.invalid/lite.sha256"
+   }
+  ]
+ },
+ {
+  "tag_name": "iso-20261012-full-openrc-linux-zen-run13",
+  "name": "Full",
+  "html_url": "https://github.com/SegMind25/SegLinux/releases/tag/iso-20261012-full-openrc-linux-zen-run13",
+  "published_at": "2026-10-12T09:00:00Z",
+  "created_at": "2026-10-12T09:00:00Z",
+  "prerelease": false,
+  "draft": false,
+  "body": "",
+  "assets": [
+   {
+    "name": "seglinux-openrc-20261012-x86_64.iso.part00",
+    "size": 1900000000,
+    "browser_download_url": "https://example.invalid/full.part00"
+   },
+   {
+    "name": "seglinux-openrc-20261012-x86_64.iso.part01",
+    "size": 1000000000,
+    "browser_download_url": "https://example.invalid/full.part01"
+   },
+   {
+    "name": "seglinux-openrc-20261012-x86_64.iso.sha256",
+    "size": 100,
+    "browser_download_url": "https://example.invalid/full.sha256"
+   }
+  ]
+ }
+]

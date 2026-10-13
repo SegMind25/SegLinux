@@ -1,19 +1,64 @@
-# Copy to ~/.config/seglinux/shell.toml to customize the Rust desktop.
+# SegLinux desktop settings. SegLinux Settings (Super+I) writes this file
+# as ~/.config/seglinux/shell.toml; the desktop applies changes as soon as
+# it is saved. Every setting is optional: missing ones keep their default.
+
 wallpaper = "/usr/share/backgrounds/seglinux/seglinux-dark.jpg"
-# %x is the date in your language's format.
+wallpaper_fit = "cover"          # cover, contain or fill
+# strftime format; %x is the date in your language's format.
 clock_format = "%x  %H:%M"
-# Dock launchers: desktop file ids (see /usr/share/applications), without
-# ".desktop". Ones that are not installed are left out.
+# Applications pinned to the dock (desktop file names without .desktop).
 pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam", "net.lutris.Lutris"]
 # Files and folders in ~/Desktop as icons on the desktop.
 desktop_icons = true
+desktop_icon_size = 48           # 24..96 pixels
 
 # Shell appearance (does not change other applications' themes).
-theme = "dark"                  # dark or light
+theme = "dark"                   # dark or light
 accent = "#3daee9"               # six-digit hex color
 font_size = 13                   # 10..24 pixels
 animations = true
-wallpaper_fit = "cover"          # cover, contain or fill
 dock_position = "bottom"         # bottom or top
 dock_icon_size = 26              # 20..64 pixels
-desktop_icon_size = 48           # 24..96 pixels
+dock_opacity = 86                # 30..100 percent
+show_desktop_button = true
+battery_percentage = true
+
+# Window behaviour, applied by the labwc compositor.
+[windows]
+focus_follows_mouse = false
+raise_on_focus = false
+gap = 8                          # 0..48 pixels
+corner_radius = 8                # 0..20 pixels
+workspaces = 1                   # 1..12; Ctrl+Super+Left/Right switches
+adaptive_sync = "fullscreen"     # no, fullscreen or yes (FreeSync/G-Sync)
+allow_tearing = "yes"            # no, yes (when a game asks) or fullscreen
+
+[input]
+keyboard_layout = ""             # e.g. "fr" or "us,ara"; empty: Setup's layout
+layout_switch = "alt-shift"      # alt-shift, ctrl-shift, caps-lock or none
+repeat_rate = 25                 # keys per second
+repeat_delay = 600               # milliseconds
+numlock = "unchanged"            # unchanged, on or off
+pointer_speed = 0                # -100..100
+mouse_acceleration = true        # false: flat, as many players prefer
+natural_scroll_mouse = false
+natural_scroll_touchpad = false
+tap_to_click = true
+disable_touchpad_while_typing = true
+left_handed = false
+cursor_size = 24                 # 16..96 pixels
+
+# The MangoHud overlay (segrun's hud setting turns it on).
+[overlay]
+position = "top-left"            # top-left, top-right, bottom-left, bottom-right, top-center
+detail = "standard"              # fps-only, horizontal, standard or detailed
+fps_limit = 0                    # 0: no limit
+
+# The SegLinux Gaming Mode session (Steam Big Picture in gamescope).
+[gaming_mode]
+width = 0                        # 0 x 0: the display's own resolution
+height = 0
+refresh_rate = 0                 # Hz; 0: the display's own
+adaptive_sync = true
+hdr = false
+performance_overlay = false

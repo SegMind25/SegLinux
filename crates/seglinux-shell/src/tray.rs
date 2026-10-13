@@ -10,7 +10,7 @@ pub fn tray(app: &gtk::Application, preview: bool, config: &Config) -> gtk::Box 
     tray.add_css_class("tray");
     tray.append(&network());
     tray.append(&volume());
-    if let Some(battery) = battery() {
+    if let Some(battery) = battery(config.battery_percentage) {
         tray.append(&battery);
     }
     let settings = gtk::MenuButton::builder()
@@ -30,9 +30,12 @@ fn network() -> gtk::Button {
     let image = gtk::Image::new();
     button.set_child(Some(&image));
     let update = {
-        let image = image.clone();
-        let button = button.clone();
+        let image = image.downgrade();
+        let button = button.downgrade();
         move |monitor: &gio::NetworkMonitor| {
+            let (Some(image), Some(button)) = (image.upgrade(), button.upgrade()) else {
+                return;
+            };
             let online = monitor.connectivity() == gio::NetworkConnectivity::Full;
             image.set_icon_name(Some(if online {
                 "network-transmit-receive-symbolic"
@@ -52,7 +55,15 @@ fn network() -> gtk::Button {
     };
     let monitor = gio::NetworkMonitor::default();
     update(&monitor);
-    monitor.connect_network_changed(move |m, _| update(m));
+    // The monitor is shared by the whole process: disconnect when the dock
+    // is replaced, or every rebuild would leave a handler behind.
+    let handler =
+        std::cell::Cell::new(Some(monitor.connect_network_changed(move |m, _| update(m))));
+    button.connect_destroy(move |_| {
+        if let Some(id) = handler.take() {
+            monitor.disconnect(id);
+        }
+    });
     button.connect_clicked(|_| {
         if common::installed("nm-connection-editor") {
             common::run("nm-connection-editor", &[]);
@@ -116,12 +127,13 @@ pub fn battery_icon(level: u32, charging: bool) -> String {
     }
 }
 
-fn battery() -> Option<gtk::Box> {
+fn battery(percentage: bool) -> Option<gtk::Box> {
     read_battery()?;
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     row.add_css_class("battery");
     let image = gtk::Image::new();
     let label = gtk::Label::new(None);
+    label.set_visible(percentage);
     row.append(&image);
     row.append(&label);
     let update = move |image: &gtk::Image, label: &gtk::Label| {
@@ -131,6 +143,10 @@ fn battery() -> Option<gtk::Box> {
                 "battery-symbolic",
             ])));
             label.set_text(&format!("{level}%"));
+            image.set_tooltip_text(Some(&format!(
+                "Battery {level}%{}",
+                if charging { ", charging" } else { "" }
+            )));
         }
     };
     update(&image, &label);

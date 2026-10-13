@@ -61,63 +61,61 @@ A compositor supporting layer-shell and foreign-toplevel is required.
 | Super+Enter | Terminal |
 | Super+L | Lock |
 | Super+D | Show desktop |
+| Super+I | Settings |
 | Super+Left / Right | Snap a window |
+| Ctrl+Super+Left / Right | Previous / next workspace |
+| Ctrl+Shift+Super+Left / Right | Move the window to the previous / next workspace |
 | Alt+Tab | Window switcher |
 | Volume keys | PipeWire volume and mute |
 
-## Preferences
+## Settings
 
-Run `seglinux-shell --settings`, open Settings from Start, or right-click the
-desktop. The Rust settings window has four pages:
+Press Super+I, open Settings from Start, or right-click the desktop
+(`seglinux-shell --settings [appearance|desktop|windows|gaming|system]`).
+Pages are listed on the left; **Apply** saves every page at once and the
+desktop uses the new settings immediately, without signing out.
+**Restore page defaults** shows the current page's defaults, saved on Apply.
 
-- **Appearance:** choose an image with the file picker, cover/fit/stretch layout,
-  dark/light shell colors, a validated hex accent, text size and animations.
-- **Desktop & dock:** desktop icons and their size, dock size and top/bottom
-  placement, ordered pinned application IDs, and a custom clock format with
-  12-hour and 24-hour presets.
-- **Gaming:** Wine/Proton/umu runner, Windows environment, installer isolation,
-  GameMode, DXVK, VKD3D-Proton, esync/fsync, performance overlay, debug output,
-  and gamescope fullscreen, resolution, frame-rate and custom arguments.
-- **System:** opens installed network, audio, display, Bluetooth, printing,
-  Steam and Lutris tools. Missing tools are disabled and identified; these
-  controls do not install packages or pretend to replace their settings.
+- **Appearance:** dark or light theme; accent color (ten swatches or any hex
+  color); text size; animations; the wallpaper (thumbnails of the installed
+  ones, or any image) and how it fills the screen; the dock's opacity.
+- **Desktop & dock:** desktop icons and their size; the dock at the top or
+  bottom, its icon size, the Show desktop button and the battery percentage;
+  the clock (presets or any strftime format, with a live preview); pinned
+  applications: pin any installed application, reorder, unpin.
+- **Windows & input:** focus follows the mouse, raise on focus, the gap
+  around snapped windows, title bar roundness, 1 to 12 workspaces; keyboard
+  layouts (several, with Alt+Shift, Ctrl+Shift or Caps Lock to switch), key
+  repeat rate and delay, Num Lock; pointer speed and acceleration, natural
+  scrolling, left-handed buttons, pointer size; touchpad tap-to-click,
+  natural scrolling and disable-while-typing.
+- **Gaming:** see [gaming.md](gaming.md).
+- **System:** the computer's system, kernel, processor, memory and graphics;
+  the installed network, sound, display, Bluetooth, printer, Steam and Lutris
+  tools (missing ones are disabled); the settings folder.
 
-Save appearance and desktop preferences together. **Shell changes apply after
-signing out and back in.** They affect the SegLinux shell, not GTK/KDE themes
-in other applications. Gaming preferences apply on the next `segrun` launch;
-Steam and Lutris retain their own settings. Existing per-game overrides and
-custom environment variables are preserved when gaming defaults are saved.
+Apply checks every page before writing anything: an invalid value (such as
+`#12345` for a color, or an unknown keyboard layout syntax) is reported
+with its page and nothing is saved. Only files whose content changed are
+written, atomically.
 
-These expanded controls require a build containing the settings update;
-previously published ISO images are not modified by updating the website.
+### Where settings are stored
 
-Preferences live in `~/.config/seglinux/shell.toml` (`XDG_CONFIG_HOME` is
-respected). The example at `/usr/share/seglinux/shell.example.toml` includes:
+| File | What |
+| --- | --- |
+| `~/.config/seglinux/shell.toml` | Everything on the Appearance, Desktop & dock and Windows & input pages, the overlay and Gaming Mode. The desktop watches it and applies changes; a file being edited by hand that does not parse is ignored until it does. |
+| `~/.config/seglinux/labwc/` | The compositor's configuration. Its files link to the defaults in `/usr/share/seglinux/labwc` until a window or input setting changes; then `rc.xml` and `environment` are generated and labwc reloads them. |
+| `~/.config/seglinux/segrun.toml` | How Windows programs run (see gaming.md). |
+| `~/.config/MangoHud/MangoHud.conf` | The performance overlay's position, detail and frame rate limit. |
 
-```toml
-wallpaper = "/usr/share/backgrounds/seglinux/seglinux-dark.jpg"
-clock_format = "%x  %H:%M"
-pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam"]
-desktop_icons = true
-theme = "dark"
-accent = "#3daee9"
-font_size = 13
-animations = true
-wallpaper_fit = "cover"
-dock_position = "bottom"
-dock_icon_size = 26
-desktop_icon_size = 48
-```
+Generated files start with *Managed by SegLinux Settings*. Delete that line
+to keep your own version: Settings then leaves the file alone and says so.
+`XDG_CONFIG_HOME` is respected. `/usr/share/seglinux/shell.example.toml`
+lists every setting with its default.
 
-Existing configuration files keep their defaults for new options. Invalid
-configurations log a warning and use defaults. Saves are atomic; invalid UI
-input is rejected before overwriting preferences. An unchanged missing default
-wallpaper does not prevent saving unrelated settings.
-
-The compositor uses `/usr/share/seglinux/labwc`. These distribution defaults
-are deliberately independent of any existing personal labwc configuration.
-The session does not run arbitrary XDG autostart entries yet; its startup
-script explicitly launches the components shipped with SegLinux.
+The keyboard layout chosen during Setup is used until another one is set in
+Settings. These are settings of the SegLinux session; the Plasma session
+keeps its own.
 
 ## Current limitations
 
@@ -125,7 +123,8 @@ This is a young desktop, not KDE feature parity. It does not yet implement
 notification history, a StatusNotifier tray for other applications' icons,
 Bluetooth UI, clipboard history, per-display wallpaper selection, moving,
 renaming or deleting desktop icons (use the Desktop folder in a file
-manager), pinning directly from the dock, or full application theme editing. Network, sound, display management, file management and applications
+manager), pinning directly from the dock, per-monitor display arrangement
+(use the Displays tool) or full application theme editing. Network, sound, display management, file management and applications
 are existing Linux tools. Window buttons currently show all windows on all
 monitors. Hardware power management, suspend/resume, accessibility, locking,
 GPU compatibility and installation require full ISO/VM and hardware testing.
