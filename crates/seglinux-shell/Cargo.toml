@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 segrun = { path = "../segrun" }
+seglinux-core.workspace = true
 gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
 gtk4-layer-shell = "0.7"
 serde.workspace = true

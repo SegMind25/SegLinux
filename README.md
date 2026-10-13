@@ -58,7 +58,9 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 * **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
   a floating dock with Start menu, one icon per application, tray and clock,
   written in Rust (GTK 4) on the labwc Wayland compositor, and the default
-  session; KDE Plasma remains available as a fallback.
+  session; KDE Plasma remains available as a fallback. Its Settings app
+  (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
+  workspaces, keyboard, mouse, touchpad and games, applied instantly.
   Familiar applications (File Explorer → Dolphin, Store → Discover, ...).
 * **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
   GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable
@@ -166,7 +168,8 @@ With GTK4 and gtk4-layer-shell development libraries installed:
 cargo run -p seglinux-shell -- --preview --wallpaper "$PWD/data/artwork/seglinux-dark.jpg"
 ```
 
-The preview opens a regular window. The packaged **SegLinux (Rust)** session
+The preview opens a regular window and follows changes made in Settings
+(`cargo run -p seglinux-shell -- --settings`). The packaged **SegLinux (Rust)** session
 uses labwc and a real Wayland panel with running-window buttons. See
 [the desktop guide](docs/desktop.md) for shortcuts, configuration and limitations.
 

@@ -4,21 +4,42 @@ SegLinux is set up for games out of the box: Windows games run through Wine,
 Proton and DXVK, and the system is tuned for low latency. This page lists
 what is included and why.
 
-## Rust gaming settings
+## Settings → Gaming
 
-In builds containing the expanded Settings app, open **Settings → Gaming**.
-It edits the existing `segrun` configuration and preserves per-application
-rules. Choose the runner and Windows environment, GameMode and Direct3D
-translation policies, performance overlay, esync/fsync, installer isolation,
-and debug logging. Enable gamescope to select fullscreen, output resolution,
-frame-rate limit, or advanced arguments (one argument per line).
+Open **Settings** (Super+I) → **Gaming**. Everything applies to the next game
+started; the display settings apply at once.
 
-Zero for a gamescope width, height or frame-rate leaves that option at its
-default. Explicit controls override the corresponding `-W`, `-H`, `-r` and
-`-f` arguments; other custom arguments are retained. Installed tool status is
-shown below the controls. These settings take effect for the next program
-started with `segrun`; they do not override Steam/Proton or Lutris profiles.
-Changes to the code or website do not update previously published ISO files.
+- **Windows games and programs** (segrun): the runner, chosen from the
+  installed ones (system Wine, umu-launcher, and every Proton build Steam
+  installed or that is in `compatibilitytools.d`, such as GE-Proton) or typed;
+  the shared Windows environment; a separate environment per installer;
+  GameMode, DXVK and VKD3D-Proton (automatic, always, never); esync, fsync
+  and Wine's debug output.
+- **Performance overlay**: MangoHud in Windows games, its position and detail
+  (frame rate only, one line, standard, detailed), and a frame rate limit
+  for every game. Right Shift+F12 shows or hides it while playing.
+- **gamescope**: run Windows games in gamescope, fullscreen or borderless; the
+  game's and the output's resolution (upscaling when the output is larger),
+  a frame rate limit, the upscaling filter (FSR, NIS, integer scaling,
+  nearest) and its sharpness, variable refresh rate and HDR, plus any other
+  gamescope arguments (one per line). Zero leaves a value to gamescope.
+- **Display**: variable refresh rate (FreeSync, G-Sync) for fullscreen games
+  or always, and tearing when a game asks for it, for the lowest latency.
+- **Gaming Mode**: the resolution, refresh rate, variable refresh rate, HDR
+  and performance overlay of the *SegLinux Gaming Mode* session.
+- **Environment variables** for every Windows program, such as
+  `PROTON_ENABLE_NVAPI=1` (DLSS on NVIDIA cards).
+- **Game profiles**: settings for one program, matched by its file name
+  (`Game.exe`, `*Launcher*.exe`): runner, environment, GameMode, DXVK,
+  VKD3D-Proton, gamescope, a Wine virtual desktop, DLL overrides and
+  variables. Fields a profile does not set keep the general settings.
+- **Installed gaming tools**: which of Wine, umu-launcher, GameMode,
+  MangoHud, gamescope, Steam and Lutris are installed.
+
+segrun's settings are saved in `~/.config/seglinux/segrun.toml`; settings
+Settings has no control for (such as a profile's `args`) are kept. **Restore
+page defaults** resets the settings but keeps game profiles and variables.
+Steam and Lutris keep their own settings for the games they start.
 
 ## Choices
 

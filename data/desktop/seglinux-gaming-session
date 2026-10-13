@@ -6,7 +6,24 @@ export XDG_CURRENT_DESKTOP=gamescope
 export XDG_SESSION_DESKTOP=seglinux-gaming
 export XDG_SESSION_TYPE=wayland
 /usr/lib/seglinux/pipewire-session
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    exec dbus-run-session -- gamescope -e --adaptive-sync -- steam -gamepadui
+
+# gamescope's options from SegLinux Settings (Gaming → Gaming Mode): one per
+# line, numbers and flags only. Without the desktop, the usual defaults.
+options="-e
+--adaptive-sync"
+if command -v seglinux-shell >/dev/null 2>&1 &&
+    configured=$(seglinux-shell --gaming-mode-args 2>/dev/null) && [ -n "$configured" ]; then
+    options=$configured
 fi
-exec gamescope -e --adaptive-sync -- steam -gamepadui
+set -f
+IFS='
+'
+# shellcheck disable=SC2086 # one option per line, split on purpose
+set -- $options
+unset IFS
+set +f
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    exec dbus-run-session -- gamescope "$@" -- steam -gamepadui
+fi
+exec gamescope "$@" -- steam -gamepadui

@@ -1,4 +1,6 @@
 <?xml version="1.0"?>
+<!-- SegLinux desktop: window behaviour, keyboard, mouse and touchpad.
+     Change them in SegLinux Settings (Super+I). -->
 <labwc_config>
   <core>
     <decoration>server</decoration><gap>8</gap>
@@ -8,24 +10,52 @@
     <adaptiveSync>fullscreen</adaptiveSync>
     <allowTearing>yes</allowTearing>
   </core>
+  <focus>
+    <followMouse>no</followMouse>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+  <desktops number="1" />
   <theme>
     <name>SegLinux</name><cornerRadius>8</cornerRadius>
     <font place="ActiveWindow"><name>Noto Sans</name><size>10</size></font>
     <titlebar><layout>icon:iconify,max,close</layout></titlebar>
   </theme>
   <keyboard>
+    <repeatRate>25</repeatRate>
+    <repeatDelay>600</repeatDelay>
     <default />
     <keybind key="W-space"><action name="Execute" command="gapplication action org.seglinux.Shell menu" /></keybind>
     <keybind key="W-e"><action name="Execute" command="dolphin" /></keybind>
     <keybind key="W-Return"><action name="Execute" command="seglinux-terminal" /></keybind>
+    <keybind key="W-i"><action name="Execute" command="seglinux-shell --settings" /></keybind>
     <keybind key="W-l"><action name="Execute" command="swaylock -c 090f1d" /></keybind>
     <keybind key="W-d"><action name="ToggleShowDesktop" /></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>
     <keybind key="W-Right"><action name="SnapToEdge" direction="right" /></keybind>
+    <keybind key="C-W-Left"><action name="GoToDesktop" to="left" wrap="yes" /></keybind>
+    <keybind key="C-W-Right"><action name="GoToDesktop" to="right" wrap="yes" /></keybind>
+    <keybind key="C-S-W-Left"><action name="SendToDesktop" to="left" wrap="yes" /></keybind>
+    <keybind key="C-S-W-Right"><action name="SendToDesktop" to="right" wrap="yes" /></keybind>
     <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+" /></keybind>
     <keybind key="XF86AudioLowerVolume"><action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" /></keybind>
     <keybind key="XF86AudioMute"><action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" /></keybind>
   </keyboard>
   <mouse><default /></mouse>
+  <libinput>
+    <device category="non-touch">
+      <naturalScroll>no</naturalScroll>
+      <leftHanded>no</leftHanded>
+      <pointerSpeed>0.00</pointerSpeed>
+      <accelProfile>adaptive</accelProfile>
+    </device>
+    <device category="touchpad">
+      <naturalScroll>no</naturalScroll>
+      <leftHanded>no</leftHanded>
+      <pointerSpeed>0.00</pointerSpeed>
+      <accelProfile>adaptive</accelProfile>
+      <tap>yes</tap>
+      <disableWhileTyping>yes</disableWhileTyping>
+    </device>
+  </libinput>
   <windowSwitcher preview="yes"><osd show="yes" /></windowSwitcher>
 </labwc_config>

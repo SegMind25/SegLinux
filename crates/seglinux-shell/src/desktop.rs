@@ -147,10 +147,14 @@ fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
     let dir = desktop_dir();
     let items: Rc<RefCell<Vec<Item>>> = Rc::default();
     let refresh = {
-        let flow = flow.clone();
+        // Weak: the folder monitor below must not keep replaced icons alive.
+        let flow = flow.downgrade();
         let items = items.clone();
         let dir = dir.clone();
         move || {
+            let Some(flow) = flow.upgrade() else {
+                return;
+            };
             while let Some(child) = flow.first_child() {
                 flow.remove(&child);
             }
@@ -242,7 +246,12 @@ fn context_menu(overlay: &gtk::Overlay) {
     );
     add(
         "settings",
-        Box::new(|| common::run("seglinux-shell", &["--settings".into()])),
+        Box::new(|| {
+            common::run(
+                "seglinux-shell",
+                &["--settings".into(), "appearance".into()],
+            )
+        }),
     );
     overlay.insert_action_group("desk", Some(&actions));
 

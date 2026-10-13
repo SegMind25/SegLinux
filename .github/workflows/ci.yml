@@ -38,7 +38,7 @@ jobs:
           settings_test_dir=$(mktemp -d)
           XDG_CONFIG_HOME="$settings_test_dir" SEGLINUX_SETTINGS_TEST_ROOT="$settings_test_dir" \
             xvfb-run -a dbus-run-session -- cargo test --locked -p seglinux-shell \
-              settings_save_validates_and_preserves_game_overrides -- --ignored --test-threads=1
+              settings_apply_validates_and_preserves_game_overrides -- --ignored --test-threads=1
       - name: Validate the example answer file
         run: cargo run --locked -q -p seglinux-setup -- validate crates/seglinux-setup/autounattend.example.toml
       - name: Validate the default segrun configuration

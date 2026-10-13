@@ -95,7 +95,9 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
             tasks.send(Action::ShowDesktop);
         }
     });
-    bar.append(&show_desktop);
+    if config.show_desktop_button {
+        bar.append(&show_desktop);
+    }
     bar.append(&gtk::Separator::new(gtk::Orientation::Vertical));
 
     let apps_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
@@ -112,9 +114,14 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
     );
     let icon_size = config.dock_icon_size as i32;
     let render = {
-        let apps_box = apps_box.clone();
+        // Weak: the window watcher outlives a dock that was replaced only
+        // until it notices, and must not keep it alive.
+        let apps_box = apps_box.downgrade();
         let handle = handle.clone();
         move |windows: &[Task]| {
+            let Some(apps_box) = apps_box.upgrade() else {
+                return;
+            };
             while let Some(child) = apps_box.first_child() {
                 apps_box.remove(&child);
             }
@@ -130,7 +137,7 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
     };
     render(&[]);
     if !preview {
-        let tasks = tasks::watch(render);
+        let tasks = tasks::watch(&apps_box, render);
         let _ = handle.set(tasks);
     }
 

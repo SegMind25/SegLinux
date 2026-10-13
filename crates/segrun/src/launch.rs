@@ -496,7 +496,7 @@ fn inner_command(
     Ok((inner, cwd))
 }
 
-fn validate_resolution(size: &str) -> Result<()> {
+pub fn validate_resolution(size: &str) -> Result<()> {
     let ok = size.split_once('x').is_some_and(|(w, h)| {
         w.parse::<u16>().is_ok_and(|w| w > 0) && h.parse::<u16>().is_ok_and(|h| h > 0)
     });
