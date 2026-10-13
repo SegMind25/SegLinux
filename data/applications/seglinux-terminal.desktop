@@ -2,7 +2,7 @@
 Type=Application
 Version=1.5
 Name=Terminal
-Comment=Command line (Konsole, foot or another installed terminal)
+Comment=Command line (kitty, or another installed terminal)
 Exec=seglinux-terminal
 Icon=utilities-terminal
 Terminal=false

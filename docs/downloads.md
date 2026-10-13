@@ -91,6 +91,7 @@ Use [Ventoy](https://www.ventoy.net/) or [Rufus](https://rufus.ie/) in DD mode. 
 ## Next steps
 
 - [Meet the desktop](desktop.md)
+- [Keep it up to date](updating.md): `sudo seglinux-update`
 - [Set up your games](gaming.md)
 - [Run Windows applications](running-windows-apps.md)
 - [Build your own ISO](building.md)

@@ -8,6 +8,7 @@ use gtk::{gio, prelude::*};
 const ALIASES: &[(&str, &[&str])] = &[(
     "seglinux-terminal",
     &[
+        "kitty",
         "foot",
         "footclient",
         "org.kde.konsole",
@@ -66,8 +67,8 @@ pub fn icon(app: Option<&gio::DesktopAppInfo>) -> gio::Icon {
         .unwrap_or_else(|| gio::ThemedIcon::new("application-x-executable").upcast())
 }
 
-/// Menu buttons for the application's own actions, such as Firefox's
-/// "New Private Window", which Plasma's menus list too.
+/// Menu buttons for the application's own actions, such as Brave's
+/// "New Incognito Window", which Plasma's menus list too.
 pub fn action_buttons(app: &gio::DesktopAppInfo) -> Vec<gtk::Button> {
     app.list_actions()
         .into_iter()
@@ -102,8 +103,12 @@ mod tests {
     fn windows_belong_to_pins() {
         assert!(belongs_to("org.kde.dolphin", "org.kde.dolphin"));
         assert!(belongs_to("firefox", "firefox"));
+        // Brave under Wayland, and under XWayland (its X11 class).
+        assert!(belongs_to("brave-browser", "brave-browser"));
+        assert!(belongs_to("brave-browser", "Brave-browser"));
         assert!(belongs_to("steam", "Steam"));
         assert!(belongs_to("net.lutris.Lutris", "net.lutris.Lutris"));
+        assert!(belongs_to("seglinux-terminal", "kitty"));
         assert!(belongs_to("seglinux-terminal", "foot"));
         assert!(belongs_to("seglinux-terminal", "org.kde.konsole"));
         assert!(!belongs_to("firefox", "org.kde.dolphin"));

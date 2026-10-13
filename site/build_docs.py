@@ -6,7 +6,7 @@ import re
 import markdown
 
 LABELS = {
- 'downloads': 'Download & install', 'desktop': 'The desktop', 'gaming': 'Gaming',
+ 'downloads': 'Download & install', 'updating': 'Updating SegLinux', 'desktop': 'The desktop', 'gaming': 'Gaming',
  'running-windows-apps': 'Windows applications', 'building': 'Build the ISO',
  'unattended-install': 'Unattended installation', 'windows-to-seglinux': 'Moving from Windows',
  'windows-iso-anatomy': 'Inside the installation image',

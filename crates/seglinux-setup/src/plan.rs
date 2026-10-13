@@ -777,7 +777,12 @@ pub fn build(
         description: "Preparing the package manager".into(),
         actions: vec![
             Action::chroot_optional(Cmd::new("pacman-key").arg("--init")),
-            Action::chroot_optional(Cmd::new("pacman-key").args(["--populate", "artix"])),
+            // Every keyring installed: Artix's, Chaotic-AUR's (Brave) and
+            // SegLinux's own (its updates).
+            Action::chroot_optional(Cmd::new("pacman-key").arg("--populate")),
+            // SegLinux's update repository, when this image's seglinux
+            // package carries the key its updates are signed with.
+            Action::chroot_optional(Cmd::new("seglinux-update").arg("--setup")),
         ],
     });
     if !facts.online_packages.is_empty() {
@@ -1194,7 +1199,8 @@ mod tests {
         assert!(text.contains("/var/lib/sddm/state.conf"), "{text}");
         assert!(text.contains("| User=alice"));
         assert!(text.contains("| Session=/usr/share/wayland-sessions/seglinux.desktop"));
-        assert!(text.contains("(new system) $ pacman-key --populate artix  # may fail"));
+        assert!(text.contains("(new system) $ pacman-key --populate  # may fail"));
+        assert!(text.contains("(new system) $ seglinux-update --setup  # may fail"));
         assert!(text.contains("$ mkfs.fat -F 32 -n SYSTEM -i 00000001 /dev/vda1"));
         assert!(text.contains(
             "$ unsquashfs -f -no-progress -d /mnt/seglinux /run/artix/bootmnt/LiveOS/rootfs.img"

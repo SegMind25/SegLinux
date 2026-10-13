@@ -30,7 +30,7 @@ tasks.writeConfig("launchers", [
     "preferred://filemanager",
     "preferred://browser",
     "applications:org.kde.discover.desktop",
-    "applications:org.kde.konsole.desktop"
+    "applications:kitty.desktop"
 ]);
 
 panel.addWidget("org.kde.plasma.marginsseparator");

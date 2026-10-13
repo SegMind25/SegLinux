@@ -7,7 +7,7 @@ wallpaper_fit = "cover"          # cover, contain or fill
 # strftime format; %x is the date in your language's format.
 clock_format = "%x  %H:%M"
 # Applications pinned to the dock (desktop file names without .desktop).
-pinned = ["org.kde.dolphin", "firefox", "seglinux-terminal", "steam", "net.lutris.Lutris"]
+pinned = ["org.kde.dolphin", "brave-browser", "seglinux-terminal", "steam", "net.lutris.Lutris"]
 # Files and folders in ~/Desktop as icons on the desktop.
 desktop_icons = true
 desktop_icon_size = 48           # 24..96 pixels

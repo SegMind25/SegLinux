@@ -30,8 +30,8 @@ written in Rust.
 | ![Boot menu of the install media](docs/images/boot-menu.webp) | ![Boot menu of an installed system](docs/images/boot-menu-installed.webp) |
 | The boot menu of the DVD / USB stick | The boot menu of an installed system, next to Windows |
 
-Screenshots of the Lite live session; the full edition adds Steam, Lutris,
-Firefox, Dolphin and the other pinned applications to the dock.
+Screenshots of the Lite live session; the full edition adds Dolphin, Brave,
+Steam, Lutris and the other pinned applications to the dock.
 
 ## Download
 
@@ -47,6 +47,19 @@ Write the ISO to a USB stick (`sudo dd if=seglinux-....iso of=/dev/sdX bs=4M sta
 or Ventoy, or Rufus in DD mode), disable Secure Boot and boot from it. Join a
 full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 
+## Update
+
+Installed once, SegLinux stays current without a new ISO:
+
+```sh
+sudo seglinux-update
+```
+
+This updates the system's packages, Brave, and SegLinux's own desktop and tools, all
+signature-checked, from the same builds as the ISOs. A system installed from an
+older ISO gets the command once with the two lines in
+[docs/updating.md](docs/updating.md#systems-installed-before-seglinux-update).
+
 * **Installs like Windows.** The ISO is built the way a Windows ISO is (see
   [how a Windows ISO works](docs/windows-iso-anatomy.md)): a live image
   plays the role of WinPE, a squashfs system image plays `install.wim`, and
@@ -61,7 +74,8 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
   session; KDE Plasma remains available as a fallback. Its Settings app
   (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
-  Familiar applications (File Explorer → Dolphin, Store → Discover, ...).
+  Familiar applications by default: Dolphin for files, Brave for the web,
+  kitty as the terminal (File Explorer → Dolphin, Store → Discover, ...).
 * **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
   GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable
   refresh rate and tearing for fullscreen games; zram swap, NTSYNC, I/O
@@ -154,7 +168,7 @@ docs/                 design notes and guides
 Runs in a privileged Artix container (docker or podman) on any Linux host
 and writes `iso/out/seglinux-*.iso`. The Lite edition boots the same Rust
 desktop from a much smaller image and installs the same system, downloading
-Wine, Steam, Firefox and the drivers during Setup (so it needs internet to
+Wine, Steam, Brave and the drivers during Setup (so it needs internet to
 install). See [docs/building.md](docs/building.md)
 for step-by-step instructions for your PC, native builds, customisation and
 testing in QEMU. Ready-made ISOs are built by the **ISO** workflow and
@@ -191,6 +205,7 @@ seglinux-setup plan --unattend answer.toml       # dry run: every command and fi
 seglinux-setup validate answer.toml
 ```
 
+* [Updating SegLinux](docs/updating.md)
 * [Running Windows programs](docs/running-windows-apps.md)
 * [Unattended installation](docs/unattended-install.md)
 * [How a Windows ISO works](docs/windows-iso-anatomy.md) and

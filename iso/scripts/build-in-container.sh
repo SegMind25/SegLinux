@@ -51,6 +51,13 @@ pkgwork=/var/tmp/seglinux-pkg
 rm -rf "$pkgwork"
 mkdir -p "$pkgwork"
 cp "$repo/packaging/seglinux/PKGBUILD" "$repo/packaging/seglinux/seglinux.install" "$pkgwork/"
+# CI numbers each commit (0.1.0.<commits>): seglinux-update installs a newer
+# package when the number grows.
+if [[ -n ${SEGLINUX_PKGVER:-} ]]; then
+    [[ $SEGLINUX_PKGVER =~ ^[0-9][0-9.]*$ ]] || die "invalid SEGLINUX_PKGVER: $SEGLINUX_PKGVER"
+    version=$SEGLINUX_PKGVER
+    sed -i "s/^pkgver=.*/pkgver=$version/" "$pkgwork/PKGBUILD"
+fi
 tar -C "$repo" \
     --exclude=./target --exclude=./.git --exclude=./iso/out \
     --exclude=./packaging/seglinux/src --exclude=./packaging/seglinux/pkg \
@@ -72,6 +79,11 @@ rm -rf "$local_repo"
 mkdir -p "$local_repo"
 cp "$pkgwork"/seglinux-*.pkg.tar.zst "$local_repo/"
 repo-add -q "$local_repo/seglinux.db.tar.gz" "$local_repo"/*.pkg.tar.zst
+# The package also goes next to the ISO: CI publishes it as an update.
+mkdir -p "$out/packages"
+rm -f "$out"/packages/seglinux-*.pkg.tar.zst
+cp "$pkgwork"/seglinux-*.pkg.tar.zst "$out/packages/"
+[[ -z ${OWNER_UID:-} ]] || chown -R "$OWNER_UID:${OWNER_GID:-$OWNER_UID}" "$out/packages"
 
 step "Configuring artools"
 conf="iso-x86_64.conf"

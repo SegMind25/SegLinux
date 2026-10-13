@@ -62,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install
+          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-update
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
             data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
@@ -132,6 +132,7 @@ jobs:
           pacman-key --init
           pacman-key --populate artix
           pacman -Sy --noconfirm --needed go-yq
+          iso/scripts/chaotic-aur.sh
       - run: iso/scripts/check-packages.sh -p ${{ matrix.profile }} -i ${{ matrix.init }} -k linux-zen
       - name: Packages the Lite edition downloads during Setup
         if: matrix.profile == 'seglinux-lite'

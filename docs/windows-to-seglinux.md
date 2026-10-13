@@ -51,15 +51,15 @@ prints it):
 
 | Windows | SegLinux |
 |---------|----------|
-| Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: a floating dock with Start, pinned programs (Files, browser, terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
+| Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: a floating dock with Start, pinned programs (Dolphin, Brave, the kitty terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
 | Settings (Win+I), Personalization, Mouse, Keyboard | SegLinux Settings (Super+I): theme, accent, wallpaper, dock, clock, window focus and workspaces, keyboard layouts, mouse and touchpad, gaming; applied at once (see [desktop.md](desktop.md#settings)) |
 | Virtual desktops (Win+Ctrl+Left/Right) | labwc workspaces, with the same shortcut; their number is set in Settings |
 | Xbox app / Game Bar, Game Mode | Steam, Lutris, MangoHud, GameMode and the SegLinux Gaming Mode session (see [gaming.md](gaming.md)) |
 | Window buttons (minimize, maximize, close on the right), Alt+Tab thumbnails | KWin defaults in `/etc/xdg/kwinrc` |
 | File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, Spectacle, Gwenview, System Monitor, Partition Manager |
 | Microsoft Store | Discover with Flathub (Flatpak) |
-| Windows Update | `pacman -Syu` / Discover |
-| Edge, Office, Media Player | Firefox, LibreOffice, VLC |
+| Windows Update | `sudo seglinux-update` (see [updating.md](updating.md)) or Discover |
+| Edge, Office, Media Player | Brave, LibreOffice, VLC |
 | Network places and sharing (SMB) | Dolphin `smb://`, folder sharing via kdenetwork-filesharing |
 | Arial, Times New Roman, Courier New, Calibri | Metric-compatible Liberation and Carlito fonts |
 | Services (`services.msc`) | OpenRC or dinit services (chosen when the ISO is built) |

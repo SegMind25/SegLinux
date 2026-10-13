@@ -229,6 +229,18 @@ function formatSize(bytes) {
 }
 
 const dateFormat = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+// When a build was published, to the minute, in the visitor's time zone (two
+// builds of one day differ only by it); the UTC time is in the tooltip.
+const releaseFields = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" };
+const releaseFormat = new Intl.DateTimeFormat("en", releaseFields);
+const releaseFormatUtc = new Intl.DateTimeFormat("en", { ...releaseFields, timeZone: "UTC" });
+
+function releaseTime(build) {
+  if (!(build.published.getTime() > 0)) {
+    return el("time", { datetime: build.date.toISOString().slice(0, 10) }, dateFormat.format(build.date));
+  }
+  return el("time", { datetime: build.published.toISOString(), title: releaseFormatUtc.format(build.published) }, releaseFormat.format(build.published));
+}
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -266,7 +278,7 @@ function renderEdition(card, build) {
   field("size").textContent = formatSize(build.size);
   field("meta").replaceChildren(
     el("li", {}, build.label.startsWith("#") ? `Build ${build.label.slice(1)}` : build.label),
-    el("li", {}, dateFormat.format(build.date)),
+    el("li", {}, "Released ", releaseTime(build)),
     el("li", {}, [build.init, build.kernel].filter(Boolean).join(" · ")),
   );
   const files = build.parts.length > 1 ? [el("a", { class: "btn btn-primary", href: "/download-full.py", download: "download-full.py" }, "Get automatic Full ISO downloader") ] : fileLinks(build, true);
@@ -298,7 +310,7 @@ function render(releases, source) {
     el(
       "tr",
       {},
-      el("td", {}, dateFormat.format(build.date)),
+      el("td", {}, releaseTime(build)),
       el("td", {}, build.edition === "lite" ? "Lite" : "Full", ...(build.previousName ? [el("span", { class: "tag", title: "Built before the project was renamed from Wincraft" }, "old name")] : [])),
       el("td", {}, build.label),
       el("td", {}, [build.init, build.kernel].filter(Boolean).join(" · ")),

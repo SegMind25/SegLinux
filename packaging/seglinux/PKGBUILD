@@ -21,7 +21,8 @@ optdepends=(
     'winetricks: install DXVK, VKD3D-Proton and Microsoft runtimes into prefixes'
     'steam: Proton for games'
     'dosbox: 16-bit DOS programs'
-    'konsole: terminal (seglinux-terminal), full edition'
+    'kitty: terminal (seglinux-terminal)'
+    'brave-bin: the default browser (Chaotic-AUR)'
     'foot: terminal (seglinux-terminal), Lite edition'
     'squashfs-tools: seglinux-setup (applies the system image)'
     'grub: seglinux-setup (boot manager)'
@@ -96,6 +97,16 @@ package() {
     install -Dm755 target/release/seglinux-shell "$pkgdir/usr/bin/seglinux-shell"
     install -Dm755 "$data/desktop/seglinux-session" "$pkgdir/usr/bin/seglinux-session"
     install -Dm755 "$data/system/seglinux-terminal" "$pkgdir/usr/bin/seglinux-terminal"
+
+    # Updates: seglinux-update, the default applications it offers, and the
+    # key SegLinux's packages are signed with (when the build had it: CI
+    # writes it from the SEGLINUX_SIGNING_KEY secret, see docs/updating.md).
+    install -Dm755 "$data/system/seglinux-update" "$pkgdir/usr/bin/seglinux-update"
+    install -Dm644 "$data/seglinux/default-apps" "$pkgdir/usr/share/seglinux/default-apps"
+    if [[ -f $data/keyrings/seglinux.gpg ]]; then
+        install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings" \
+            "$data/keyrings/seglinux.gpg" "$data/keyrings/seglinux-trusted" "$data/keyrings/seglinux-revoked"
+    fi
     install -Dm644 "$data/desktop/seglinux.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux.desktop"
     install -Dm755 "$data/desktop/seglinux-gaming-session" "$pkgdir/usr/bin/seglinux-gaming-session"
     install -Dm644 "$data/desktop/seglinux-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-gaming.desktop"

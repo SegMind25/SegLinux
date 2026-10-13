@@ -26,7 +26,7 @@ Laid out like a Plasma desktop with a floating panel:
     the categories in use (Games, Internet, Multimedia, Graphics, Office,
     Development, ...), then Files, Settings, sign out, restart and shut
     down. Right-click an application (or press and hold) for its own
-    actions (Firefox's *New Private Window*), *Pin to dock* or *Unpin from
+    actions (Brave's *New Incognito Window*), *Pin to dock* or *Unpin from
     dock*, and *Add to desktop*. The list follows installs: the desktop
     refreshes when applications are installed or removed, and ones
     installed since you first opened Start are marked *New* until you open
