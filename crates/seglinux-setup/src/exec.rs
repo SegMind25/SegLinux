@@ -187,10 +187,17 @@ impl<'a> Executor<'a> {
         in_root(&self.target, rel)
     }
 
+    /// `cmd` run inside the new system. Like arch-chroot, it gets its own
+    /// PID namespace, so whatever it leaves running ends with it: pacman-key
+    /// starts gpg-agent, which kept /dev/null open and made the final
+    /// unmount fail with "target is busy".
     fn chroot_cmd(&self, cmd: &Cmd) -> Cmd {
         let mut c = cmd.clone();
-        c.program = "chroot".into();
-        c.args = std::iter::once(self.target.to_string_lossy().into_owned())
+        c.program = "unshare".into();
+        c.args = ["--fork", "--pid", "--kill-child", "--", "chroot"]
+            .into_iter()
+            .map(String::from)
+            .chain(std::iter::once(self.target.to_string_lossy().into_owned()))
             .chain(std::iter::once(cmd.program.clone()))
             .chain(cmd.args.iter().cloned())
             .collect();
@@ -595,7 +602,7 @@ mod tests {
         let c = ex.chroot_cmd(&Cmd::new("chpasswd").arg("-e").secret_stdin("a:b\n"));
         assert_eq!(
             c.to_string(),
-            "chroot /mnt/seglinux chpasswd -e <<< '********'"
+            "unshare --fork --pid --kill-child -- chroot /mnt/seglinux chpasswd -e <<< '********'"
         );
     }
 }
