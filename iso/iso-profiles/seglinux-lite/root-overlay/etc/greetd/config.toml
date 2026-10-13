@@ -1,0 +1,12 @@
+# greetd: SegLinux's sign-in service. It shows the sign-in screen
+# (seglinux-greeter, in seglinux-greeter-session) on the 7th virtual
+# console, then starts the desktop session chosen there.
+# Its look: /etc/seglinux/greeter.toml. SegLinux Setup adds automatic
+# sign-in ([initial_session]) when it was chosen.
+
+[terminal]
+vt = 7
+
+[default_session]
+command = "seglinux-greeter-session"
+user = "greeter"

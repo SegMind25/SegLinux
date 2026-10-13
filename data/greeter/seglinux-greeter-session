@@ -1,0 +1,62 @@
+#!/bin/sh
+# greetd's greeter (default_session in /etc/greetd/config.toml): SegLinux's
+# sign-in screen, alone in a labwc compositor that closes with it. greetd
+# runs it as its "greeter" user, whose home (/) cannot be written to.
+set -eu
+
+# elogind gives the greeter's session a runtime folder; keep GTK's and
+# Mesa's caches there too.
+if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -w "$XDG_RUNTIME_DIR" ]; then
+    XDG_RUNTIME_DIR=$(mktemp -d /tmp/seglinux-greeter.XXXXXX)
+    export XDG_RUNTIME_DIR
+fi
+base="$XDG_RUNTIME_DIR/seglinux-greeter"
+mkdir -p "$base/cache" "$base/config" "$base/data" "$base/state"
+export XDG_CACHE_HOME="$base/cache" XDG_CONFIG_HOME="$base/config"
+export XDG_DATA_HOME="$base/data" XDG_STATE_HOME="$base/state"
+export XDG_SESSION_TYPE=wayland
+export GTK_THEME=Adwaita:dark GDK_BACKEND=wayland
+# Nothing here needs the desktop portals; starting them only slows it down.
+export GDK_DEBUG=no-portals
+if [ -d /usr/share/icons/breeze_cursors ]; then
+    export XCURSOR_THEME=breeze_cursors
+else
+    export XCURSOR_THEME=Adwaita
+fi
+export XCURSOR_SIZE=24
+# As in seglinux-session: software rendering when there is no GPU driver.
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+
+# The keyboard layout chosen in Setup (written for X11; labwc reads
+# XKB_DEFAULT_LAYOUT), so the password is typed as on the desktop.
+keyboard_conf=/etc/X11/xorg.conf.d/00-keyboard.conf
+if [ -z "${XKB_DEFAULT_LAYOUT:-}" ] && [ -r "$keyboard_conf" ]; then
+    layout=$(sed -n 's/^[[:space:]]*Option[[:space:]]*"XkbLayout"[[:space:]]*"\([^"]*\)".*/\1/p' "$keyboard_conf" | head -n 1)
+    if [ -n "$layout" ]; then
+        export XKB_DEFAULT_LAYOUT="$layout"
+    fi
+fi
+
+# A configuration without keyboard shortcuts or menus: nothing but the
+# sign-in screen can be started from here.
+config=/usr/share/seglinux/greeter/labwc
+run() {
+    if command -v dbus-run-session >/dev/null 2>&1; then
+        dbus-run-session -- labwc -C "$config" -S seglinux-greeter
+    else
+        labwc -C "$config" -S seglinux-greeter
+    fi
+}
+
+started=$(date +%s)
+status=0
+run || status=$?
+# labwc could not start with OpenGL: once more with the CPU renderer.
+if [ "$status" -ge 1 ] && [ "$status" -le 125 ] && [ -z "${WLR_RENDERER:-}" ] &&
+    [ $(($(date +%s) - started)) -lt 15 ]; then
+    echo "seglinux-greeter-session: labwc could not start (exit status $status); retrying with WLR_RENDERER=pixman" >&2
+    export WLR_RENDERER=pixman GSK_RENDERER="${GSK_RENDERER:-cairo}"
+    run
+    exit 0
+fi
+exit "$status"

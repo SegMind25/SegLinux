@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<!-- No desktop menu on the sign-in screen. -->
+<openbox_menu>
+  <menu id="root-menu" label="" />
+</openbox_menu>

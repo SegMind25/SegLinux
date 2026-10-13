@@ -2,7 +2,7 @@
 
 This is the first implementation of SegLinux's own desktop shell. The shell
 is Rust with GTK4 Rust bindings; it is not a rewrite of the entire desktop
-stack in Rust. GTK, labwc, SDDM and the bundled applications retain their
+stack in Rust. GTK, labwc, greetd and the bundled applications retain their
 upstream implementations. labwc handles composition, decorations, snapping,
 Alt+Tab and workspaces. Plasma remains an alternative session.
 
@@ -45,15 +45,77 @@ Laid out like a Plasma desktop with a floating panel:
   - **tray**: network state (click for the connection editor, or nmtui),
     volume (click for the mixer, scroll to change), battery on laptops,
     quick settings, and the date and time (click for a calendar).
-- **Default session**: SegLinux Setup makes the SegLinux desktop the
-  preselected session on SDDM's sign-in screen (Plasma remains selectable);
-  the Lite live session starts it directly.
+- **Sign-in screen** (`seglinux-greeter`, Rust and GTK 4, in place of
+  SDDM): the clock over the wallpaper, the accounts, the password and the
+  desktop to start, preselecting the SegLinux desktop and the last account
+  (see [below](#sign-in-screen)); the Lite live session starts the desktop
+  directly.
 - labwc manages windows (decorations, snapping, Alt+Tab), like KWin under
   Plasma; without a usable GPU driver the session falls back to software
   rendering, then to wlroots' CPU renderer.
 - Gaming: variable refresh rate and tearing for fullscreen games in labwc
   (`adaptiveSync`, `allowTearing`), and a separate **SegLinux Gaming Mode**
   session (Steam Big Picture in gamescope). See [gaming.md](gaming.md).
+
+## Sign-in screen
+
+SegLinux's sign-in screen is `seglinux-greeter`, a Rust (GTK 4) greeter for
+[greetd](https://sr.ht/~kennylevinsen/greetd/), the small sign-in service
+that replaced SDDM. greetd starts it on the seventh console as its unprivileged
+`greeter` user, alone in a labwc compositor with no shortcuts and no menus
+(`seglinux-greeter-session`). It shows:
+
+- the clock and date over the wallpaper, on every monitor;
+- the people's accounts (several: a row to choose from; *Other user* for
+  one not listed), and the password field, which warns when Caps Lock is
+  on and says when the password is wrong;
+- the desktop to start, bottom left: **SegLinux**, Plasma (Wayland),
+  SegLinux Gaming Mode, ... (the sessions of `/usr/share/wayland-sessions`);
+- **Sleep**, **Restart** and **Shut down**, bottom right.
+
+greetd checks the password with PAM, as SDDM did; the greeter only passes
+it on. The account and desktop used last are preselected next time
+(`/var/lib/seglinux-greeter/state.toml`; Setup writes the first one).
+Ctrl+Alt+F2 still opens a text console.
+
+Its look is set in `/etc/seglinux/greeter.toml` (as root):
+
+```toml
+wallpaper = "/usr/share/backgrounds/seglinux/seglinux-flow.jpg"
+accent = "#e95420"          # sign-in button, focus rings, the round picture
+clock_format = "%I:%M %p"   # 12-hour clock; "%H:%M" is 24-hour
+```
+
+**Automatic sign-in** (Setup's *Sign in automatically*, or `autologin = true`
+in an answer file) is greetd's `[initial_session]` in
+`/etc/greetd/config.toml`: that account's SegLinux desktop starts at boot, and
+signing out shows the sign-in screen. To turn it off, delete that section;
+to turn it on later, add it:
+
+```toml
+[initial_session]
+command = "seglinux-session"
+user = "alice"
+```
+
+Try it without signing out: `seglinux-greeter --demo` opens it in a window
+(the password `demo` "signs in" and prints the session it would start).
+
+**Systems installed from an older ISO** keep SDDM. Once `seglinux-update`
+has brought a SegLinux with the greeter (see [updating.md](updating.md)), switch
+to the new sign-in screen like this (OpenRC; for runit or dinit install `greetd-runit` or
+`greetd-dinit` and switch the services with their own tools):
+
+```sh
+sudo seglinux-update                       # brings seglinux-greeter (docs/updating.md)
+sudo pacman -S --needed greetd greetd-openrc
+sudo cp /usr/share/seglinux/greeter/greetd.toml /etc/greetd/config.toml
+sudo install -d -o greeter -g greeter /var/lib/seglinux-greeter
+sudo rc-update del sddm default && sudo rc-update add greetd default
+```
+
+and restart. To go back: `sudo rc-update del greetd default && sudo
+rc-update add sddm default`.
 
 ## Try it without switching desktop
 
@@ -172,6 +234,9 @@ per-monitor display arrangement
 are existing Linux tools. Window buttons currently show all windows on all
 monitors. Hardware power management, suspend/resume, accessibility, locking,
 GPU compatibility and installation require full ISO/VM and hardware testing.
+The sign-in screen shows initials rather than account pictures, has no
+on-screen keyboard or layout switcher (it uses the layout chosen in Setup),
+and does not unlock KDE Wallet at sign-in as SDDM did.
 
 ## Implementation references
 

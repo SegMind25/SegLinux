@@ -1,0 +1,18 @@
+[package]
+name = "seglinux-greeter"
+description = "SegLinux's sign-in screen: a GTK 4 greeter for greetd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.10", features = ["v4_8"] }
+gtk4-layer-shell = "0.7"
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

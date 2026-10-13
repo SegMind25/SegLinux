@@ -6,9 +6,18 @@ trust_update_key() {
     fi
 }
 
+# Where the sign-in screen remembers the last account and desktop; greetd's
+# greeter user must be able to write it.
+greeter_state() {
+    if getent passwd greeter >/dev/null 2>&1; then
+        install -d -m 755 -o greeter -g greeter /var/lib/seglinux-greeter 2>/dev/null || true
+    fi
+}
+
 post_install() {
     /usr/lib/seglinux/apply-branding
     trust_update_key
+    greeter_state
     cat <<'MSG'
 ==> Windows programs: double-click an .exe, or run `segrun program.exe`.
 ==> `segrun doctor` checks Wine, Vulkan, NTSYNC and binfmt support.
@@ -18,4 +27,5 @@ MSG
 post_upgrade() {
     /usr/lib/seglinux/apply-branding
     trust_update_key
+    greeter_state
 }

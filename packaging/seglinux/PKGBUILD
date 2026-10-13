@@ -40,9 +40,11 @@ optdepends=(
     'gamemode: segrun runs games under GameMode'
     'mangohud: segrun --hud performance overlay'
     'gamescope: SegLinux Gaming Mode session and segrun --gamescope'
+    'greetd: sign-in service for the SegLinux sign-in screen (seglinux-greeter)'
 )
 backup=(
     'etc/seglinux/segrun.toml'
+    'etc/seglinux/greeter.toml'
     'etc/binfmt.d/wine.conf'
     'etc/sysctl.d/80-seglinux-gaming.conf'
     'etc/gamemode.ini'
@@ -107,6 +109,13 @@ package() {
         install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings" \
             "$data/keyrings/seglinux.gpg" "$data/keyrings/seglinux-trusted" "$data/keyrings/seglinux-revoked"
     fi
+    # The sign-in screen, for greetd: the greeter, the labwc session it runs
+    # in, its look, and the greetd configuration Setup installs.
+    install -Dm755 target/release/seglinux-greeter "$pkgdir/usr/bin/seglinux-greeter"
+    install -Dm755 "$data/greeter/seglinux-greeter-session" "$pkgdir/usr/bin/seglinux-greeter-session"
+    install -Dm644 -t "$pkgdir/usr/share/seglinux/greeter/labwc" "$data/greeter/labwc/rc.xml" "$data/greeter/labwc/menu.xml"
+    install -Dm644 "$data/greeter/greetd.toml" "$pkgdir/usr/share/seglinux/greeter/greetd.toml"
+    install -Dm644 "$data/greeter/greeter.toml" "$pkgdir/etc/seglinux/greeter.toml"
     install -Dm644 "$data/desktop/seglinux.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux.desktop"
     install -Dm755 "$data/desktop/seglinux-gaming-session" "$pkgdir/usr/bin/seglinux-gaming-session"
     install -Dm644 "$data/desktop/seglinux-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-gaming.desktop"

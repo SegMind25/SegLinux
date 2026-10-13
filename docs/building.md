@@ -96,7 +96,7 @@ Each release's notes give its exact size:
 
 | | Full | Lite |
 |---|---|---|
-| Live desktop | SegLinux (Rust) on labwc, Plasma fallback, SDDM | SegLinux (Rust) on labwc, signed in on tty1 |
+| Live desktop | SegLinux (Rust) on labwc, Plasma fallback, greetd with the SegLinux sign-in screen | SegLinux (Rust) on labwc, signed in on tty1 |
 | Terminal | kitty | foot |
 | Firmware | all (`linux-firmware`) | graphics and Wi-Fi/Ethernet of PCs: AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
 | Wine, Steam, Brave, Lutris, drivers... | on the image | **downloaded by Setup** |
@@ -215,10 +215,13 @@ in your own terminal and then run the build command. Allow at least 25 GB free;
 the full Plasma fallback, Windows compatibility packages and build caches make
 this a large image.
 
-The live session uses **SegLinux (Rust)**. `live-overlay/usr/share/artools/desktop.map`
-lets `artix-live` detect the new session instead of resetting it to Plasma.
-The installer also uses `seglinux.desktop` for optional automatic login.
-Plasma remains selectable in SDDM as a fallback while the Rust desktop matures.
+The live session uses **SegLinux (Rust)**: greetd signs the live user in at
+once (`live-overlay/etc/greetd/config.toml`), and signing out shows the
+SegLinux sign-in screen (password `seglinux`). Installed systems get
+`root-overlay/etc/greetd/config.toml`, the same as
+`data/greeter/greetd.toml`; Setup adds automatic sign-in to it when chosen.
+Plasma remains selectable on the sign-in screen as a fallback while the Rust
+desktop matures.
 
 ## Changing what is on the ISO
 
