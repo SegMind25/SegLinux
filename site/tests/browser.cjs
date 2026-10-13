@@ -28,7 +28,8 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
   await page.locator('.doc-search').fill('gaming');assert.equal(await page.locator('.docs-sidebar nav a:visible').count(),1);
   for(const width of [390,320]) {await page.setViewportSize({width,height:844});for(const route of ['/','/download','/docs/']) {await page.goto(url+route);const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);if(overflow)console.log(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&!e.closest('.table-wrap,pre')}).map(e=>({tag:e.tagName,cls:typeof e.className==='string'?e.className:'svg',width:e.getBoundingClientRect().width,right:e.getBoundingClientRect().right})).slice(0,30)));assert.equal(overflow,false,`Horizontal overflow: ${route} at ${width}`);}}
   await page.goto(url);await page.locator('#menu-toggle').click();assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'true');await page.keyboard.press('Escape');assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'false');
-  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#motion-toggle').isDisabled(),true);
+  // The media query's change event arrives asynchronously: wait for it.
+  await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.getElementById('motion-toggle').disabled,null,{timeout:3000});
   await page.emulateMedia({reducedMotion:'no-preference'});
 
   // Animations, with motion enabled again.
