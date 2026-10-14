@@ -35,8 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The package's version counts the commits (0.1.0.<count>), so each
+          # Always main, also when "Run workflow" is started on another
+          # branch (the repository's default branch is the website's). The
+          # package's version counts main's commits (0.1.0.<count>), so each
           # update is newer than the one before.
+          ref: main
           fetch-depth: 0
       - name: Prepare the update signing key
         env:
