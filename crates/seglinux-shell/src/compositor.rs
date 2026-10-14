@@ -64,17 +64,31 @@ const KEYBINDS: &[(&str, &str)] = &[
         "C-S-W-Right",
         r#"<action name="SendToDesktop" to="right" wrap="yes" />"#,
     ),
+    // Volume and brightness keys: the shell changes them and shows the
+    // level on screen (osd.rs).
     (
         "XF86AudioRaiseVolume",
-        r#"<action name="Execute" command="wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+" />"#,
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'up'&quot;" />"#,
     ),
     (
         "XF86AudioLowerVolume",
-        r#"<action name="Execute" command="wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" />"#,
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'down'&quot;" />"#,
     ),
     (
         "XF86AudioMute",
-        r#"<action name="Execute" command="wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" />"#,
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'mute'&quot;" />"#,
+    ),
+    (
+        "XF86AudioMicMute",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'mic-mute'&quot;" />"#,
+    ),
+    (
+        "XF86MonBrightnessUp",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell brightness &quot;'up'&quot;" />"#,
+    ),
+    (
+        "XF86MonBrightnessDown",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell brightness &quot;'down'&quot;" />"#,
     ),
 ];
 

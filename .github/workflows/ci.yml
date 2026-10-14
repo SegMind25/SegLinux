@@ -19,7 +19,7 @@ jobs:
       - name: Install desktop build libraries
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libgtk-4-dev libwayland-dev meson ninja-build xvfb xauth dbus-x11
+          sudo apt-get install -y libgtk-4-dev libwayland-dev meson ninja-build xvfb xauth dbus-x11 libglib2.0-bin
           git clone --depth 1 --branch v1.3.0 https://github.com/wmww/gtk4-layer-shell.git /tmp/gtk4-layer-shell
           meson setup /tmp/gtk4-layer-shell/build /tmp/gtk4-layer-shell --prefix=/usr -Dintrospection=false -Dvapi=false -Dsmoke-tests=false
           sudo ninja -C /tmp/gtk4-layer-shell/build install
@@ -50,6 +50,10 @@ jobs:
             XDG_STATE_HOME="$start_test_dir/state" SEGLINUX_SETTINGS_TEST_ROOT="$start_test_dir" \
             xvfb-run -a dbus-run-session -- cargo test --locked -p seglinux-shell \
               start_menu_favorites_categories_search_and_new_applications -- --ignored --test-threads=1
+      - name: Desktop services integration (notifications, tray, volume key)
+        run: |
+          cargo build --locked -p seglinux-shell --bin seglinux-shell --examples
+          xvfb-run -a dbus-run-session -- crates/seglinux-shell/tests/desktop-services.sh
       - name: Validate the example answer file
         run: cargo run --locked -q -p seglinux-setup -- validate crates/seglinux-setup/autounattend.example.toml
       - name: Validate the default segrun configuration
@@ -63,7 +67,7 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-update \
-            packaging/make-signing-key.sh
+            packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
             data/desktop/seglinux-session data/desktop/seglinux-gaming-session \

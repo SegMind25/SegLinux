@@ -1,18 +1,28 @@
-//! The right end of the dock: network, volume, battery, quick settings and
-//! the clock with its calendar.
+//! The right end of the dock, as Plasma's system tray: other applications'
+//! icons (Steam, Discord, ...), network, volume, battery, notifications,
+//! quick settings and the clock with its calendar.
 use crate::common::{self, TERMINAL};
 use crate::config::Config;
-use gtk::{gio, glib, prelude::*};
+use crate::services::Services;
+use crate::{notify, sni};
+use gtk::{gdk, gio, glib, prelude::*};
 use std::time::Duration;
 
-pub fn tray(app: &gtk::Application, preview: bool, config: &Config) -> gtk::Box {
+pub fn tray(
+    app: &gtk::Application,
+    preview: bool,
+    config: &Config,
+    services: &Services,
+) -> gtk::Box {
     let tray = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     tray.add_css_class("tray");
+    tray.append(&app_icons(&services.tray));
     tray.append(&network());
-    tray.append(&volume());
+    tray.append(&volume(services));
     if let Some(battery) = battery(config.battery_percentage) {
         tray.append(&battery);
     }
+    tray.append(&notifications(&services.notifications));
     let settings = gtk::MenuButton::builder()
         .icon_name("view-more-symbolic")
         .tooltip_text("Quick settings")
@@ -21,6 +31,203 @@ pub fn tray(app: &gtk::Application, preview: bool, config: &Config) -> gtk::Box 
     tray.append(&settings);
     tray.append(&clock(&config.clock_format));
     tray
+}
+
+/// The icons applications put in the tray (StatusNotifierItem): a click
+/// shows the application, a right click its menu, a middle click its
+/// secondary action; scrolling is passed on.
+fn app_icons(host: &sni::Host) -> gtk::Box {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    row.add_css_class("tray-apps");
+    let render = {
+        let row = row.downgrade();
+        let host = host.clone();
+        move || -> bool {
+            let Some(row) = row.upgrade() else {
+                return false;
+            };
+            while let Some(child) = row.first_child() {
+                row.remove(&child);
+            }
+            for (key, props) in host.items() {
+                row.append(&app_icon(&host, &key, &props));
+            }
+            row.set_visible(row.first_child().is_some());
+            true
+        }
+    };
+    render();
+    host.subscribe(render);
+    row
+}
+
+fn app_icon(host: &sni::Host, key: &str, props: &sni::Props) -> gtk::Button {
+    let button = gtk::Button::new();
+    button.set_child(Some(&sni::image(props, 18)));
+    let label = props.label();
+    if !label.is_empty() {
+        button.set_tooltip_text(Some(&label));
+    }
+    if props.status == "NeedsAttention" {
+        button.add_css_class("attention");
+    }
+    let (left, k) = (host.clone(), key.to_string());
+    button.connect_clicked(move |b| left.activate(&k, b.upcast_ref()));
+    let right = gtk::GestureClick::new();
+    right.set_button(gdk::BUTTON_SECONDARY);
+    let (host_right, k) = (host.clone(), key.to_string());
+    right.connect_pressed(move |gesture, _, _, _| {
+        if let Some(widget) = gesture.widget() {
+            host_right.open_menu(&k, &widget);
+        }
+    });
+    button.add_controller(right);
+    let middle = gtk::GestureClick::new();
+    middle.set_button(gdk::BUTTON_MIDDLE);
+    let (host_middle, k) = (host.clone(), key.to_string());
+    middle.connect_pressed(move |_, _, _, _| host_middle.secondary_activate(&k));
+    button.add_controller(middle);
+    let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+    let (host_scroll, k) = (host.clone(), key.to_string());
+    scroll.connect_scroll(move |_, _, dy| {
+        host_scroll.scroll(&k, if dy < 0.0 { 120 } else { -120 });
+        glib::Propagation::Stop
+    });
+    button.add_controller(scroll);
+    button
+}
+
+/// The notifications: a bell with the number of unread ones; its popover
+/// holds the history, Do Not Disturb and Clear all.
+fn notifications(center: &notify::Center) -> gtk::MenuButton {
+    let image = gtk::Image::new();
+    let badge = gtk::Label::new(None);
+    badge.add_css_class("badge");
+    badge.set_halign(gtk::Align::End);
+    badge.set_valign(gtk::Align::Start);
+    let overlay = gtk::Overlay::new();
+    overlay.set_child(Some(&image));
+    overlay.add_overlay(&badge);
+    let button = gtk::MenuButton::builder().child(&overlay).build();
+    button.add_css_class("notifications-button");
+    let popover = gtk::Popover::new();
+    popover.add_css_class("notification-center");
+    button.set_popover(Some(&popover));
+
+    let fill = {
+        let popover = popover.downgrade();
+        let center = center.clone();
+        move || {
+            let Some(popover) = popover.upgrade() else {
+                return;
+            };
+            popover.set_child(Some(&history(&center)));
+        }
+    };
+    let update = {
+        let (image, badge, button) = (image.downgrade(), badge.downgrade(), button.downgrade());
+        let popover = popover.downgrade();
+        let center = center.clone();
+        let fill = fill.clone();
+        move || -> bool {
+            let (Some(image), Some(badge), Some(button)) =
+                (image.upgrade(), badge.upgrade(), button.upgrade())
+            else {
+                return false;
+            };
+            let unread = center.unread();
+            image.set_icon_name(Some(&common::themed_icon(if center.dnd() {
+                &[
+                    "notifications-disabled-symbolic",
+                    "notification-disabled-symbolic",
+                ][..]
+            } else {
+                &[
+                    "notifications-symbolic",
+                    "notification-symbolic",
+                    "preferences-system-notifications-symbolic",
+                ][..]
+            })));
+            badge.set_text(&unread.min(99).to_string());
+            badge.set_visible(unread > 0);
+            button.set_tooltip_text(Some(&match (unread, center.dnd()) {
+                (0, false) => "No new notifications".to_string(),
+                (0, true) => "Do not disturb".to_string(),
+                (1, _) => "1 new notification".to_string(),
+                (n, _) => format!("{n} new notifications"),
+            }));
+            if popover.upgrade().is_some_and(|p| p.is_visible()) {
+                fill();
+            }
+            true
+        }
+    };
+    update();
+    center.subscribe(update);
+    let opened = center.clone();
+    let tip = button.downgrade();
+    popover.connect_show(move |_| {
+        // Its tooltip would cover the open history.
+        if let Some(button) = tip.upgrade() {
+            button.set_has_tooltip(false);
+        }
+        fill();
+        opened.mark_read();
+    });
+    let tip = button.downgrade();
+    popover.connect_closed(move |_| {
+        if let Some(button) = tip.upgrade() {
+            button.set_has_tooltip(true);
+        }
+    });
+    button
+}
+
+/// The notification history, newest first.
+fn history(center: &notify::Center) -> gtk::Box {
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    content.set_size_request(400, -1);
+    let head = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let title = gtk::Label::new(Some("Notifications"));
+    title.add_css_class("heading");
+    title.set_xalign(0.0);
+    title.set_hexpand(true);
+    head.append(&title);
+    head.append(&gtk::Label::new(Some("Do not disturb")));
+    let dnd = gtk::Switch::new();
+    dnd.set_active(center.dnd());
+    dnd.set_valign(gtk::Align::Center);
+    let toggled = center.clone();
+    dnd.connect_active_notify(move |s| toggled.set_dnd(s.is_active()));
+    head.append(&dnd);
+    content.append(&head);
+
+    let notices = center.history();
+    if notices.is_empty() {
+        let empty = gtk::Label::new(Some("No notifications"));
+        empty.add_css_class("dim-label");
+        empty.set_margin_top(24);
+        empty.set_margin_bottom(24);
+        content.append(&empty);
+        return content;
+    }
+    let list = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    for notice in &notices {
+        list.append(&center.card(notice, false));
+    }
+    let scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .propagate_natural_height(true)
+        .max_content_height(480)
+        .child(&list)
+        .build();
+    content.append(&scroll);
+    let clear = gtk::Button::with_label("Clear all");
+    clear.set_halign(gtk::Align::End);
+    let cleared = center.clone();
+    clear.connect_clicked(move |_| cleared.clear());
+    content.append(&clear);
+    content
 }
 
 /// Network status from GLib's network monitor; a click opens the
@@ -74,28 +281,48 @@ fn network() -> gtk::Button {
     button
 }
 
-/// Volume: a click opens the mixer, scrolling changes the volume.
-fn volume() -> gtk::Button {
+/// Volume: a click opens the mixer, scrolling changes the volume (with the
+/// on-screen display), a middle click mutes.
+fn volume(services: &Services) -> gtk::Button {
     let button = gtk::Button::from_icon_name("audio-volume-high-symbolic");
-    button.set_tooltip_text(Some("Volume (scroll to change)"));
+    button.set_tooltip_text(Some("Volume (scroll to change, middle click to mute)"));
     button.connect_clicked(|_| {
         if common::installed("pavucontrol") {
             common::run("pavucontrol", &[]);
         }
     });
     let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
-    scroll.connect_scroll(|_, _, dy| {
-        if common::installed("wpctl") {
-            let step = if dy < 0.0 { "5%+" } else { "5%-" };
-            common::run(
-                "wpctl",
-                &["set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", step].map(String::from),
-            );
-        }
+    let osd = services.osd.clone();
+    scroll.connect_scroll(move |_, _, dy| {
+        osd.volume(if dy < 0.0 { "up" } else { "down" });
         glib::Propagation::Stop
     });
     button.add_controller(scroll);
+    let middle = gtk::GestureClick::new();
+    middle.set_button(gdk::BUTTON_MIDDLE);
+    let osd = services.osd.clone();
+    middle.connect_pressed(move |_, _, _, _| osd.volume("mute"));
+    button.add_controller(middle);
     button
+}
+
+/// Bluetooth's settings, when the computer has Bluetooth: Blueman's
+/// manager, else Plasma's page in System Settings.
+fn bluetooth_tool() -> Option<(&'static str, Vec<&'static str>)> {
+    let adapter = std::fs::read_dir("/sys/class/bluetooth")
+        .ok()?
+        .flatten()
+        .next()
+        .is_some();
+    if !adapter {
+        None
+    } else if common::installed("blueman-manager") {
+        Some(("blueman-manager", vec![]))
+    } else if common::installed("systemsettings") {
+        Some(("systemsettings", vec!["kcm_bluetooth"]))
+    } else {
+        None
+    }
 }
 
 /// Battery level and state from /sys, for laptops.
@@ -169,8 +396,16 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
     heading.add_css_class("heading");
     heading.set_xalign(0.0);
     content.append(&heading);
+    let bluetooth = bluetooth_tool();
+    let (bluetooth_command, bluetooth_args) = bluetooth.clone().unwrap_or(("", vec![]));
     for (label, icon, command, args) in [
         ("Sound", "audio-volume-high-symbolic", "pavucontrol", vec![]),
+        (
+            "Bluetooth",
+            "bluetooth-active-symbolic",
+            bluetooth_command,
+            bluetooth_args,
+        ),
         ("Display", "video-display-symbolic", "wdisplays", vec![]),
         (
             "Lock screen",
@@ -185,7 +420,7 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
             vec!["--settings"],
         ),
     ] {
-        if !common::installed(command) {
+        if command.is_empty() || !common::installed(command) {
             continue;
         }
         let button = common::command_button(label, icon, command, &args);

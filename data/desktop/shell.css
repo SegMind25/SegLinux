@@ -90,3 +90,24 @@ actionbar > revealer > box { padding: 8px 12px; border-top: 1px solid alpha(#fff
 popover.menu separator { margin: 4px 2px; min-height: 1px; }
 popover.menu button { padding: 6px 10px; }
 popover.menu button label { margin-right: 12px; }
+
+/* Notifications: pop-ups above the dock, and the history in the tray */
+.notification { background: alpha(#202326, 0.97); border: 1px solid alpha(#ffffff, 0.12); border-radius: 12px; padding: 12px 12px 12px 14px; box-shadow: 0 8px 24px alpha(black, 0.45); margin: 2px; }
+.notification-center .notification { background: alpha(#ffffff, 0.04); box-shadow: none; }
+.notification.critical { border-color: #ff7b7b; }
+.notification-app { font-size: 12px; opacity: 0.7; }
+.notification-summary { font-weight: 600; }
+.notification-body { opacity: 0.9; }
+.notification-close { padding: 2px; min-width: 22px; min-height: 22px; }
+.notification-actions { margin-top: 6px; }
+.notification-actions button { background: alpha(#ffffff, 0.08); padding: 5px 12px; }
+.badge { background: #3daee9; color: #fffffe; border-radius: 8px; font-size: 9px; font-weight: 700; padding: 0 4px; min-width: 9px; }
+
+/* Other applications' tray icons */
+.tray-apps button { padding: 5px; }
+.tray-apps button.attention { background: alpha(#ff7b7b, 0.25); }
+
+/* The volume and brightness display */
+.osd { background: alpha(#202326, 0.95); border: 1px solid alpha(#ffffff, 0.12); border-radius: 14px; padding: 12px 18px; box-shadow: 0 8px 24px alpha(black, 0.45); margin: 12px; }
+levelbar trough { background: alpha(#ffffff, 0.15); border-radius: 4px; min-height: 6px; }
+levelbar block.filled { background: #3daee9; border-radius: 4px; }
