@@ -49,16 +49,24 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 
 ## Update
 
-Installed once, SegLinux stays current without a new ISO:
+Installed once, SegLinux stays current without a new ISO. In a terminal:
 
 ```sh
 sudo seglinux-update
 ```
 
-This updates the system's packages, Brave, and SegLinux's own desktop and tools, all
-signature-checked, from the same builds as the ISOs. A system installed from an
-older ISO gets the command once with the two lines in
-[docs/updating.md](docs/updating.md#systems-installed-before-seglinux-update).
+This updates the system's packages, Brave, and SegLinux's own desktop and
+tools (every change to SegLinux is published as a signed update), and offers
+new default applications. On a system installed from an ISO older than the
+command (`seglinux-update: command not found`), get it once:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update
+sudo bash /tmp/seglinux-update
+```
+
+See [docs/updating.md](docs/updating.md), which also explains how updates are
+published.
 
 * **Installs like Windows.** The ISO is built the way a Windows ISO is (see
   [how a Windows ISO works](docs/windows-iso-anatomy.md)): a live image

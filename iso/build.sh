@@ -2,10 +2,12 @@
 # Build the SegLinux ISO.
 #
 #   iso/build.sh [--lite] [-i openrc|runit|dinit] [-k linux-zen|linux|linux-lts]
-#                [-e docker|podman] [--native]
+#                [-e docker|podman] [--native] [--package-only]
 #
 # Defaults: the full edition, OpenRC and the linux-zen kernel. --lite builds
 # the small Lite edition (OpenRC only), whose Setup downloads the apps.
+# --package-only builds only the seglinux package (iso/out/packages/), the
+# update installed systems get with seglinux-update.
 # The build runs in a privileged Artix container (docker or podman), so any
 # Linux host works; --native runs it on an Artix host (docs/building.md).
 # The ISO and its .sha256 end up in iso/out/.
@@ -17,8 +19,9 @@ init=openrc
 kernel=linux-zen
 engine=
 native=false
+package_only=false
 
-usage() { sed -n '2,12s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
 
 while (($#)); do
     case $1 in
@@ -28,6 +31,7 @@ while (($#)); do
         -k | --kernel) kernel=$2; shift 2 ;;
         -e | --engine) engine=$2; shift 2 ;;
         --native) native=true; shift ;;
+        --package-only) package_only=true; shift ;;
         -h | --help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
@@ -58,6 +62,7 @@ if $native; then
         fi
     done
     exec sudo env PROFILE="$profile" INIT="$init" KERNEL="$kernel" OUT_DIR="$repo/iso/out" BUILD_USER="$(id -un)" \
+        PACKAGE_ONLY="$package_only" SEGLINUX_PKGVER="${SEGLINUX_PKGVER:-}" \
         OWNER_UID="$(id -u)" OWNER_GID="$(id -g)" \
         "$repo/iso/scripts/build-in-container.sh"
 fi
@@ -93,5 +98,10 @@ image=seglinux-iso-builder
     -e OWNER_UID="$(id -u)" \
     -e OWNER_GID="$(id -g)" \
     -e SEGLINUX_PKGVER="${SEGLINUX_PKGVER:-}" \
+    -e PACKAGE_ONLY="$package_only" \
     "$image" /src/iso/scripts/build-in-container.sh
-echo "ISO written to $repo/iso/out/"
+if $package_only; then
+    echo "Package written to $repo/iso/out/packages/"
+else
+    echo "ISO written to $repo/iso/out/"
+fi
