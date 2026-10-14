@@ -158,7 +158,7 @@ jobs:
         run: |
           cp /etc/pacman.conf /tmp/pacman.conf.before
           bash data/system/seglinux-update --noconfirm
-          diff /tmp/pacman.conf.before /etc/pacman.conf
+          test "$(sha256sum < /tmp/pacman.conf.before)" = "$(sha256sum < /etc/pacman.conf)"
           test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 1
       - name: SegLinux's own updates, once published
         run: |
@@ -180,7 +180,8 @@ jobs:
           printf '#!/bin/sh\n' > /usr/bin/seglinux-greeter && chmod 755 /usr/bin/seglinux-greeter
           cp data/greeter/greetd.toml /usr/share/seglinux/greeter/greetd.toml
           printf 'source data/system/seglinux-update\noffered=/tmp/offered\noffer_sign_in_screen\n' > /tmp/offer.sh
-          # Answers "y" on a terminal, as a person would.
+          # Answers "y" on a terminal, as a person would (script needs libutempter).
+          pacman -S --noconfirm --needed libutempter > /dev/null
           echo y | script -qec "bash /tmp/offer.sh" /dev/null
           pacman -Q greetd greetd-dinit
           test -L /etc/dinit.d/boot.d/greetd && test ! -e /etc/dinit.d/boot.d/sddm
