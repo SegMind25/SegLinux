@@ -152,8 +152,10 @@ pub fn parse(params: &glib::Variant) -> Option<Request> {
         summary,
         body,
         actions: actions
-            .chunks_exact(2)
-            .map(|pair| (pair[0].clone(), pair[1].clone()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[key, label]| (key.clone(), label.clone()))
             .collect(),
         urgency,
         timeout: match (urgency, expire) {
