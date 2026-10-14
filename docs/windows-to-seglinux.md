@@ -51,6 +51,7 @@ prints it):
 
 | Windows | SegLinux |
 |---------|----------|
+| Action Center, notifications, the notification area (system tray) | Notification pop-ups and history (Do not disturb) and other applications' tray icons, in the dock's tray (see [desktop.md](desktop.md#implemented)) |
 | Sign-in screen (LogonUI) | `seglinux-greeter` on greetd: clock, accounts, password, the desktop to start, sleep, restart and shut down (see [desktop.md](desktop.md#sign-in-screen)) |
 | Desktop, taskbar, Start menu | The SegLinux Rust shell on labwc: a floating dock with Start, pinned programs (Dolphin, Brave, the kitty terminal, Steam), running windows, quick settings and clock. KDE Plasma with the `org.seglinux.desktop` layout is the fallback session |
 | Settings (Win+I), Personalization, Mouse, Keyboard | SegLinux Settings (Super+I): theme, accent, wallpaper, dock, clock, window focus and workspaces, keyboard layouts, mouse and touchpad, gaming; applied at once (see [desktop.md](desktop.md#settings)) |

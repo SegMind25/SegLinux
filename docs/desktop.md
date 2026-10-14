@@ -42,9 +42,35 @@ Laid out like a Plasma desktop with a floating panel:
     and *Close*. Drag a pinned icon onto another to reorder them. Pins are
     the `pinned` list of `shell.toml`, so they can be changed in Settings
     too;
-  - **tray**: network state (click for the connection editor, or nmtui),
-    volume (click for the mixer, scroll to change), battery on laptops,
-    quick settings, and the date and time (click for a calendar).
+  - **tray**, as Plasma's system tray: other applications' icons (Steam,
+    Discord, Telegram, nm-applet... see below), network state (click for
+    the connection editor, or nmtui), volume (click for the mixer, scroll
+    to change, middle click to mute), battery on laptops, notifications,
+    quick settings (sound, Bluetooth when the computer has it, display,
+    lock, desktop settings, power) and the date and time (click for a
+    calendar).
+- **Notifications**: the desktop is the session's notification service
+  (`org.freedesktop.Notifications`), so notifications from Brave, Steam,
+  Discord, `notify-send` and every libnotify program appear, as in Plasma,
+  as pop-ups at the bottom right above the dock: the application's icon and
+  name, the title and text, and its buttons (*Show in folder*, *Reply*...).
+  A click on one runs its default action; pointing at it keeps it on screen;
+  critical ones (a nearly empty battery) stay until dismissed. The bell in
+  the tray counts the unread ones and opens the history (newest first,
+  *Clear all*) with **Do not disturb**, which keeps everything but critical
+  notifications out of sight.
+- **Applications in the tray**: the desktop is the session's system tray
+  (StatusNotifierItem, which Qt, Electron and libappindicator/Ayatana
+  programs use), so an application that hides in the tray when its window
+  is closed, such as Steam or Discord, stays reachable. A click shows the
+  application, a right click opens its menu (with submenus and check
+  marks), a middle click runs its secondary action and scrolling is passed
+  on. Icons asking for attention are highlighted.
+- **Volume and brightness keys**: the change, then a level bar above the
+  dock for a moment, as in Plasma. Volume keys raise (unmuting first),
+  lower and mute the output; the microphone key mutes the input; the
+  brightness keys change the screen's backlight in 5% steps, through
+  elogind (no root needed, never fully dark).
 - **Sign-in screen** (`seglinux-greeter`, Rust and GTK 4, in place of
   SDDM): the clock over the wallpaper, the accounts, the password and the
   desktop to start, preselecting the SegLinux desktop and the last account
@@ -144,7 +170,9 @@ A compositor supporting layer-shell and foreign-toplevel is required.
 | Ctrl+Super+Left / Right | Previous / next workspace |
 | Ctrl+Shift+Super+Left / Right | Move the window to the previous / next workspace |
 | Alt+Tab | Window switcher |
-| Volume keys | PipeWire volume and mute |
+| Volume keys | Volume up, down and mute, with the level on screen |
+| Microphone mute key | Mute or unmute the microphone |
+| Brightness keys | Screen brightness, with the level on screen |
 
 ## Settings
 
@@ -214,7 +242,9 @@ processes, which is the fair way to add them up; RSS counts GTK and the C
 library in every process. The 59 MB quoted on the website was measured the
 same way (PSS, on a virtual screen) when the shell moved to GTK's CPU
 renderer: shell 39.5 MB, labwc 16.4 MB, D-Bus 3 MB, 0.25% CPU. The live
-settings did not change it (55 MB before, 56 MB after, within noise). The number covers the desktop,
+settings did not change it (55 MB before, 56 MB after, within noise), nor did the
+notifications, the tray for other applications and the volume display
+(re-measured on 14 October 2026: 56 MB). The number covers the desktop,
 not the whole system: the kernel, PipeWire, the polkit agent, Xwayland (when
 an X11 program runs) and services come on top. To check on your computer:
 
@@ -227,8 +257,8 @@ done
 ## Current limitations
 
 This is a young desktop, not KDE feature parity. It does not yet implement
-notification history, a StatusNotifier tray for other applications' icons,
-Bluetooth UI, clipboard history, per-display wallpaper selection, moving,
+clipboard history, its own Bluetooth pairing screen (Quick settings opens
+Blueman or Plasma's), per-display wallpaper selection, moving,
 renaming or deleting desktop icons (use the Desktop folder in a file
 manager), dragging applications from Start onto the dock, window previews,
 per-monitor display arrangement

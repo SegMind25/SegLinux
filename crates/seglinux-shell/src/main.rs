@@ -11,8 +11,12 @@ mod dock;
 mod gaming;
 mod launcher;
 mod managed;
+mod notify;
+mod osd;
 mod pins;
+mod services;
 mod settings;
+mod sni;
 mod tasks;
 mod tray;
 
@@ -32,7 +36,9 @@ const HELP: &str = "SegLinux Shell
   --gaming-mode-args   Print gamescope's options for the Gaming Mode session
   --version            Show version
 
-Open Start: gapplication action org.seglinux.Shell menu";
+Open Start: gapplication action org.seglinux.Shell menu
+Volume and brightness keys: gapplication action org.seglinux.Shell volume \"'up'\"
+  (volume: up, down, mute, mic-mute; brightness: up, down)";
 
 /// Applies the parts of the configuration GTK handles itself.
 fn apply_gtk_settings(config: &Config) {
@@ -203,6 +209,23 @@ fn main() -> glib::ExitCode {
             return;
         }
 
+        // Notifications, the system tray and the on-screen display, for the
+        // whole session.
+        let services = services::Services::start(app, !preview);
+        for (name, show) in [
+            ("volume", osd::Osd::volume as fn(&osd::Osd, &str)),
+            ("brightness", osd::Osd::brightness),
+        ] {
+            let action = gio::SimpleAction::new(name, Some(glib::VariantTy::STRING));
+            let osd = services.osd.clone();
+            action.connect_activate(move |_, change| {
+                if let Some(change) = change.and_then(|c| c.str()) {
+                    show(&osd, change);
+                }
+            });
+            app.add_action(&action);
+        }
+
         // Builds (or rebuilds) the desktop with the current configuration.
         let rebuild: Rc<dyn Fn()> = if preview {
             let window = gtk::ApplicationWindow::builder()
@@ -215,11 +238,12 @@ fn main() -> glib::ExitCode {
             let app = app.clone();
             let config = config.clone();
             let menus = menus.clone();
+            let services = services.clone();
             Rc::new(move || {
                 let config = config.borrow();
                 menus.borrow_mut().clear();
                 let overlay = desktop::background(&config, true, None);
-                let bar = dock::dock(&app, &menus, &config, true);
+                let bar = dock::dock(&app, &menus, &config, true, &services);
                 let top = config.dock_position == config::DockPosition::Top;
                 bar.set_valign(if top { gtk::Align::Start } else { gtk::Align::End });
                 bar.set_halign(gtk::Align::Center);
@@ -246,6 +270,7 @@ fn main() -> glib::ExitCode {
                 let menus = menus.clone();
                 let windows = windows.clone();
                 let monitors = monitors.clone();
+                let services = services.clone();
                 move || {
                     // Keep the application alive while replacing output surfaces.
                     let _guard = app.hold();
@@ -300,7 +325,7 @@ fn main() -> glib::ExitCode {
                         bar.set_anchor(edge, true);
                         bar.set_margin(edge, DOCK_MARGIN);
                         bar.auto_exclusive_zone_enable();
-                        bar.set_child(Some(&dock::dock(&app, &menus, &config, false)));
+                        bar.set_child(Some(&dock::dock(&app, &menus, &config, false, &services)));
                         bar.present();
                         windows.borrow_mut().extend([background, bar]);
                     }

@@ -2,6 +2,7 @@
 //! panel: Start, show desktop, one icon per application (pinned, running or
 //! both), the tray and the clock.
 use crate::pins::{self, Change};
+use crate::services::Services;
 use crate::tasks::{self, Action, Task, Tasks};
 use crate::{apps, common, config::Config, launcher, tray};
 use gtk::{gdk, gio, glib, prelude::*};
@@ -66,7 +67,13 @@ pub fn next_window(windows: &[Task]) -> Option<u32> {
     }
 }
 
-pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: bool) -> gtk::Box {
+pub fn dock(
+    app: &gtk::Application,
+    menus: &Menus,
+    config: &Config,
+    preview: bool,
+    services: &Services,
+) -> gtk::Box {
     let bar = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     bar.add_css_class("dock");
 
@@ -163,7 +170,7 @@ pub fn dock(app: &gtk::Application, menus: &Menus, config: &Config, preview: boo
     }
 
     bar.append(&gtk::Separator::new(gtk::Orientation::Vertical));
-    bar.append(&tray::tray(app, preview, config));
+    bar.append(&tray::tray(app, preview, config, services));
     bar
 }
 

@@ -79,7 +79,10 @@ published.
 * **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
   a floating dock with Start menu, one icon per application, tray and clock,
   written in Rust (GTK 4) on the labwc Wayland compositor, and the default
-  session; KDE Plasma remains available as a fallback. The sign-in screen
+  session; KDE Plasma remains available as a fallback. Like Plasma it shows
+  notifications (pop-ups, history, Do Not Disturb), other applications'
+  tray icons and menus (Steam, Discord...) and a volume and brightness
+  display. The sign-in screen
   is SegLinux's own too (Rust, on greetd, in place of SDDM). Its Settings app
   (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
