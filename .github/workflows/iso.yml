@@ -74,7 +74,9 @@ jobs:
         run: |
           edition=()
           [[ $EDITION == lite ]] && edition=(--lite)
-          SEGLINUX_PKGVER="0.1.0.$(git rev-list --count HEAD)" \
+          # Numbered by main's history, as the updates are (update.yml), even
+          # for a build of another branch.
+          SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
             ./iso/build.sh "${edition[@]}" -e docker -i "$INIT" -k "$KERNEL"
       - name: Show the result
         run: ls -l iso/out/ iso/out/packages/ && cat iso/out/*.sha256
