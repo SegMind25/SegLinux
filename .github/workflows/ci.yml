@@ -158,7 +158,7 @@ jobs:
         run: |
           cp /etc/pacman.conf /tmp/pacman.conf.before
           bash data/system/seglinux-update --noconfirm
-          diff /tmp/pacman.conf.before /etc/pacman.conf
+          test "$(sha256sum < /tmp/pacman.conf.before)" = "$(sha256sum < /etc/pacman.conf)"
           test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 1
       - name: SegLinux's own updates, once published
         run: |
