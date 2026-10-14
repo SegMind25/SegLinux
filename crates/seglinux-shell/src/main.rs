@@ -233,6 +233,12 @@ fn main() -> glib::ExitCode {
                 eprintln!("Cannot update the compositor's settings: {error}");
             }
             let monitors = display.monitors();
+            // The desktop outlives its monitors: they all go away while a
+            // text console is shown (Ctrl+Alt+F2) or the only screen is
+            // unplugged, and the desktop is rebuilt when they come back.
+            // Without a hold GTK would end the shell once it has no window,
+            // leaving a black screen. It still ends with the session.
+            std::mem::forget(app.hold());
             let windows: Rc<RefCell<Vec<gtk::ApplicationWindow>>> = Rc::default();
             let rebuild = {
                 let app = app.clone();

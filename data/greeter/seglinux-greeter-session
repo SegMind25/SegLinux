@@ -18,6 +18,10 @@ export XDG_SESSION_TYPE=wayland
 export GTK_THEME=Adwaita:dark GDK_BACKEND=wayland
 # Nothing here needs the desktop portals; starting them only slows it down.
 export GDK_DEBUG=no-portals
+# A still picture and a few widgets: GTK's CPU renderer draws them with a
+# fraction of the memory of its OpenGL one, and without a GPU driver
+# (virtual machines) it is much faster than OpenGL emulated in software.
+export GSK_RENDERER="${GSK_RENDERER:-cairo}"
 if [ -d /usr/share/icons/breeze_cursors ]; then
     export XCURSOR_THEME=breeze_cursors
 else
@@ -55,7 +59,7 @@ run || status=$?
 if [ "$status" -ge 1 ] && [ "$status" -le 125 ] && [ -z "${WLR_RENDERER:-}" ] &&
     [ $(($(date +%s) - started)) -lt 15 ]; then
     echo "seglinux-greeter-session: labwc could not start (exit status $status); retrying with WLR_RENDERER=pixman" >&2
-    export WLR_RENDERER=pixman GSK_RENDERER="${GSK_RENDERER:-cairo}"
+    export WLR_RENDERER=pixman
     run
     exit 0
 fi
