@@ -71,6 +71,14 @@ Laid out like a Plasma desktop with a floating panel:
   lower and mute the output; the microphone key mutes the input; the
   brightness keys change the screen's backlight in 5% steps, through
   elogind (no root needed, never fully dark).
+- **Terminal** (Super+Enter, kitty): each new window or tab starts with
+  system information under SegLinux's logo (fastfetch); `fastfetch` shows it
+  again. Shells started from a shell, scripts, and the terminal panels of
+  Dolphin and Kate skip it. To turn it off:
+  `mkdir -p ~/.config/seglinux && touch ~/.config/seglinux/no-fastfetch`
+  (delete that file to turn it back on). The look is
+  `/etc/xdg/fastfetch/config.jsonc`; a config of your own in
+  `~/.config/fastfetch/` replaces it.
 - **Sign-in screen** (`seglinux-greeter`, Rust and GTK 4, in place of
   SDDM): the clock over the wallpaper, the accounts, the password and the
   desktop to start, preselecting the SegLinux desktop and the last account
