@@ -101,9 +101,11 @@ user = "alice"
 Try it without signing out: `seglinux-greeter --demo` opens it in a window
 (the password `demo` "signs in" and prints the session it would start).
 
-**Systems installed from an older ISO** keep SDDM. Once `seglinux-update`
-has brought a SegLinux with the greeter (see [updating.md](updating.md)), switch
-to the new sign-in screen like this (OpenRC; for runit or dinit install `greetd-runit` or
+**Systems installed from an older ISO** keep SDDM until `sudo
+seglinux-update` has brought a SegLinux with the greeter (see
+[updating.md](updating.md)): it then asks once whether to switch (OpenRC and
+dinit), and the new sign-in screen appears at the next restart, keeping
+SDDM's automatic sign-in if there was one. To switch by hand instead (OpenRC; for runit or dinit install `greetd-runit` or
 `greetd-dinit` and switch the services with their own tools):
 
 ```sh

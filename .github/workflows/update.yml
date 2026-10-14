@@ -1,0 +1,52 @@
+name: SegLinux update
+
+# Every change to SegLinux on main becomes an update that installed systems
+# get with `sudo seglinux-update` (docs/updating.md), without a new ISO:
+# the seglinux package is built, signed with the SEGLINUX_SIGNING_KEY secret
+# and published to the release "packages". "Run workflow" publishes the
+# current main by hand (for example right after adding the secret).
+on:
+  push:
+    branches: [main]
+    paths:
+      - crates/**
+      - data/**
+      - packaging/**
+      - Cargo.toml
+      - Cargo.lock
+      - iso/Containerfile
+      - iso/scripts/**
+      - .github/workflows/update.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One publication at a time, in order: the newest always ends up on top.
+concurrency:
+  group: seglinux-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Build, sign and publish the seglinux package
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The package's version counts the commits (0.1.0.<count>), so each
+          # update is newer than the one before.
+          fetch-depth: 0
+      - name: Prepare the update signing key
+        env:
+          SEGLINUX_SIGNING_KEY: ${{ secrets.SEGLINUX_SIGNING_KEY }}
+        run: iso/scripts/signing-key.sh
+      - name: Build the seglinux package
+        if: env.SEGLINUX_SIGNING_FPR != ''
+        run: SEGLINUX_PKGVER="0.1.0.$(git rev-list --count HEAD)" ./iso/build.sh --package-only -e docker
+      - name: Publish the update
+        if: env.SEGLINUX_SIGNING_FPR != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: iso/scripts/publish-update.sh iso/out/packages

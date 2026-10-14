@@ -63,28 +63,13 @@ jobs:
           df -h /
       - name: Load the loop module
         run: sudo modprobe loop
-      # SegLinux's updates are signed with the SEGLINUX_SIGNING_KEY secret
-      # (docs/updating.md). Its public half goes into the seglinux package,
-      # so installed systems trust what this key signs.
+      # The public half of the key SegLinux's updates are signed with goes
+      # into the image's seglinux package, so installed systems trust the
+      # updates (published by the "SegLinux update" workflow, update.yml).
       - name: Prepare the update signing key
         env:
           SEGLINUX_SIGNING_KEY: ${{ secrets.SEGLINUX_SIGNING_KEY }}
-        run: |
-          if [[ -z $SEGLINUX_SIGNING_KEY ]]; then
-            echo "::notice::No SEGLINUX_SIGNING_KEY secret: this build publishes no SegLinux update (docs/updating.md)."
-            exit 0
-          fi
-          export GNUPGHOME=$RUNNER_TEMP/gnupg
-          mkdir -m 700 -p "$GNUPGHOME"
-          printf '%s\n' "$SEGLINUX_SIGNING_KEY" | gpg --batch --quiet --import
-          fpr=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
-          [[ -n $fpr ]] || { echo "::error::SEGLINUX_SIGNING_KEY holds no secret key"; exit 1; }
-          mkdir -p data/keyrings
-          gpg --batch --armor --export "$fpr" > data/keyrings/seglinux.gpg
-          printf '%s:4:\n' "$fpr" > data/keyrings/seglinux-trusted
-          : > data/keyrings/seglinux-revoked
-          echo "SEGLINUX_SIGNING_FPR=$fpr" >> "$GITHUB_ENV"
-          echo "Updates are signed with $fpr"
+        run: iso/scripts/signing-key.sh
       - name: Build
         run: |
           edition=()
@@ -93,41 +78,6 @@ jobs:
             ./iso/build.sh "${edition[@]}" -e docker -i "$INIT" -k "$KERNEL"
       - name: Show the result
         run: ls -l iso/out/ iso/out/packages/ && cat iso/out/*.sha256
-      # The seglinux package, signed, in the repository installed systems
-      # update from (the release "packages"; seglinux-update). Published by
-      # one job only, and before the ISO: an image never names an update
-      # that is not there.
-      - name: Publish the SegLinux update
-        if: (github.event_name == 'push' || inputs.release) && env.SEGLINUX_SIGNING_FPR != '' && (matrix.edition == 'full' || strategy.job-total == 1)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          export GNUPGHOME=$RUNNER_TEMP/gnupg
-          cd iso/out/packages
-          pkg=$(ls seglinux-*.pkg.tar.zst)
-          gpg --batch --yes --local-user "$SEGLINUX_SIGNING_FPR" --detach-sign --output "$pkg.sig" "$pkg"
-          gpg --batch --verify "$pkg.sig" "$pkg"
-          cp ../../../data/keyrings/seglinux.gpg .
-          # repo-add (pacman) writes the database, with the signature in it.
-          docker run --rm -v "$PWD:/repo" -w /repo docker.io/artixlinux/artixlinux:base-devel \
-            repo-add seglinux.db.tar.gz "$pkg"
-          sudo chown -R "$(id -u):$(id -g)" .
-          cp -L seglinux.db.tar.gz seglinux.db.upload && mv seglinux.db.upload seglinux.db
-          cp -L seglinux.files.tar.gz seglinux.files.upload && mv seglinux.files.upload seglinux.files
-          tag=packages
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-              --title "SegLinux updates" \
-              --notes "The package repository installed SegLinux systems update from: run \`sudo seglinux-update\` (docs/updating.md). Not an ISO."
-          fi
-          # The package first, then the database that names it; then the
-          # old versions go (pacman only fetches what the database names).
-          gh release upload "$tag" "$pkg" "$pkg.sig" --repo "$GITHUB_REPOSITORY" --clobber
-          gh release upload "$tag" seglinux.db seglinux.files seglinux.gpg --repo "$GITHUB_REPOSITORY" --clobber
-          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
-            { grep -E '^seglinux-.*\.pkg\.tar\.zst(\.sig)?$' || true; } | grep -vxF -e "$pkg" -e "$pkg.sig" |
-            while read -r old; do gh release delete-asset "$tag" "$old" --repo "$GITHUB_REPOSITORY" --yes; done
-          echo "Published $pkg"
       # Workflow artifacts would exceed the Actions storage quota of private
       # repositories, so the ISO is published as a release. Release assets
       # are limited to 2 GiB each: larger images are split into parts.

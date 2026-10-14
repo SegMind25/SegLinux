@@ -3,8 +3,11 @@
 # container that iso/build.sh starts.
 #
 #   PROFILE=seglinux|seglinux-lite  INIT=openrc|runit|dinit \
-#   KERNEL=linux-zen|linux|linux-lts  OUT_DIR=<dir> \
+#   KERNEL=linux-zen|linux|linux-lts  OUT_DIR=<dir> [PACKAGE_ONLY=true] \
 #       iso/scripts/build-in-container.sh
+#
+# PACKAGE_ONLY=true stops after the package (OUT_DIR/packages/): the update
+# the SegLinux update workflow publishes.
 #
 # Steps: build the seglinux package from this checkout into a local pacman
 # repository, point artools at it, check the package lists, run buildiso
@@ -84,6 +87,10 @@ mkdir -p "$out/packages"
 rm -f "$out"/packages/seglinux-*.pkg.tar.zst
 cp "$pkgwork"/seglinux-*.pkg.tar.zst "$out/packages/"
 [[ -z ${OWNER_UID:-} ]] || chown -R "$OWNER_UID:${OWNER_GID:-$OWNER_UID}" "$out/packages"
+if [[ ${PACKAGE_ONLY:-false} == true ]]; then
+    step "Done: $(cd "$out/packages" && ls seglinux-*.pkg.tar.zst)"
+    exit 0
+fi
 
 step "Configuring artools"
 conf="iso-x86_64.conf"

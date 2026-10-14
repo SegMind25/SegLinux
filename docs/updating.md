@@ -1,24 +1,29 @@
 # Updating SegLinux
 
-An installed SegLinux keeps itself current with one command; there is no need
-to download a new ISO for each release:
+An installed SegLinux keeps itself current with one command. There is no
+need to download a new ISO for each release. Open a terminal (Super+Return)
+and type:
 
 ```sh
 sudo seglinux-update
 ```
+
+(The command is `seglinux-update`, one word with a dash, after `sudo`.)
 
 It updates, in one go:
 
 * **every package of the system** (`pacman -Syu`): the kernel, drivers,
   Mesa, Wine, Steam, KDE applications, ... from Artix's repositories;
 * **Brave**, the default browser, from [Chaotic-AUR](https://aur.chaotic.cx);
-* **SegLinux itself**: the desktop, Start menu, Settings, Setup, `segrun`,
-  the themes and default settings, from SegLinux's own package repository.
-  Every ISO build publishes there the same `seglinux` package the image
-  contains, so an installed system gets what a new ISO would bring;
+* **SegLinux itself**: the desktop, Start menu, Settings, the sign-in screen,
+  Setup, `segrun`, the themes and default settings. Every change to SegLinux
+  is published as an update, signed, so an installed system gets what a new
+  ISO would bring, without the ISO;
 * **new default applications**: when a newer SegLinux installs an
   application by default (such as Brave or kitty), it is offered once. One
-  you removed on purpose is not installed again.
+  you removed on purpose is not installed again;
+* **the new sign-in screen**, on systems installed when SegLinux still used
+  SDDM: it asks once whether to switch (it appears at the next restart).
 
 pacman lists what it will update and asks first; answer **Y**. To update
 without questions (from a script, for instance):
@@ -29,12 +34,12 @@ sudo seglinux-update --noconfirm
 
 Restart after an update that installed a new kernel or graphics driver.
 `pacman -Q seglinux` shows the installed SegLinux version: `0.1.0.<number>`,
-where the number grows with each release.
+where the number grows with each release; the command shows it at the end.
 
-## Systems installed before `seglinux-update`
+## "seglinux-update: command not found"
 
-If the system answers `seglinux-update: command not found`, it was installed
-from an older ISO. Get the command once, with:
+The system was installed from an ISO older than this command (before 13
+October 2026). Get it once with these two lines:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update
@@ -68,9 +73,12 @@ each marked `# Added by seglinux-update.`. It keeps the previous file as
 
 ## When an update fails
 
-* **"could not resolve host" or a download error**: check the connection
-  (*Network* in the dock, or `nmtui`) and run the command again. If a mirror
-  is mid-sync, a second try usually works.
+* **"no internet connection"** or a download error: connect (*Network* in
+  the dock, or `nmtui`) and run the command again. If a mirror is mid-sync,
+  a second try usually works.
+* **"pacman is busy"**: another update, or Discover, is running. Wait for it
+  to finish. If nothing is running (the computer was switched off during an
+  update), remove the stale lock: `sudo rm /var/lib/pacman/db.lck`.
 * **"signature ... is unknown trust" or "invalid or corrupted package"**
   for Artix's packages: renew the keyrings first, then update again:
 
@@ -79,54 +87,63 @@ each marked `# Added by seglinux-update.`. It keeps the previous file as
   sudo seglinux-update
   ```
 
-* **"SegLinux's own updates are not published yet"**: SegLinux's repository
-  has no release yet. Everything else was updated; try again later.
+* **"SegLinux's own updates are not published yet"**: no SegLinux update has
+  been published so far (see *For maintainers* below). Everything else was
+  updated.
+* **"Chaotic-AUR could not be set up"**: its key server or mirror did not
+  answer. Everything else was updated; Brave is updated next time.
 * **A file conflict** (`exists in filesystem`): a file was added by hand
   where a package now installs one. Move it away and update again.
 
 Discover and plain `sudo pacman -Syu` work too once `seglinux-update` has run
 once, because the repositories are then set up. Only `seglinux-update` also
-offers new default applications.
+offers new default applications and the new sign-in screen.
 
 ## For maintainers: publishing updates
 
-The **ISO** workflow publishes the update: after building, it signs the
-`seglinux` package and uploads it, with the repository database and the
-public key, to the release named `packages` ("SegLinux updates", marked as
-a pre-release; the website ignores it because it holds no ISO). The package
-version is `0.1.0.<number of commits>`, so each build is newer than the one
-before. The workflow first uploads the package, then the database that names
-it, then deletes the old packages. This way the database never names a
-missing file.
+The **SegLinux update** workflow (`.github/workflows/update.yml`) publishes
+the updates. On every push to `main` that changes SegLinux (its crates,
+`data/`, the packaging), it builds the `seglinux` package (no ISO), signs it
+and uploads it, with the repository database and the public key, to the
+release named `packages` ("SegLinux updates", a pre-release; the website
+ignores it because it holds no ISO). *Actions → SegLinux update → Run
+workflow* publishes the current `main` by hand. The package version is
+`0.1.0.<number of commits>`, so each update is newer than the one before.
+The package is uploaded first, then the database that names it, then the old
+packages are deleted, so the database never names a missing file.
 
-It needs the signing key, as the Actions secret `SEGLINUX_SIGNING_KEY`.
-Without it, builds still produce ISOs, but publish no update. Create the key
-**once**, on any Linux system (or Git Bash or WSL on Windows):
+### The signing key (once)
+
+Updates are only published once the repository has the signing key, as the
+Actions secret `SEGLINUX_SIGNING_KEY`. Until then each run ends with the
+warning *No SegLinux update published*, and `seglinux-update` says SegLinux's
+updates are not published yet. To create the key, run this once on any
+Linux with gpg, a SegLinux install included (as yourself, not root):
 
 ```sh
-export GNUPGHOME="$(mktemp -d)"
-gpg --batch --passphrase '' --quick-gen-key "SegLinux Package Signing" ed25519 sign never
-gpg --armor --export-secret-keys > seglinux-signing-key.asc
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/packaging/make-signing-key.sh | bash
 ```
 
-Then, on GitHub: the repository's **Settings → Secrets and variables →
-Actions → New repository secret**, name `SEGLINUX_SIGNING_KEY`, and as the
-value the whole content of `seglinux-signing-key.asc`, from
-`-----BEGIN PGP PRIVATE KEY BLOCK-----` to the `END` line. (With the GitHub
-CLI: `gh secret set SEGLINUX_SIGNING_KEY < seglinux-signing-key.asc`.)
+It writes `~/seglinux-signing-key.asc` and opens GitHub's page for a new
+secret (or adds the secret itself when the GitHub CLI is signed in). There:
 
-Store `seglinux-signing-key.asc` somewhere safe and offline, then delete
-the copy and the temporary `GNUPGHOME` folder. **Keep the same key from
-then on.** Installed systems trust this key only. A new key would make
-them refuse every later SegLinux update until each one trusts the new key
-by hand. The key has no passphrase because the workflow uses it unattended;
-GitHub's secret storage protects it, and it can sign nothing but SegLinux's
-updates.
+1. **Name**: `SEGLINUX_SIGNING_KEY`
+2. **Secret**: the whole content of `~/seglinux-signing-key.asc`
+   (`cat ~/seglinux-signing-key.asc`), from
+   `-----BEGIN PGP PRIVATE KEY BLOCK-----` to the `END` line.
+3. **Add secret**, then *Actions → SegLinux update → Run workflow*.
 
-The next push whose commit message contains `[build iso]` (or a manual
-**ISO** run with *release* checked) then builds the images and publishes
-the first update. Release downloads, and so updates, need the repository to
-be public, as the ISO downloads do.
+That publishes the first update; installed systems get it with
+`sudo seglinux-update`. (Without SegLinux, in Git Bash or WSL on Windows:
+`packaging/make-signing-key.sh` from a clone does the same.)
+
+Store `seglinux-signing-key.asc` somewhere safe and offline. **Keep the same
+key from then on.** Installed systems trust this key only. A new key would
+make them refuse every later SegLinux update until each one trusts the new
+key by hand. The key has no passphrase because the workflow uses it
+unattended; GitHub's secret storage protects it, and it signs nothing but
+SegLinux's updates. ISO builds also put its public half into the image, so
+newly installed systems trust it from the start.
 
 How it fits together:
 
@@ -134,7 +151,9 @@ How it fits together:
 |---|---|
 | The command | `data/system/seglinux-update`, installed as `/usr/bin/seglinux-update` |
 | Applications offered once | `data/seglinux/default-apps` → `/usr/share/seglinux/default-apps` |
-| SegLinux's public key | written by the workflow into `data/keyrings/`, installed to `/usr/share/pacman/keyrings/seglinux.gpg` and trusted by `pacman-key --populate seglinux` |
+| SegLinux's public key | written by `iso/scripts/signing-key.sh` into `data/keyrings/`, installed to `/usr/share/pacman/keyrings/seglinux.gpg` and trusted by `pacman-key --populate seglinux` |
 | Repository set up on install | Setup runs `seglinux-update --setup` in the new system |
-| Signing and publishing | the *Publish the SegLinux update* step of `.github/workflows/iso.yml` |
+| Building, signing and publishing | `.github/workflows/update.yml`: `iso/build.sh --package-only`, `iso/scripts/publish-update.sh` |
+| Creating the key | `packaging/make-signing-key.sh` |
 | Chaotic-AUR | `iso/scripts/chaotic-aur.sh` (images and CI), `seglinux-update` (installed systems) |
+| Tests | the *sudo seglinux-update (Artix)* job of `.github/workflows/ci.yml` |
