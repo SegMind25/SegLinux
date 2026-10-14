@@ -67,7 +67,8 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-update \
-            packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh
+            packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh \
+            data/system/fastfetch.bashrc
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
             data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
@@ -80,6 +81,8 @@ jobs:
             iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
             iso/iso-profiles/seglinux-lite/common.yaml
           python3 -m json.tool data/plasma/look-and-feel/org.seglinux.desktop/metadata.json > /dev/null
+          # JSON with comment lines (fastfetch's .jsonc).
+          sed '/^ *\/\//d' data/fastfetch/config.jsonc | python3 -m json.tool > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml \
             data/greeter/labwc/rc.xml data/greeter/labwc/menu.xml
       - name: Overlay links resolve
@@ -154,14 +157,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: An older SegLinux updates itself (the one-time curl command)
         run: |
-          bash data/system/seglinux-update --noconfirm
+          cp data/system/seglinux-update /tmp/seglinux-update
+          bash /tmp/seglinux-update --noconfirm
           grep -A1 '^\[chaotic-aur\]' /etc/pacman.conf
           pacman -Q chaotic-keyring chaotic-mirrorlist
           pacman -Si brave-bin | grep -E '^(Name|Version|Repository)'
+          # The command stays: `sudo seglinux-update` from then on.
+          test "$(command -v seglinux-update)" = /usr/local/bin/seglinux-update
+          # Piped into bash it explains how to run it instead.
+          if cat data/system/seglinux-update | bash; then exit 1; fi
       - name: Running it again changes nothing
         run: |
           cp /etc/pacman.conf /tmp/pacman.conf.before
-          bash data/system/seglinux-update --noconfirm
+          seglinux-update --noconfirm
           test "$(sha256sum < /tmp/pacman.conf.before)" = "$(sha256sum < /etc/pacman.conf)"
           test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 1
       - name: SegLinux's own updates, once published
@@ -173,6 +181,12 @@ jobs:
           else
             echo "::notice::No SegLinux update is published yet (the SEGLINUX_SIGNING_KEY secret is missing, docs/updating.md)"
           fi
+      - name: The seglinux package's command replaces the downloaded one
+        run: |
+          printf '#!/bin/sh\n' > /usr/bin/seglinux-update
+          bash -c 'source data/system/seglinux-update && retire_local_copy'
+          test ! -e /usr/local/bin/seglinux-update
+          rm /usr/bin/seglinux-update
       - name: An SDDM system is offered the new sign-in screen
         run: |
           # dinit (this container's init) with SDDM enabled and the greeter
@@ -193,3 +207,17 @@ jobs:
           grep -A2 '^\[initial_session\]' /etc/greetd/config.toml | grep -q 'user = "alice"'
           test "$(stat -c %U /var/lib/seglinux-greeter/state.toml)" = greeter
           grep -q 'user = "alice"' /var/lib/seglinux-greeter/state.toml
+      - name: Terminals open with fastfetch and SegLinux's logo
+        run: |
+          pacman -S --noconfirm --needed fastfetch libutempter > /dev/null
+          install -Dm644 data/fastfetch/config.jsonc /etc/xdg/fastfetch/config.jsonc
+          install -Dm644 data/fastfetch/logo.txt /usr/share/seglinux/fastfetch/logo.txt
+          install -Dm644 data/system/fastfetch.bashrc /etc/bash/bashrc.d/seglinux-fastfetch.bashrc
+          # An interactive shell on a terminal, as kitty starts it: the logo
+          # (its top row) and the information.
+          TERM=xterm-256color script -qec 'bash -i -c true' /dev/null > /tmp/terminal.txt
+          grep -q '▄▄███████▄▄' /tmp/terminal.txt
+          grep -q 'Kernel' /tmp/terminal.txt
+          # A shell started from that shell does not repeat it.
+          TERM=xterm-256color script -qec "bash -c 'bash -i -c true; true'" /dev/null > /tmp/nested.txt
+          if grep -q '███' /tmp/nested.txt; then exit 1; fi

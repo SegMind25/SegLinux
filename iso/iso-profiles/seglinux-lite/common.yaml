@@ -35,7 +35,8 @@ packages-base:
   - wpa_supplicant
   - lsb-release
 
-packages-apps: []
+packages-apps:
+  - fastfetch
 
 # artools installs these when the profile has a live layer.
 packages-xorg:

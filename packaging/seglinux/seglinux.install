@@ -14,10 +14,20 @@ greeter_state() {
     fi
 }
 
+# The copy of seglinux-update that its one-time download leaves on systems
+# older than it (/usr/local/bin, first in the PATH) would hide this one.
+retire_update_copy() {
+    local copy=/usr/local/bin/seglinux-update
+    if [[ -f $copy ]] && grep -q '^# seglinux-update: ' "$copy"; then
+        rm -f "$copy"
+    fi
+}
+
 post_install() {
     /usr/lib/seglinux/apply-branding
     trust_update_key
     greeter_state
+    retire_update_copy
     cat <<'MSG'
 ==> Windows programs: double-click an .exe, or run `segrun program.exe`.
 ==> `segrun doctor` checks Wine, Vulkan, NTSYNC and binfmt support.
@@ -28,4 +38,5 @@ post_upgrade() {
     /usr/lib/seglinux/apply-branding
     trust_update_key
     greeter_state
+    retire_update_copy
 }

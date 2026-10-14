@@ -58,11 +58,11 @@ sudo seglinux-update
 This updates the system's packages, Brave, and SegLinux's own desktop and
 tools (every change to SegLinux is published as a signed update), and offers
 new default applications. On a system installed from an ISO older than the
-command (`seglinux-update: command not found`), get it once:
+command (`seglinux-update: command not found`), get it once with this one
+line; it stays installed, so `sudo seglinux-update` works from then on:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update
-sudo bash /tmp/seglinux-update
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update && sudo bash /tmp/seglinux-update
 ```
 
 See [docs/updating.md](docs/updating.md), which also explains how updates are
@@ -88,6 +88,8 @@ published.
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
   Familiar applications by default: Dolphin for files, Brave for the web,
   kitty as the terminal (File Explorer → Dolphin, Store → Discover, ...).
+  The terminal opens with system information under the SegLinux logo
+  (fastfetch).
 * **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
   GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable
   refresh rate and tearing for fullscreen games; zram swap, NTSYNC, I/O

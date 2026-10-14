@@ -39,16 +39,21 @@ where the number grows with each release; the command shows it at the end.
 ## "seglinux-update: command not found"
 
 The system was installed from an ISO older than this command (before 13
-October 2026). Get it once with these two lines:
+October 2026). Get it once with this line (one line: copy all of it):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update
-sudo bash /tmp/seglinux-update
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update && sudo bash /tmp/seglinux-update
 ```
 
-This sets up Chaotic-AUR and SegLinux's repository, then updates everything,
-including the `seglinux` package, which installs `seglinux-update` itself.
-From then on `sudo seglinux-update` is enough.
+It installs the command (in `/usr/local/bin`), sets up Chaotic-AUR and
+SegLinux's repository and updates everything. From then on
+`sudo seglinux-update` is enough. When the update brings the newer `seglinux`
+package, its own `seglinux-update` takes over and the downloaded copy is
+removed.
+
+Download it first, as above: piped straight into `sudo bash`
+(`curl ... | sudo bash`) it stops and shows this line, because pacman's
+questions would read the rest of the script instead of your answers.
 
 ## Is it safe?
 

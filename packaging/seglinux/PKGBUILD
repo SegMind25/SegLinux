@@ -22,6 +22,7 @@ optdepends=(
     'steam: Proton for games'
     'dosbox: 16-bit DOS programs'
     'kitty: terminal (seglinux-terminal)'
+    'fastfetch: system information with the SegLinux logo when a terminal opens'
     'brave-bin: the default browser (Chaotic-AUR)'
     'foot: terminal (seglinux-terminal), Lite edition'
     'squashfs-tools: seglinux-setup (applies the system image)'
@@ -55,6 +56,8 @@ backup=(
     'etc/xdg/kdeglobals'
     'etc/xdg/kwinrc'
     'etc/xdg/mimeapps.list'
+    'etc/xdg/fastfetch/config.jsonc'
+    'etc/bash/bashrc.d/seglinux-fastfetch.bashrc'
 )
 # The project was called Wincraft before.
 provides=('wincraft')
@@ -163,6 +166,10 @@ package() {
     # Setup and branding
     install -Dm644 "$data/seglinux/setupcomplete.d/README" "$pkgdir/etc/seglinux/setupcomplete.d/README"
     install -Dm644 "$data/system/os-release" "$pkgdir/usr/share/seglinux/os-release"
+    # fastfetch with SegLinux's logo (not Artix's), when a terminal opens.
+    install -Dm644 "$data/fastfetch/config.jsonc" "$pkgdir/etc/xdg/fastfetch/config.jsonc"
+    install -Dm644 "$data/fastfetch/logo.txt" "$pkgdir/usr/share/seglinux/fastfetch/logo.txt"
+    install -Dm644 "$data/system/fastfetch.bashrc" "$pkgdir/etc/bash/bashrc.d/seglinux-fastfetch.bashrc"
     install -Dm755 "$data/system/apply-branding" "$pkgdir/usr/lib/seglinux/apply-branding"
     install -Dm755 "$data/system/pipewire-session" "$pkgdir/usr/lib/seglinux/pipewire-session"
     install -Dm755 "$data/system/restore-trimmed-files" "$pkgdir/usr/lib/seglinux/restore-trimmed-files"
