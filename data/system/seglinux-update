@@ -73,6 +73,9 @@ setup_chaotic() {
         say "Setting up Chaotic-AUR, where Brave comes from"
         receive_chaotic_key || return 1
         pacman-key --lsign-key "$chaotic_key" || return 1
+        # Its keyring needs archlinux-keyring: the package lists must be
+        # there to find it (a system may never have downloaded them).
+        pacman -Sy || return 1
         pacman -U --noconfirm --needed "$chaotic_cdn/chaotic-keyring.pkg.tar.zst" \
             "$chaotic_cdn/chaotic-mirrorlist.pkg.tar.zst" || return 1
     fi

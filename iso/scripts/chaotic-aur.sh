@@ -44,4 +44,6 @@ for attempt in 1 2 3; do
 done
 [[ $received == true ]] || { echo "chaotic-aur: cannot get the Chaotic-AUR key" >&2; exit 1; }
 pacman-key --lsign-key "$key"
+# chaotic-keyring depends on archlinux-keyring: sync the package lists first.
+pacman -Sy
 pacman -U --noconfirm --needed "$cdn/chaotic-keyring.pkg.tar.zst" "$cdn/chaotic-mirrorlist.pkg.tar.zst"
