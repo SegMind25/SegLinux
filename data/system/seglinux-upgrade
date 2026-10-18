@@ -32,6 +32,17 @@ die() { printf 'seglinux-upgrade: %s\n' "$*" >&2; exit 1; }
 
 has_repo() { grep -q "^\[$1\]" "$conf"; }
 
+# Adds the repository $1, with the lines that follow, at the end of pacman.conf.
+add_repo() {
+    local name=$1
+    shift
+    cp -p "$conf" "$conf.before-seglinux-update"
+    {
+        printf '\n# Added by seglinux-update.\n[%s]\n' "$name"
+        printf '%s\n' "$@"
+    } >> "$conf"
+}
+
 # The one-time download (above) leaves the command installed, so that
 # `sudo seglinux-upgrade` works from then on, until the seglinux package
 # brings its own; that one then replaces it (retire_local_copy).
@@ -322,7 +333,7 @@ main() {
     setup_chaotic || warn "Chaotic-AUR could not be set up, so Brave is not updated this time; everything else is."
     setup_seglinux
     local before
-    before=$(pacman -Q seglinux 2>/dev/null || true)
+    before=$(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')
     say "Upgrading the system"
     pacman -Syu "$@"
     if $from_source || ! seglinux_published; then
