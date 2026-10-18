@@ -156,7 +156,7 @@ latest() {
 # desktop, Settings, sign-in screen, themes and tuning the newest ISO has.
 # makepkg does not build as root, so it builds as the account that ran sudo.
 build_seglinux() {
-    local user home version sha installed work top deps package
+    local user home version sha installed work top deps packages
     user=${SUDO_USER:-}
     if [[ -z $user || $user == root ]]; then
         warn "SegLinux itself is built from your account: run  sudo seglinux-upgrade  as yourself, not as root."
@@ -167,7 +167,7 @@ build_seglinux() {
         return 0
     fi
     [[ $version =~ ^[0-9][0-9.]*$ ]] || die "invalid version: $version"
-    installed=$(pacman -Q seglinux 2>/dev/null | awk '{print $2}')
+    installed=$(pacman -Q seglinux 2>/dev/null | awk '{print $2}' || true)
     if [[ -n $installed ]] && (($(vercmp "$installed" "$version") >= 0)); then
         say "SegLinux $installed is the newest"
         return 0
@@ -190,8 +190,9 @@ build_seglinux() {
             warn "Cannot download SegLinux's source; SegLinux itself is not upgraded this time."
             return 0
         }
-        top=$(tar -tzf "$work/source.tar.gz" | head -n 1 | cut -d/ -f1)
         tar -C "$work/x" -xzf "$work/source.tar.gz"
+        # GitHub's archive holds one folder, SegLinux-<commit>.
+        top=$(cd "$work/x" && echo *)
         mv "$work/x/$top" "$work/x/seglinux-$version"
         tar -C "$work/x" -czf "$work/seglinux-$version.tar.gz" "seglinux-$version"
     fi
@@ -202,7 +203,11 @@ build_seglinux() {
     as_user() { (cd "$work" && runuser -u "$user" -- env HOME="$home" CARGO_HOME="$home/.cache/seglinux/cargo" "$@"); }
     # What it needs to build and run, as dependencies (pacman -Qdt lists
     # them once nothing needs them).
-    deps=$(as_user makepkg --printsrcinfo | sed -n 's/^\t\(make\)\{0,1\}depends = //p')
+    deps=$(as_user makepkg --printsrcinfo | sed -n 's/^\t\(make\)\{0,1\}depends = //p') || {
+        rm -rf "$work"
+        warn "SegLinux's build recipe could not be read; SegLinux itself is not upgraded this time."
+        return 0
+    }
     # shellcheck disable=SC2086 # one package name per word
     pacman -S --needed --noconfirm --asdeps base-devel $deps || {
         rm -rf "$work"
@@ -214,8 +219,8 @@ build_seglinux() {
         warn "SegLinux $version did not build; your SegLinux stays as it is. Please report it: $source_url/issues"
         return 0
     fi
-    package=$(find "$work" -maxdepth 1 -name "seglinux-$version-*.pkg.tar.zst" | head -n 1)
-    pacman -U "$@" "$package" || warn "SegLinux $version was not installed."
+    packages=("$work"/seglinux-"$version"-*.pkg.tar.zst)
+    pacman -U "$@" "${packages[0]}" || warn "SegLinux $version was not installed."
     rm -rf "$work"
 }
 
@@ -273,7 +278,7 @@ offer_sign_in_screen() {
         warn "greetd could not be installed; SDDM stays."
         return 0
     }
-    autologin=$(sed -n 's/^User=//p' /etc/sddm.conf.d/20-seglinux-autologin.conf 2>/dev/null | head -n 1)
+    autologin=$(sed -n 's/^User=//p' /etc/sddm.conf.d/20-seglinux-autologin.conf 2>/dev/null | head -n 1 || true)
     [[ -f /etc/greetd/config.toml ]] && cp -p /etc/greetd/config.toml /etc/greetd/config.toml.before-seglinux
     {
         cat /usr/share/seglinux/greeter/greetd.toml
@@ -282,7 +287,7 @@ offer_sign_in_screen() {
         fi
     } > /etc/greetd/config.toml
     install -d -m 755 -o greeter -g greeter /var/lib/seglinux-greeter
-    user=$(sed -n 's/^User=//p' /var/lib/sddm/state.conf 2>/dev/null | head -n 1)
+    user=$(sed -n 's/^User=//p' /var/lib/sddm/state.conf 2>/dev/null | head -n 1 || true)
     if [[ -n $user && ! -e /var/lib/seglinux-greeter/state.toml ]]; then
         printf 'user = "%s"\nsession = "seglinux"\n' "$user" > /var/lib/seglinux-greeter/state.toml
         chown greeter:greeter /var/lib/seglinux-greeter/state.toml
