@@ -139,13 +139,15 @@ setup_seglinux() {
 # SegLinux's newest version, numbered as its published packages are
 # (0.1.0.<commits on main>), and the commit to build: "VERSION COMMIT".
 latest() {
-    local sha count
+    local sha count auth=()
+    # A token raises GitHub's limit of 60 questions an hour (CI uses one).
+    [[ -n ${GITHUB_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
     if [[ -n ${SEGLINUX_SOURCE:-} ]]; then
         echo "${SEGLINUX_VERSION:-0.1.0.$(git -C "$SEGLINUX_SOURCE" rev-list --count HEAD)} local"
         return
     fi
-    sha=$(curl -fsS -H 'Accept: application/vnd.github.sha' "$api/commits/main") || return 1
-    count=$(curl -fsSI "$api/commits?sha=$sha&per_page=1" | tr -d '\r' |
+    sha=$(curl -fsS "${auth[@]}" -H 'Accept: application/vnd.github.sha' "$api/commits/main") || return 1
+    count=$(curl -fsSI "${auth[@]}" "$api/commits?sha=$sha&per_page=1" | tr -d '\r' |
         sed -n 's/.*[?&]page=\([0-9]*\)>; rel="last".*/\1/p')
     [[ $sha =~ ^[0-9a-f]{40}$ && $count =~ ^[0-9]+$ ]] || return 1
     echo "0.1.0.$count $sha"
@@ -253,7 +255,7 @@ install_new_defaults() {
 # A system installed before is asked once, interactively; the change takes
 # effect at the next restart (OpenRC and dinit; runit: docs/desktop.md).
 offer_sign_in_screen() {
-    local init answer user autologin
+    local init answer user
     [[ -x /usr/bin/seglinux-greeter ]] || return 0
     if [[ -x /usr/bin/openrc-run ]]; then
         init=openrc
@@ -278,14 +280,9 @@ offer_sign_in_screen() {
         warn "greetd could not be installed; SDDM stays."
         return 0
     }
-    autologin=$(sed -n 's/^User=//p' /etc/sddm.conf.d/20-seglinux-autologin.conf 2>/dev/null | head -n 1 || true)
     [[ -f /etc/greetd/config.toml ]] && cp -p /etc/greetd/config.toml /etc/greetd/config.toml.before-seglinux
-    {
-        cat /usr/share/seglinux/greeter/greetd.toml
-        if [[ -n $autologin ]]; then
-            printf '\n# %s was signed in automatically by SDDM.\n[initial_session]\ncommand = "seglinux-session"\nuser = "%s"\n' "$autologin" "$autologin"
-        fi
-    } > /etc/greetd/config.toml
+    # The sign-in screen at every start: no automatic sign-in.
+    cp /usr/share/seglinux/greeter/greetd.toml /etc/greetd/config.toml
     install -d -m 755 -o greeter -g greeter /var/lib/seglinux-greeter
     user=$(sed -n 's/^User=//p' /var/lib/sddm/state.conf 2>/dev/null | head -n 1 || true)
     if [[ -n $user && ! -e /var/lib/seglinux-greeter/state.toml ]]; then

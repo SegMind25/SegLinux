@@ -205,7 +205,8 @@ jobs:
           pacman -Q greetd greetd-dinit
           test -L /etc/dinit.d/boot.d/greetd && test ! -e /etc/dinit.d/boot.d/sddm
           grep -q '^command = "seglinux-greeter-session"' /etc/greetd/config.toml
-          grep -A2 '^\[initial_session\]' /etc/greetd/config.toml | grep -q 'user = "alice"'
+          # SDDM signed alice in automatically; the sign-in screen does not.
+          if grep -q '^\[initial_session\]' /etc/greetd/config.toml; then exit 1; fi
           test "$(stat -c %U /var/lib/seglinux-greeter/state.toml)" = greeter
           grep -q 'user = "alice"' /var/lib/seglinux-greeter/state.toml
       - name: Terminals open with fastfetch and SegLinux's logo

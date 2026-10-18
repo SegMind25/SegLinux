@@ -40,7 +40,7 @@ prints it):
 | `ComputerName` `*` → `DESKTOP-XXXXXXX` | `[computer] name = "auto"` → `DESKTOP-XXXXXXX` |
 | **oobeSystem**: `UserAccounts` | Users created with `useradd`; administrators join `wheel` and may use `sudo` |
 | Built-in Administrator account disabled | `root` locked unless the answer file sets a password |
-| `AutoLogon` | `[[users]] autologin = true` → greetd's `initial_session` |
+| `AutoLogon` | Not offered: SegLinux always shows its sign-in screen |
 | `SetupComplete.cmd` | Executables in `/etc/seglinux/setupcomplete.d/` and `[[run]] pass = "setup-complete"`; failures are logged, not fatal |
 | `Panther\setupact.log`, `setuperr.log` | `/var/log/seglinux/setupact.log`, `setuperr.log` (copied into the new system) |
 | Implicit answer file search | Command line → `seglinux.unattend=` kernel parameter → media root → root of other removable drives → `/etc/seglinux/autounattend.toml` |

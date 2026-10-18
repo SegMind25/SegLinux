@@ -208,6 +208,8 @@ pub struct UserSpec {
     pub password_hash: Option<String>,
     /// Member of `wheel`, i.e. allowed to use sudo ("Administrator").
     pub admin: bool,
+    /// No longer offered: installed systems always show the sign-in screen.
+    /// `false` is accepted from older answer files; `true` is refused.
     pub autologin: bool,
     /// Extra groups on top of SegLinux's defaults.
     pub groups: Vec<String>,
@@ -467,8 +469,10 @@ impl Answer {
                 errors.push(format!("user `{}` is listed twice", u.name));
             }
         }
-        if self.users.iter().filter(|u| u.autologin).count() > 1 {
-            errors.push("only one user can have autologin = true".into());
+        if self.users.iter().any(|u| u.autologin) {
+            errors.push(
+                "automatic sign-in is no longer offered: remove `autologin = true` (SegLinux always shows its sign-in screen)".into(),
+            );
         }
         let has_admin = self.users.iter().any(|u| u.admin);
         let root_unlocked = self.root.password.as_deref().is_some_and(|p| !p.is_empty())

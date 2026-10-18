@@ -138,16 +138,17 @@ accent = "#e95420"          # sign-in button, focus rings, the round picture
 clock_format = "%I:%M %p"   # 12-hour clock; "%H:%M" is 24-hour
 ```
 
-**Automatic sign-in** (Setup's *Sign in automatically*, or `autologin = true`
-in an answer file) is greetd's `[initial_session]` in
-`/etc/greetd/config.toml`: that account's SegLinux desktop starts at boot, and
-signing out shows the sign-in screen. To turn it off, delete that section;
-to turn it on later, add it:
+**No automatic sign-in.** Installed systems always show the sign-in screen
+and ask for the password; Setup no longer offers to skip it, and
+`seglinux-upgrade` does not carry SDDM's automatic sign-in over when it
+switches a system to this screen. (Only the live USB session signs in by
+itself.) Anyone who still wants it can add greetd's `[initial_session]`
+to `/etc/greetd/config.toml` by hand:
 
 ```toml
 [initial_session]
 command = "seglinux-session"
-user = "alice"
+user = "yourname"
 ```
 
 Try it without signing out: `seglinux-greeter --demo` opens it in a window

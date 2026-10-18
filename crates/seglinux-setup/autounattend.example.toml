@@ -49,7 +49,6 @@ full_name = "Alice Liddell"
 # Password "seglinux" - generate your own with: openssl passwd -6
 password_hash = "$6$seglinuxexample$/0zAk5ORrSGkWHPsYgHFp0Biv5tos6qvFYQ29K56usttWiEdP6Oo2PDyIYmZaMuhyi0m8EzjHuLSKXWmM9Gy2/"
 admin = true                 # member of wheel: can use sudo
-autologin = false
 groups = ["games"]           # extra groups (missing ones are skipped)
 
 # The root account stays locked unless a password is given.

@@ -275,7 +275,6 @@ struct Ui {
     password: gtk::PasswordEntry,
     confirm: gtk::PasswordEntry,
     computer: gtk::Entry,
-    autologin: gtk::CheckButton,
     suggested_user: RefCell<String>,
     // Summary
     summary: gtk::TextBuffer,
@@ -417,8 +416,6 @@ impl Ui {
         let password = gtk::PasswordEntry::builder().show_peek_icon(true).build();
         let confirm = gtk::PasswordEntry::builder().show_peek_icon(true).build();
         let computer = gtk::Entry::builder().text(Random.computer_name()).build();
-        let autologin =
-            gtk::CheckButton::with_label("Sign in automatically when the computer starts");
         account.append(&form(&[
             ("Your name", full_name.upcast_ref()),
             ("User name", user.upcast_ref()),
@@ -426,7 +423,6 @@ impl Ui {
             ("Confirm password", confirm.upcast_ref()),
             ("Computer name", computer.upcast_ref()),
         ]));
-        account.append(&autologin);
 
         // --- Summary ---------------------------------------------------------
         let summary_page = page_box("Ready to install", "Setup will make these changes:");
@@ -570,7 +566,6 @@ impl Ui {
             password,
             confirm,
             computer,
-            autologin,
             suggested_user: RefCell::new(String::new()),
             summary,
             erase_note,
@@ -761,7 +756,6 @@ impl Ui {
             password: self.password.text().to_string(),
             confirm: self.confirm.text().to_string(),
             computer: self.computer.text().to_string(),
-            autologin: self.autologin.is_active(),
         }
     }
 

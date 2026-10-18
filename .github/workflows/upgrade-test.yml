@@ -1,0 +1,88 @@
+name: Upgrade an older SegLinux
+
+# The whole upgrade, as on a computer installed from an older ISO: the
+# 13 October 2026 system (before seglinux-upgrade existed, signing in with
+# SDDM) gets the command with the one-time download, then Artix's packages,
+# Brave, the newest SegLinux built from GitHub, and SegLinux's sign-in
+# screen in place of SDDM, without automatic sign-in.
+on:
+  push:
+    branches: [main]
+    paths:
+      - data/system/seglinux-upgrade
+      - packaging/seglinux/**
+      - .github/workflows/upgrade-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upgrade-test
+  cancel-in-progress: true
+
+jobs:
+  upgrade:
+    name: An older SegLinux upgrades to the newest
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      OLD_RELEASE: iso-20261013-full-openrc-linux-zen-run25
+      OLD_ISO: seglinux-openrc-20261013-x86_64.iso
+      ROOT: /mnt/seglinux
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - name: The older SegLinux, as Setup installed it
+        run: |
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$OLD_RELEASE"
+          cd /tmp
+          curl -fsSL "$base/$OLD_ISO.sha256" -o "$OLD_ISO.sha256"
+          for part in 00 01; do curl -fsSL "$base/$OLD_ISO.part$part"; done > "$OLD_ISO"
+          sha256sum -c "$OLD_ISO.sha256"
+          sudo mkdir -p /mnt/iso /mnt/ro /mnt/upper /mnt/work "$ROOT"
+          sudo mount -o loop,ro "$OLD_ISO" /mnt/iso
+          sudo mount -t squashfs -o loop,ro /mnt/iso/LiveOS/rootfs.img /mnt/ro
+          sudo mount -t overlay overlay -o lowerdir=/mnt/ro,upperdir=/mnt/upper,workdir=/mnt/work "$ROOT"
+          for dir in proc sys dev; do sudo mount --rbind "/$dir" "$ROOT/$dir"; done
+          sudo cp -L /etc/resolv.conf "$ROOT/etc/resolv.conf"
+          # Its owner, signing in with SDDM, as Setup set it up then.
+          sudo chroot "$ROOT" useradd -m -G wheel segmind
+          sudo chroot "$ROOT" rc-update add sddm default
+          sudo chroot "$ROOT" pacman -Q seglinux
+          test ! -e "$ROOT/usr/bin/seglinux-update" && test ! -e "$ROOT/usr/bin/seglinux-upgrade"
+      - name: The one-time command, then the upgrade
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # As `curl ... -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade`.
+          sudo cp data/system/seglinux-upgrade "$ROOT/tmp/seglinux-upgrade"
+          sudo chroot "$ROOT" env SUDO_USER=segmind GITHUB_TOKEN="$GITHUB_TOKEN" \
+            bash /tmp/seglinux-upgrade --noconfirm
+      - name: It has the newest SegLinux, Brave and the command
+        run: |
+          in_root() { sudo chroot "$ROOT" "$@"; }
+          in_root pacman -Q seglinux brave-bin fastfetch
+          version=$(in_root pacman -Q seglinux | cut -d' ' -f2)
+          test "$(in_root vercmp "$version" 0.1.0.1)" = 1
+          test -x "$ROOT/usr/bin/seglinux-upgrade" && test -L "$ROOT/usr/bin/seglinux-update"
+          # The downloaded copy gave way to the package's command.
+          test ! -e "$ROOT/usr/local/bin/seglinux-upgrade"
+          grep -q '^\[chaotic-aur\]' "$ROOT/etc/pacman.conf"
+          test -f "$ROOT/etc/xdg/fastfetch/config.jsonc"
+          in_root seglinux-shell --version
+      - name: Asked, it switches from SDDM to SegLinux's sign-in screen
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # The question comes on a terminal.
+          printf 'y\ny\ny\n' | sudo script -qec \
+            "chroot $ROOT env SUDO_USER=segmind GITHUB_TOKEN=$GITHUB_TOKEN seglinux-upgrade" /dev/null |
+            tee /tmp/second.txt
+          test -L "$ROOT/etc/runlevels/default/greetd" && test ! -e "$ROOT/etc/runlevels/default/sddm"
+          grep -q '^command = "seglinux-greeter-session"' "$ROOT/etc/greetd/config.toml"
+          # The password is asked at every start.
+          if grep -q '^\[initial_session\]' "$ROOT/etc/greetd/config.toml"; then exit 1; fi
