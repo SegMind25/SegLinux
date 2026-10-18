@@ -227,6 +227,10 @@ jobs:
           # As `sudo seglinux-upgrade` does from an account, here from this
           # commit's source instead of GitHub's newest.
           useradd -m tester
+          # Stand-ins the steps above put in place by hand: the package's own
+          # files on a real SegLinux.
+          rm -f /usr/bin/seglinux-greeter /usr/share/seglinux/greeter/greetd.toml \
+            /usr/share/seglinux/fastfetch/logo.txt
           SUDO_USER=tester SEGLINUX_SOURCE="$PWD" SEGLINUX_VERSION=0.1.0.999999 \
             bash data/system/seglinux-upgrade --noconfirm
           pacman -Q seglinux | grep -q ' 0\.1\.0\.999999-'
