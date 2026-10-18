@@ -39,7 +39,6 @@ pub struct Choices {
     pub password: String,
     pub confirm: String,
     pub computer: String,
-    pub autologin: bool,
 }
 
 impl Default for Choices {
@@ -57,7 +56,6 @@ impl Default for Choices {
             password: String::new(),
             confirm: String::new(),
             computer: String::new(),
-            autologin: false,
         }
     }
 }
@@ -106,7 +104,6 @@ impl Choices {
             full_name: self.full_name.trim().to_string(),
             password: Some(self.password.clone()),
             admin: true,
-            autologin: self.autologin,
             ..Default::default()
         }];
         a
@@ -238,7 +235,6 @@ mod tests {
             password: "s3cret pass".into(),
             confirm: "s3cret pass".into(),
             computer: "DESKTOP-ADA1234".into(),
-            autologin: true,
             ..Default::default()
         }
     }

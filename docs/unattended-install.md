@@ -75,7 +75,7 @@ start it by hand: `sudo seglinux-setup install --unattend`.
 | `[[users]] full_name` | `""` | `DisplayName` | |
 | `[[users]] password` / `password_hash` | one required | `Password` | Plain text, or a crypt(3) hash |
 | `[[users]] admin` | `true` | `Group: Administrators` | Member of `wheel`, can use `sudo` |
-| `[[users]] autologin` | `false` | `AutoLogon` | At most one user |
+| `[[users]] autologin` | `false` | `AutoLogon` | No longer offered: `true` is refused (the sign-in screen always shows) |
 | `[[users]] groups` | `[]` | `Group` | Extra groups; missing ones are skipped |
 | `[root] password` / `password_hash` | locked | Built-in Administrator | |
 | `[bootloader] id` | `"SegLinux"` | BCD description | UEFI boot entry name |

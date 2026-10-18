@@ -953,19 +953,6 @@ pub fn build(
             ],
         });
     }
-    let autologin = answer.users.iter().find(|u| u.autologin);
-    if let Some(u) = autologin {
-        oobe.push(Step {
-            description: format!("Signing in {} automatically", u.name),
-            actions: vec![Action::write(
-                GREETD_CONFIG,
-                format!(
-                    "{GREETD_DEFAULTS}\n# Setup: {} is signed in to the SegLinux desktop at startup;\n# signing out shows the sign-in screen.\n[initial_session]\ncommand = \"seglinux-session\"\nuser = \"{}\"\n",
-                    u.name, u.name
-                ),
-            )],
-        });
-    }
     for u in &answer.users {
         let mut groups: Vec<String> = DEFAULT_GROUPS.iter().map(|g| g.to_string()).collect();
         if u.admin {
@@ -1158,7 +1145,7 @@ mod tests {
 
     fn answer(extra: &str) -> Answer {
         Answer::parse(&format!(
-            "[disk]\ndevice = \"auto\"\nwipe = true\n[[users]]\nname = \"alice\"\npassword = \"s3cr3t-Pa55\"\nautologin = true\n{extra}"
+            "[disk]\ndevice = \"auto\"\nwipe = true\n[[users]]\nname = \"alice\"\npassword = \"s3cr3t-Pa55\"\n{extra}"
         ))
         .unwrap()
     }
@@ -1231,12 +1218,10 @@ mod tests {
         assert!(text.contains("set hostname=\"DESKTOP-0000003\" in /etc/conf.d/hostname"));
         assert!(text.contains("| UUID=0000-0001  /boot/efi  vfat"));
         assert!(text.contains("write /etc/sudoers.d/10-seglinux (mode 440)"));
-        // Automatic sign-in: greetd starts alice's session at startup.
-        assert!(text.contains("write /etc/greetd/config.toml"), "{text}");
-        assert!(text.contains("| [initial_session]"));
-        assert!(text.contains("| command = \"seglinux-session\""));
-        assert!(text.contains("| user = \"alice\""));
-        assert!(text.contains("| command = \"seglinux-greeter-session\""));
+        // No automatic sign-in: the image's greetd configuration (the
+        // sign-in screen) stays.
+        assert!(!text.contains("write /etc/greetd/config.toml"), "{text}");
+        assert!(!text.contains("[initial_session]"));
         assert!(text.contains("== Setting up user accounts (oobeSystem)"));
         // No NVIDIA GPU, no driver step.
         assert!(!text.contains("nvidia"));
@@ -1473,36 +1458,35 @@ mod tests {
 
     #[test]
     fn sign_in_screen() {
-        // With automatic sign-in: greetd starts alice's desktop at once, and
-        // shows the sign-in screen after she signs out.
+        // Every installed system shows the sign-in screen (the image's
+        // greetd configuration, unchanged), the account preselected.
         let plan = build_plan(&answer(""), &facts()).unwrap();
-        let config: toml::Table = written(&plan, GREETD_CONFIG).unwrap().parse().unwrap();
-        assert_eq!(config["initial_session"]["user"].as_str(), Some("alice"));
-        assert_eq!(
-            config["initial_session"]["command"].as_str(),
-            Some("seglinux-session")
-        );
-        assert_eq!(
-            config["default_session"]["command"].as_str(),
-            Some("seglinux-greeter-session")
-        );
-        assert_eq!(config["default_session"]["user"].as_str(), Some("greeter"));
-        assert_eq!(config["terminal"]["vt"].as_integer(), Some(7));
+        assert_eq!(written(&plan, GREETD_CONFIG), None);
         let state: toml::Table = written(&plan, GREETER_STATE).unwrap().parse().unwrap();
         assert_eq!(state["user"].as_str(), Some("alice"));
         assert_eq!(state["session"].as_str(), Some("seglinux"));
-
-        // Without it, the image's configuration stays as it is.
-        let manual = Answer::parse(
-            "[disk]\ndevice = \"auto\"\nwipe = true\n[[users]]\nname = \"bob\"\npassword = \"s3cr3t-Pa55\"\n",
-        )
-        .unwrap();
-        let plan = build_plan(&manual, &facts()).unwrap();
-        assert_eq!(written(&plan, GREETD_CONFIG), None);
+        let defaults: toml::Table = GREETD_DEFAULTS.parse().unwrap();
+        assert!(defaults.get("initial_session").is_none());
+        assert_eq!(
+            defaults["default_session"]["command"].as_str(),
+            Some("seglinux-greeter-session")
+        );
+        assert_eq!(
+            defaults["default_session"]["user"].as_str(),
+            Some("greeter")
+        );
+        assert_eq!(defaults["terminal"]["vt"].as_integer(), Some(7));
+        // Older answer files may say autologin = false; true is refused.
+        let refused = Answer::parse(
+            "[disk]\ndevice = \"auto\"\nwipe = true\n[[users]]\nname = \"bob\"\npassword = \"s3cr3t-Pa55\"\nautologin = true\n",
+        );
+        let message = match refused {
+            Err(e) => format!("{e:#}"),
+            Ok(a) => a.validate().join("\n"),
+        };
         assert!(
-            written(&plan, GREETER_STATE)
-                .unwrap()
-                .contains("user = \"bob\"")
+            message.contains("automatic sign-in is no longer offered"),
+            "{message}"
         );
     }
 
