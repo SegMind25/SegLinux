@@ -5,7 +5,7 @@
 # neither Artix's nor Arch's repositories. Garuda Linux uses it by default.
 #
 # Used by the ISO build container and CI; installed systems get the same
-# steps from seglinux-update. A pacman.conf then needs:
+# steps from seglinux-upgrade. A pacman.conf then needs:
 #   [chaotic-aur]
 #   Include = /etc/pacman.d/chaotic-mirrorlist
 set -euo pipefail

@@ -52,17 +52,17 @@ full edition's parts first: `cat seglinux-*.iso.part* > seglinux.iso`.
 Installed once, SegLinux stays current without a new ISO. In a terminal:
 
 ```sh
-sudo seglinux-update
+sudo seglinux-upgrade
 ```
 
 This updates the system's packages, Brave, and SegLinux's own desktop and
 tools (every change to SegLinux is published as a signed update), and offers
 new default applications. On a system installed from an ISO older than the
-command (`seglinux-update: command not found`), get it once with this one
-line; it stays installed, so `sudo seglinux-update` works from then on:
+command (`seglinux-upgrade: command not found`), get it once with this one
+line; it stays installed, so `sudo seglinux-upgrade` works from then on:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update && sudo bash /tmp/seglinux-update
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-upgrade -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade
 ```
 
 See [docs/updating.md](docs/updating.md), which also explains how updates are
@@ -242,9 +242,11 @@ runs the Settings window under Xvfb (it applies, rejects invalid input and
 keeps hand-edited files), the Start menu (favorites, categories, search, new
 applications) and pinning, the website's downloader tests and a browser
 regression test of the website. The Rust desktop is young, not a
-feature-complete KDE replacement; its idle footprint (compositor, desktop and
-D-Bus) is about 56 to 59 MB of proportional memory (see
-[the desktop guide](docs/desktop.md#resource-use)). The installer's plan
+feature-complete KDE replacement. Memory at idle (see
+[the desktop guide](docs/desktop.md#resource-use)): the desktop shell alone
+about 46 MB; the whole system after sign-in, measured in a virtual machine,
+792 MB with a terminal open (the compositor drew with software OpenGL
+there; a real GPU driver changes its share). The installer's plan
 is tested end to end in dry-run form, and its file and service actions are
 tested against temporary directories; the disk-writing steps need a real
 or virtual machine. The ISO profile follows artools 0.39+'s format. CI

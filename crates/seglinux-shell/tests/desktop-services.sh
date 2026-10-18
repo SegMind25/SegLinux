@@ -65,11 +65,13 @@ wait_for bash -c "$(declare -f items); items | grep -q '@as \[\]'" ||
     fail "the tray item stayed after its application quit: $(items)"
 echo "tray: ok"
 
-# The volume key, as labwc sends it.
-gapplication action org.seglinux.Shell.Preview volume "'up'"
-wait_for grep -q "get-volume @DEFAULT_AUDIO_SINK@" "$work/wpctl.log" ||
+# The volume key, as labwc sends it: three quick presses, three steps (one
+# after another, none lost).
+for _ in 1 2 3; do gapplication action org.seglinux.Shell.Preview volume "'up'"; done
+raised() { grep -c "set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+" "$work/wpctl.log" 2> /dev/null; }
+wait_for bash -c "[ \"\$(grep -c 'get-volume' '$work/wpctl.log')\" -ge 3 ]" ||
     fail "the volume key did nothing: $(cat "$work/wpctl.log" 2> /dev/null)"
-grep -q "set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+" "$work/wpctl.log" || fail "volume not raised"
+[[ $(raised) == 3 ]] || fail "volume raised $(raised) times for 3 presses"
 echo "volume key: ok"
 
 kill -0 $shell 2> /dev/null || fail "the shell stopped: $(cat "$work/shell.log")"

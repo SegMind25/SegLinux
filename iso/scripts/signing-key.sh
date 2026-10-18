@@ -9,7 +9,7 @@
 set -euo pipefail
 
 if [[ -z ${SEGLINUX_SIGNING_KEY:-} ]]; then
-    echo "::warning title=No SegLinux update published::The SEGLINUX_SIGNING_KEY secret is missing, so installed systems cannot get this version with sudo seglinux-update. Create it once: docs/updating.md, For maintainers."
+    echo "::warning title=No SegLinux update published::The SEGLINUX_SIGNING_KEY secret is missing, so installed systems cannot get this version with sudo seglinux-upgrade. Create it once: docs/updating.md, For maintainers."
     exit 0
 fi
 export GNUPGHOME=${RUNNER_TEMP:-/tmp}/gnupg

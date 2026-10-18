@@ -7,7 +7,8 @@
 //! elogind, which allows the user at the computer without root.
 use gtk::{gio, glib, prelude::*};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
@@ -81,9 +82,21 @@ fn backlight() -> Option<(PathBuf, String, u32, u32)> {
     })
 }
 
+/// The display's window and the widgets updated in it.
+struct Shown {
+    window: gtk::Window,
+    image: gtk::Image,
+    bar: gtk::LevelBar,
+    label: gtk::Label,
+}
+
 struct Inner {
-    window: RefCell<Option<gtk::Window>>,
+    shown: RefCell<Option<Shown>>,
     timer: RefCell<Option<glib::SourceId>>,
+    /// Volume keys waiting their turn: one change at a time, or two quick
+    /// presses read the same level and one step is lost.
+    pending: RefCell<VecDeque<String>>,
+    busy: Cell<bool>,
     app: gtk::Application,
     layer: bool,
 }
@@ -94,21 +107,16 @@ pub struct Osd(Rc<Inner>);
 impl Osd {
     pub fn new(app: &gtk::Application, layer: bool) -> Osd {
         Osd(Rc::new(Inner {
-            window: RefCell::default(),
+            shown: RefCell::default(),
             timer: RefCell::default(),
+            pending: RefCell::default(),
+            busy: Cell::new(false),
             app: app.clone(),
             layer,
         }))
     }
 
-    /// Shows `icon`, a bar at `level` (0 to 1) and `text` for 1.5 s.
-    pub fn show(&self, icon: &str, level: f64, text: &str) {
-        if let Some(old) = self.0.window.take() {
-            old.destroy();
-        }
-        if let Some(timer) = self.0.timer.take() {
-            timer.remove();
-        }
+    fn window(&self) -> Shown {
         let window = gtk::Window::builder()
             .decorated(false)
             .resizable(false)
@@ -127,26 +135,44 @@ impl Osd {
         }
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         row.add_css_class("osd");
-        let image = gtk::Image::from_icon_name(icon);
+        let image = gtk::Image::new();
         image.set_pixel_size(22);
         row.append(&image);
         let bar = gtk::LevelBar::for_interval(0.0, 1.0);
-        bar.set_value(level.clamp(0.0, 1.0));
         bar.set_size_request(200, -1);
         bar.set_valign(gtk::Align::Center);
         row.append(&bar);
-        let label = gtk::Label::new(Some(text));
+        let label = gtk::Label::new(None);
         label.set_width_chars(5);
         row.append(&label);
         window.set_child(Some(&row));
-        window.present();
-        self.0.window.replace(Some(window));
+        Shown {
+            window,
+            image,
+            bar,
+            label,
+        }
+    }
+
+    /// Shows `icon`, a bar at `level` (0 to 1) and `text` for 1.5 s. Keys
+    /// pressed in a row update the display on screen (no flicker).
+    pub fn show(&self, icon: &str, level: f64, text: &str) {
+        if let Some(timer) = self.0.timer.take() {
+            timer.remove();
+        }
+        let mut shown = self.0.shown.borrow_mut();
+        let parts = shown.get_or_insert_with(|| self.window());
+        parts.image.set_icon_name(Some(icon));
+        parts.bar.set_value(level.clamp(0.0, 1.0));
+        parts.label.set_text(text);
+        parts.window.present();
+        drop(shown);
         let weak = Rc::downgrade(&self.0);
         let timer = glib::timeout_add_local_once(Duration::from_millis(1500), move || {
             if let Some(inner) = weak.upgrade() {
                 inner.timer.take();
-                if let Some(window) = inner.window.take() {
-                    window.destroy();
+                if let Some(parts) = inner.shown.take() {
+                    parts.window.destroy();
                 }
             }
         });
@@ -158,6 +184,25 @@ impl Osd {
         if !crate::common::installed("wpctl") {
             return;
         }
+        {
+            let mut pending = self.0.pending.borrow_mut();
+            // A held key repeats faster than PipeWire answers: a short
+            // queue, so the volume stops soon after the key is released.
+            if pending.len() < 3 {
+                pending.push_back(change.to_string());
+            }
+        }
+        if !self.0.busy.replace(true) {
+            self.next_volume();
+        }
+    }
+
+    fn next_volume(&self) {
+        let Some(change) = self.0.pending.borrow_mut().pop_front() else {
+            self.0.busy.set(false);
+            return;
+        };
+        let change = change.as_str();
         let (commands, device) = volume_commands(change);
         let commands: Vec<Vec<String>> = commands
             .into_iter()
@@ -205,6 +250,7 @@ impl Osd {
                 };
                 osd.show(icon, if muted { 0.0 } else { level }, &text);
             }
+            osd.next_volume();
         });
     }
 

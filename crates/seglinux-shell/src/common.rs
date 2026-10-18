@@ -1,5 +1,8 @@
 //! Small helpers shared by the desktop, dock and menus.
 use gtk::{gdk, gio, glib, prelude::*};
+use std::ffi::OsString;
+use std::path::Path;
+use std::sync::OnceLock;
 use std::{cell::OnceCell, rc::Rc};
 
 /// Opens whichever terminal emulator is installed (see data/system/seglinux-terminal).
@@ -9,17 +12,81 @@ pub fn installed(command: &str) -> bool {
     glib::find_program_in_path(command).is_some()
 }
 
+/// The session's values of what the desktop shell changes for itself, given
+/// back to the programs it starts.
+static SESSION_ENV: OnceLock<Vec<(&'static str, Option<OsString>)>> = OnceLock::new();
+
+/// GDK_DEBUG for the shell: the session's flags and no-portals.
+pub fn shell_gdk_debug(session: Option<&std::ffi::OsStr>) -> OsString {
+    match session.map(|v| v.to_string_lossy()) {
+        Some(flags) if !flags.trim().is_empty() => format!("{flags},no-portals").into(),
+        _ => "no-portals".into(),
+    }
+}
+
+/// The desktop shell draws with GTK's CPU renderer, unless the session chose
+/// a renderer: a wallpaper and a dock need about 40 MB that way, several
+/// times more through OpenGL. It does without xdg-desktop-portal, which
+/// GTK would otherwise start at sign-in (about 60 MB with its helpers) for
+/// settings the shell keeps itself; applications start it when they need it
+/// (file dialogs, screen sharing). Neither applies to the programs the
+/// shell starts: they get the session's values (`for_children`).
+///
+/// Call it first thing in main, before any thread exists.
+pub fn shell_environment() {
+    let renderer = std::env::var_os("GSK_RENDERER");
+    let debug = std::env::var_os("GDK_DEBUG");
+    let shell_debug = shell_gdk_debug(debug.as_deref());
+    // SAFETY: called at the start of main, while the process has one thread.
+    unsafe {
+        if renderer.is_none() {
+            std::env::set_var("GSK_RENDERER", "cairo");
+        }
+        std::env::set_var("GDK_DEBUG", shell_debug);
+    }
+    let _ = SESSION_ENV.set(vec![
+        ("GSK_RENDERER", renderer),
+        ("GDK_DEBUG", debug),
+        (crate::supervise::CHILD, None),
+    ]);
+}
+
+/// Gives a program the session's environment (see `shell_environment`).
+fn for_children(mut set: impl FnMut(&str, Option<&std::ffi::OsStr>)) {
+    for (name, value) in SESSION_ENV.get().into_iter().flatten() {
+        set(name, value.as_deref());
+    }
+}
+
 pub fn run(command: &str, args: &[String]) {
+    run_in(None, command, args);
+}
+
+/// Starts a program, in `dir` if given. GSubprocess reaps it when it ends;
+/// arguments never pass through a shell.
+pub fn run_in(dir: Option<&Path>, command: &str, args: &[String]) {
     let mut argv = vec![std::ffi::OsStr::new(command)];
     argv.extend(args.iter().map(std::ffi::OsStr::new));
-    // GSubprocess reaps children; arguments never pass through a shell.
-    if let Err(error) = gio::Subprocess::newv(&argv, gio::SubprocessFlags::NONE) {
+    let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+    for_children(|name, value| match value {
+        Some(value) => launcher.setenv(name, value, true),
+        None => launcher.unsetenv(name),
+    });
+    if let Some(dir) = dir {
+        launcher.set_cwd(dir);
+    }
+    if let Err(error) = launcher.spawn(&argv) {
         show_error(&format!("Cannot start {command}: {error}"));
     }
 }
 
 pub fn launch_context() -> Option<gdk::AppLaunchContext> {
-    gdk::Display::default().map(|d| d.app_launch_context())
+    let context = gdk::Display::default()?.app_launch_context();
+    for_children(|name, value| match value {
+        Some(value) => context.setenv(name, value),
+        None => context.unsetenv(name),
+    });
+    Some(context)
 }
 
 pub fn launch_app(app: &impl IsA<gio::AppInfo>) {
@@ -156,6 +223,31 @@ pub fn confirm(title: &str, detail: &str, command: &str, args: &[&str]) {
     dialog.present();
 }
 
+/// Asks before something that cannot be undone; `then` runs on `confirm`.
+pub fn ask(title: &str, detail: &str, confirm: &str, then: impl Fn() + 'static) {
+    let dialog = gtk::MessageDialog::builder()
+        .text(title)
+        .secondary_text(detail)
+        .modal(true)
+        .build();
+    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+    if let Some(button) = dialog
+        .add_button(confirm, gtk::ResponseType::Accept)
+        .downcast_ref::<gtk::Button>()
+    {
+        button.add_css_class("destructive-action");
+    }
+    dialog.set_default_response(gtk::ResponseType::Cancel);
+    dialog.add_css_class("settings-window");
+    dialog.connect_response(move |dialog, response| {
+        if response == gtk::ResponseType::Accept {
+            then();
+        }
+        dialog.close();
+    });
+    dialog.present();
+}
+
 /// The first icon of `names` the current icon theme has, else the last one.
 pub fn themed_icon(names: &[&str]) -> String {
     let theme = gdk::Display::default().map(|d| gtk::IconTheme::for_display(&d));
@@ -206,4 +298,20 @@ pub fn power_buttons(preview: bool) -> gtk::Box {
         row.append(&button);
     }
     row
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shell_gdk_debug;
+    use std::ffi::OsStr;
+
+    #[test]
+    fn gdk_debug_keeps_the_sessions_flags() {
+        assert_eq!(shell_gdk_debug(None), "no-portals");
+        assert_eq!(shell_gdk_debug(Some(OsStr::new(""))), "no-portals");
+        assert_eq!(
+            shell_gdk_debug(Some(OsStr::new("events"))),
+            "events,no-portals"
+        );
+    }
 }

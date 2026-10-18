@@ -10,6 +10,19 @@ pub struct Item {
     pub path: PathBuf,
     pub name: String,
     pub is_dir: bool,
+    /// The trash, first on the desktop (trash.rs).
+    pub trash: bool,
+}
+
+impl Item {
+    fn trash() -> Item {
+        Item {
+            path: crate::trash::dir().join("files"),
+            name: "Trash".into(),
+            is_dir: true,
+            trash: true,
+        }
+    }
 }
 
 /// What ~/Desktop shows, in desktop order: folders first, then files, each
@@ -24,6 +37,7 @@ pub fn list(dir: &std::path::Path) -> Vec<Item> {
                     path: e.path(),
                     name: e.file_name().to_string_lossy().into_owned(),
                     is_dir: e.path().is_dir(),
+                    trash: false,
                 })
                 .collect()
         })
@@ -126,6 +140,10 @@ pub fn background(config: &Config, icons: bool, size: Option<(i32, i32)>) -> gtk
 /// Name and icon for a desktop item: desktop entries show their
 /// application, other files their type's icon.
 fn describe(item: &Item) -> (String, gio::Icon) {
+    if item.trash {
+        let icon = crate::trash::icon_name(crate::trash::count());
+        return (item.name.clone(), gio::ThemedIcon::new(icon).upcast());
+    }
     if item.path.extension().is_some_and(|e| e == "desktop")
         && let Some(app) = gio::DesktopAppInfo::from_filename(&item.path)
     {
@@ -186,7 +204,8 @@ fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
             while let Some(child) = flow.first_child() {
                 flow.remove(&child);
             }
-            let listed = list(&dir);
+            let mut listed = vec![Item::trash()];
+            listed.extend(list(&dir));
             for item in &listed {
                 let (name, icon) = describe(item);
                 let tile = gtk::Box::new(gtk::Orientation::Vertical, 4);
@@ -203,7 +222,15 @@ fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
                 label.set_width_chars(11);
                 label.set_max_width_chars(11);
                 tile.append(&label);
-                tile.set_tooltip_text(Some(&name));
+                // Only names the label cuts short: the pointer starts out
+                // over the first icon at sign-in, and a tooltip repeating
+                // the label would sit there until it moves.
+                if name_is_cut(&name) {
+                    tile.set_tooltip_text(Some(&name));
+                }
+                let menu_item = item.clone();
+                let menu_tile = tile.downgrade();
+                common::context_menu(&tile, move || item_menu(&menu_item, menu_tile.clone()));
                 flow.insert(&tile, -1);
             }
             flow.unselect_all();
@@ -217,14 +244,26 @@ fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
             .ok()
             .and_then(|i| opened.borrow().get(i).cloned())
         {
-            common::open_path(&item.path);
+            if item.trash {
+                crate::trash::open();
+            } else {
+                common::open_path(&item.path);
+            }
         }
     });
-    // Follow changes, at most a few times a second.
-    if let Ok(monitor) = gio::File::for_path(&dir)
-        .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
-    {
-        let pending = Rc::new(std::cell::Cell::new(false));
+    // Follow changes, at most a few times a second: the Desktop folder, and
+    // the trash for its icon (full or empty).
+    let trash_files = crate::trash::dir().join("files");
+    let _ = std::fs::create_dir_all(&trash_files);
+    let pending = Rc::new(std::cell::Cell::new(false));
+    for watched in [dir, trash_files] {
+        let Ok(monitor) = gio::File::for_path(&watched)
+            .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+        else {
+            continue;
+        };
+        let pending = pending.clone();
+        let refresh = refresh.clone();
         monitor.connect_changed(move |_, _, _, _| {
             if pending.replace(true) {
                 return;
@@ -236,12 +275,162 @@ fn icon_view(icon_size: i32, dock_top: bool) -> gtk::FlowBox {
                 refresh();
             });
         });
-        // The monitor lives as long as the icons.
+        // The monitors live as long as the icons.
         flow.connect_destroy(move |_| {
             monitor.cancel();
         });
     }
     flow
+}
+
+/// The right-click menu of a desktop icon: open, rename, move to the trash;
+/// for the trash, open and empty it.
+fn item_menu(item: &Item, tile: glib::WeakRef<gtk::Box>) -> gtk::Popover {
+    let popover = gtk::Popover::new();
+    popover.set_has_arrow(false);
+    let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    column.add_css_class("menu");
+    let add = |label: &str, f: Box<dyn Fn()>| {
+        let button = common::menu_item(label);
+        button.add_css_class("flat");
+        button.connect_clicked(move |button| {
+            common::close_popover(button);
+            f();
+        });
+        column.append(&button);
+    };
+    if item.trash {
+        add("Open", Box::new(crate::trash::open));
+        if crate::trash::count() > 0 {
+            add(
+                "Empty Trash…",
+                Box::new(|| {
+                    let count = crate::trash::count();
+                    common::ask(
+                        "Empty the trash?",
+                        &format!(
+                            "{count} item{} will be deleted for good.",
+                            if count == 1 { "" } else { "s" }
+                        ),
+                        "Empty Trash",
+                        || {
+                            if let Err(e) = crate::trash::empty_in(&crate::trash::dir()) {
+                                common::show_error(&format!("Cannot empty the trash: {e}"));
+                            }
+                        },
+                    );
+                }),
+            );
+        }
+    } else {
+        let path = item.path.clone();
+        add("Open", Box::new(move || common::open_path(&path)));
+        let (path, name) = (item.path.clone(), item.name.clone());
+        add(
+            "Rename…",
+            Box::new(move || {
+                let Some(tile) = tile.upgrade() else {
+                    return;
+                };
+                let path = path.clone();
+                ask_name(tile.upcast_ref(), None, &name, "Rename", move |new| {
+                    let target = valid_name(path.parent().unwrap_or(&path), new)?;
+                    std::fs::rename(&path, &target).map_err(|e| format!("Cannot rename: {e}"))
+                });
+            }),
+        );
+        let path = item.path.clone();
+        add(
+            "Move to Trash",
+            Box::new(move || {
+                if let Err(e) = crate::trash::move_to_trash(&path) {
+                    common::show_error(&e);
+                }
+            }),
+        );
+    }
+    popover.set_child(Some(&column));
+    popover
+}
+
+/// Where a file named `name` would go in `dir`, if that name can be used:
+/// not empty, no slash, nothing of that name there yet.
+pub fn valid_name(dir: &std::path::Path, name: &str) -> Result<PathBuf, String> {
+    let name = name.trim();
+    if name.is_empty() || name == "." || name == ".." {
+        return Err("Type a name.".into());
+    }
+    if name.contains('/') {
+        return Err("A name cannot contain a slash (/).".into());
+    }
+    let target = dir.join(name);
+    if std::fs::symlink_metadata(&target).is_ok() {
+        return Err(format!("“{name}” is already there."));
+    }
+    Ok(target)
+}
+
+/// A small form over `parent` asking for a name (renaming, a new folder):
+/// `done` gets the name and says what went wrong, if anything.
+fn ask_name(
+    parent: &gtk::Widget,
+    at: Option<(f64, f64)>,
+    initial: &str,
+    verb: &str,
+    done: impl Fn(&str) -> Result<(), String> + 'static,
+) {
+    let popover = gtk::Popover::new();
+    popover.set_parent(parent);
+    if let Some((x, y)) = at {
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+    }
+    let column = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    column.set_margin_top(6);
+    column.set_margin_bottom(6);
+    column.set_margin_start(6);
+    column.set_margin_end(6);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let entry = gtk::Entry::builder().text(initial).width_chars(24).build();
+    let button = gtk::Button::with_label(verb);
+    button.add_css_class("suggested-action");
+    row.append(&entry);
+    row.append(&button);
+    column.append(&row);
+    let error = gtk::Label::new(None);
+    error.add_css_class("error");
+    error.set_xalign(0.0);
+    error.set_visible(false);
+    column.append(&error);
+    popover.set_child(Some(&column));
+    popover.connect_closed(|popover| popover.unparent());
+    let submit = {
+        let (entry, error, popover) = (entry.downgrade(), error.downgrade(), popover.downgrade());
+        Rc::new(move || {
+            let (Some(entry), Some(error), Some(popover)) =
+                (entry.upgrade(), error.upgrade(), popover.upgrade())
+            else {
+                return;
+            };
+            match done(&entry.text()) {
+                Ok(()) => popover.popdown(),
+                Err(message) => {
+                    error.set_text(&message);
+                    error.set_visible(true);
+                }
+            }
+        })
+    };
+    let on_enter = submit.clone();
+    entry.connect_activate(move |_| on_enter());
+    button.connect_clicked(move |_| submit());
+    popover.popup();
+    // The name without its extension is selected, ready to type over.
+    let stem = initial
+        .rfind('.')
+        .filter(|&i| i > 0)
+        .unwrap_or(initial.len());
+    entry.grab_focus();
+    entry.select_region(0, initial[..stem].chars().count() as i32);
 }
 
 /// Right-click on the desktop, as in Plasma: open a terminal or the
@@ -257,11 +446,8 @@ fn context_menu(overlay: &gtk::Overlay) {
         "terminal",
         Box::new(|| {
             let dir = desktop_dir();
-            let mut cmd = std::process::Command::new(TERMINAL);
-            cmd.current_dir(if dir.is_dir() { dir } else { glib::home_dir() });
-            if let Err(e) = cmd.spawn() {
-                common::show_error(&format!("Cannot start {TERMINAL}: {e}"));
-            }
+            let dir = if dir.is_dir() { dir } else { glib::home_dir() };
+            common::run_in(Some(&dir), TERMINAL, &[]);
         }),
     );
     add(
@@ -270,6 +456,30 @@ fn context_menu(overlay: &gtk::Overlay) {
             let dir = desktop_dir();
             let _ = std::fs::create_dir_all(&dir);
             common::open_path(&dir);
+        }),
+    );
+    // Where the menu was opened, for the new folder's name form.
+    let clicked: Rc<std::cell::Cell<(f64, f64)>> = Rc::default();
+    let place = clicked.clone();
+    let form_parent = overlay.downgrade();
+    add(
+        "newfolder",
+        Box::new(move || {
+            let Some(overlay) = form_parent.upgrade() else {
+                return;
+            };
+            ask_name(
+                overlay.upcast_ref(),
+                Some(place.get()),
+                "New Folder",
+                "Create",
+                |name| {
+                    let dir = desktop_dir();
+                    let target = valid_name(&dir, name)?;
+                    std::fs::create_dir_all(&target)
+                        .map_err(|e| format!("Cannot create the folder: {e}"))
+                },
+            );
         }),
     );
     add(
@@ -287,6 +497,7 @@ fn context_menu(overlay: &gtk::Overlay) {
     if common::installed(TERMINAL) {
         menu.append(Some("Open terminal here"), Some("desk.terminal"));
     }
+    menu.append(Some("New folder…"), Some("desk.newfolder"));
     menu.append(Some("Open Desktop folder"), Some("desk.folder"));
     menu.append(
         Some("Wallpaper and desktop settings…"),
@@ -302,10 +513,32 @@ fn context_menu(overlay: &gtk::Overlay) {
     let click = gtk::GestureClick::new();
     click.set_button(gdk::BUTTON_SECONDARY);
     click.connect_pressed(move |_, _, x, y| {
+        clicked.set((x, y));
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
         popover.popup();
     });
     overlay.add_controller(click);
+}
+
+/// Whether a desktop icon's label (two lines of 11 characters) cannot show
+/// the whole name.
+pub fn name_is_cut(name: &str) -> bool {
+    let mut lines = 1;
+    let mut used = 0;
+    for word in name.split_whitespace() {
+        let len = word.chars().count();
+        if used > 0 && used + 1 + len <= 11 {
+            used += 1 + len;
+            continue;
+        }
+        if used > 0 {
+            lines += 1;
+        }
+        // A long word is broken across lines.
+        lines += (len - 1) / 11;
+        used = (len - 1) % 11 + 1;
+    }
+    lines > 2
 }
 
 #[cfg(test)]
@@ -343,6 +576,29 @@ mod tests {
             ]
         );
         assert!(list(&dir.path().join("missing")).is_empty());
+    }
+
+    #[test]
+    fn names_for_new_files() {
+        let dir = std::env::temp_dir().join(format!("seglinux-names-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("Taken")).unwrap();
+        assert_eq!(valid_name(&dir, " Photos "), Ok(dir.join("Photos")));
+        assert!(valid_name(&dir, "").is_err());
+        assert!(valid_name(&dir, "..").is_err());
+        assert!(valid_name(&dir, "a/b").is_err());
+        assert!(valid_name(&dir, "Taken").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn long_names_only_get_a_tooltip() {
+        assert!(!name_is_cut("Install SegLinux"));
+        assert!(!name_is_cut("Steam"));
+        assert!(!name_is_cut("Holiday photos 2026"));
+        assert!(name_is_cut("Quarterly report final version"));
+        assert!(name_is_cut("averyveryverylongfilename.txt"));
+        assert!(!name_is_cut("Installation123"), "15 characters: two lines");
+        assert!(!name_is_cut(""));
     }
 
     #[test]

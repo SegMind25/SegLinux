@@ -109,5 +109,15 @@ popover.menu button label { margin-right: 12px; }
 
 /* The volume and brightness display */
 .osd { background: alpha(#202326, 0.95); border: 1px solid alpha(#ffffff, 0.12); border-radius: 14px; padding: 12px 18px; box-shadow: 0 8px 24px alpha(black, 0.45); margin: 12px; }
+/* Counts and progress applications put on their dock icons (badges.rs). */
+.dock-badge { background: #3daee9; color: #fffffe; border-radius: 9px; font-size: 10px; font-weight: 700; padding: 0 5px; min-width: 8px; }
+.dock-progress, .dock-progress trough, .dock-progress progress { min-height: 4px; min-width: 0; border-radius: 2px; }
+.dock-progress { margin: 0 3px 0 3px; }
+.dock-progress trough { background: alpha(#000000, 0.5); }
+.dock-progress progress { background: #3daee9; }
+.dock .app.attention { background: alpha(#ff7b7b, 0.25); }
+/* The answer to arithmetic typed in Start's search (calc.rs). */
+.calc-result { padding: 8px 10px; }
+.calc-result label { font-size: 16px; }
 levelbar trough { background: alpha(#ffffff, 0.15); border-radius: 4px; min-height: 6px; }
 levelbar block.filled { background: #3daee9; border-radius: 4px; }

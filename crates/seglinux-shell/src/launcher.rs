@@ -86,9 +86,27 @@ pub fn menu(preview: bool, pinned: &[String]) -> gtk::Popover {
     content.append(&header);
 
     let search = gtk::SearchEntry::builder()
-        .placeholder_text("Search applications…")
+        .placeholder_text("Search applications, or calculate…")
         .build();
     content.append(&search);
+
+    // Arithmetic gets its answer, as in Plasma's search (calc.rs): Enter or
+    // a click copies it.
+    let answer = gtk::Button::new();
+    answer.add_css_class("flat");
+    answer.add_css_class("calc-result");
+    let answer_label = gtk::Label::new(None);
+    answer_label.set_xalign(0.0);
+    answer.set_child(Some(&answer_label));
+    answer.set_tooltip_text(Some("Copy the result"));
+    answer.set_visible(false);
+    content.append(&answer);
+    let result: Rc<RefCell<String>> = Rc::default();
+    let copied = result.clone();
+    answer.connect_clicked(move |button| {
+        button.clipboard().set_text(&copied.borrow());
+        common::close_popover(button);
+    });
 
     let state = Rc::new(State {
         entries: RefCell::default(),
@@ -166,8 +184,9 @@ pub fn menu(preview: bool, pinned: &[String]) -> gtk::Popover {
             list.invalidate_filter();
             list.invalidate_sort();
             let any = state.any_shown();
+            let calculated = crate::calc::evaluate(&state.query.borrow()).is_some();
             scroll.set_visible(any);
-            empty.set_visible(!any);
+            empty.set_visible(!any && !calculated);
             empty.set_text(
                 if state.category.get() == Category::Favorites
                     && state.query.borrow().trim().is_empty()
@@ -185,9 +204,23 @@ pub fn menu(preview: bool, pinned: &[String]) -> gtk::Popover {
     let search_state = state.clone();
     let search_refresh = refresh.clone();
     let search_sidebar = sidebar.downgrade();
+    let shown_answer = answer.downgrade();
     search.connect_search_changed(move |search| {
         let query = search.text().to_string();
         let searching = !query.trim().is_empty();
+        if let Some(answer) = shown_answer.upgrade() {
+            match crate::calc::evaluate(&query).map(crate::calc::format) {
+                Some(value) => {
+                    answer_label.set_markup(&format!(
+                        "<b>= {}</b>   <small>Enter copies it</small>",
+                        glib::markup_escape_text(&value)
+                    ));
+                    *result.borrow_mut() = value;
+                    answer.set_visible(true);
+                }
+                None => answer.set_visible(false),
+            }
+        }
         *search_state.query.borrow_mut() = query;
         // Results come from every category: none is highlighted meanwhile.
         if let Some(sidebar) = search_sidebar.upgrade() {
@@ -199,9 +232,15 @@ pub fn menu(preview: bool, pinned: &[String]) -> gtk::Popover {
         }
         search_refresh();
     });
-    // Enter starts the first application shown, as in Kickoff.
+    // Enter copies a calculation's answer, else starts the first
+    // application shown, as in Kickoff.
     let first_list = list.downgrade();
+    let enter_answer = answer.downgrade();
     search.connect_activate(move |_| {
+        if let Some(answer) = enter_answer.upgrade().filter(|a| a.is_visible()) {
+            answer.emit_clicked();
+            return;
+        }
         if let Some(button) = first_list
             .upgrade()
             .and_then(|l| shown_rows(&l).into_iter().next())
@@ -662,6 +701,34 @@ mod tests {
                 .lines()
                 .any(|l| l == "org.example.Paint")
         );
+
+        // Arithmetic is answered, as in Plasma's search, instead of "No
+        // matching applications".
+        let answer = widgets
+            .iter()
+            .find(|w| w.has_css_class("calc-result"))
+            .unwrap()
+            .clone();
+        let text_of = |w: &gtk::Widget| {
+            w.first_child()
+                .and_downcast::<gtk::Label>()
+                .map(|l| l.text().to_string())
+                .unwrap_or_default()
+        };
+        // (Enter closed Start: open it again.)
+        start.popup();
+        search.set_text("12*7");
+        settle();
+        assert!(answer.is_visible());
+        assert!(text_of(&answer).starts_with("= 84"), "{}", text_of(&answer));
+        assert!(
+            !widgets
+                .iter()
+                .any(|w| w.has_css_class("hint") && w.is_visible())
+        );
+        search.set_text("paint");
+        settle();
+        assert!(!answer.is_visible());
         window.close();
 
         // Pins are saved in shell.toml, keeping the other preferences.

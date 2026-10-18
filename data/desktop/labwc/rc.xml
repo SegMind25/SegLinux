@@ -36,6 +36,7 @@
     <keybind key="C-W-Right"><action name="GoToDesktop" to="right" wrap="yes" /></keybind>
     <keybind key="C-S-W-Left"><action name="SendToDesktop" to="left" wrap="yes" /></keybind>
     <keybind key="C-S-W-Right"><action name="SendToDesktop" to="right" wrap="yes" /></keybind>
+    <keybind key="W-period"><action name="Execute" command="gapplication action org.seglinux.Shell emoji" /></keybind>
     <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'up'&quot;" /></keybind>
     <keybind key="XF86AudioLowerVolume"><action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'down'&quot;" /></keybind>
     <keybind key="XF86AudioMute"><action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'mute'&quot;" /></keybind>

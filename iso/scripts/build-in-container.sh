@@ -54,7 +54,7 @@ pkgwork=/var/tmp/seglinux-pkg
 rm -rf "$pkgwork"
 mkdir -p "$pkgwork"
 cp "$repo/packaging/seglinux/PKGBUILD" "$repo/packaging/seglinux/seglinux.install" "$pkgwork/"
-# CI numbers each commit (0.1.0.<commits>): seglinux-update installs a newer
+# CI numbers each commit (0.1.0.<commits>): seglinux-upgrade installs a newer
 # package when the number grows.
 if [[ -n ${SEGLINUX_PKGVER:-} ]]; then
     [[ $SEGLINUX_PKGVER =~ ^[0-9][0-9.]*$ ]] || die "invalid SEGLINUX_PKGVER: $SEGLINUX_PKGVER"

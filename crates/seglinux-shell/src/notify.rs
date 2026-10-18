@@ -177,6 +177,8 @@ pub struct Notice {
     /// Seconds since the epoch.
     pub time: i64,
     pub read: bool,
+    /// Changes when the notification is replaced (its pop-up is redrawn).
+    serial: u64,
 }
 
 impl Notice {
@@ -252,6 +254,13 @@ struct Inner {
     connection: RefCell<Option<gio::DBusConnection>>,
     listeners: RefCell<Vec<Box<dyn Fn() -> bool>>>,
     window: RefCell<Option<gtk::Window>>,
+    /// The pop-up window's column and the (id, serial) of its cards.
+    column: RefCell<Option<gtk::Box>>,
+    shown: RefCell<Vec<(u32, u64)>>,
+    serial: Cell<u64>,
+    /// A window is fullscreen (a game, a video): pop-ups wait in the
+    /// history, as with Do not disturb.
+    fullscreen: Cell<bool>,
     app: gtk::Application,
     layer: bool,
 }
@@ -273,6 +282,10 @@ impl Center {
             connection: RefCell::default(),
             listeners: RefCell::default(),
             window: RefCell::default(),
+            column: RefCell::default(),
+            shown: RefCell::default(),
+            serial: Cell::new(0),
+            fullscreen: Cell::new(false),
             app: app.clone(),
             layer,
         }));
@@ -417,13 +430,17 @@ impl Center {
             self.0.next_id.set(id.wrapping_add(1).max(1));
             id
         };
-        let popup = !self.0.dnd.get() || request.urgency == Urgency::Critical;
+        let popup =
+            request.urgency == Urgency::Critical || !(self.0.dnd.get() || self.0.fullscreen.get());
         let timeout = request.timeout;
+        let serial = self.0.serial.get() + 1;
+        self.0.serial.set(serial);
         let notice = Notice {
             id,
             request,
             time: now(),
             read: false,
+            serial,
         };
         {
             let mut history = self.0.history.borrow_mut();
@@ -560,11 +577,26 @@ impl Center {
                 .filter_map(|id| history.iter().find(|n| n.id == *id).cloned())
                 .collect()
         };
-        // A new window each time: a layer surface keeps the size of its
-        // largest content otherwise.
+        let wanted: Vec<(u32, u64)> = notices.iter().map(|n| (n.id, n.serial)).collect();
+        // New notifications join the pop-ups on screen; anything else (one
+        // closed or replaced) redraws the window, since a layer surface
+        // keeps the size of its largest content.
+        let shown = self.0.shown.borrow().clone();
+        if !shown.is_empty()
+            && wanted.starts_with(&shown)
+            && let Some(column) = self.0.column.borrow().as_ref()
+        {
+            for notice in &notices[shown.len()..] {
+                column.append(&self.card(notice, true));
+            }
+            self.0.shown.replace(wanted);
+            return;
+        }
         if let Some(old) = self.0.window.take() {
             old.destroy();
         }
+        self.0.column.take();
+        self.0.shown.replace(Vec::new());
         if notices.is_empty() {
             return;
         }
@@ -595,6 +627,15 @@ impl Center {
         window.set_child(Some(&column));
         window.present();
         self.0.window.replace(Some(window));
+        self.0.column.replace(Some(column));
+        self.0.shown.replace(wanted);
+    }
+
+    /// Whether a fullscreen window (a game) is in front: pop-ups would
+    /// cover it, and in a game they cost frames (the compositor can no
+    /// longer hand the game's frames straight to the screen).
+    pub fn set_fullscreen(&self, fullscreen: bool) {
+        self.0.fullscreen.set(fullscreen);
     }
 
     /// A notification as a card: picture, application and time, title,

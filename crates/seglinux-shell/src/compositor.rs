@@ -64,6 +64,11 @@ const KEYBINDS: &[(&str, &str)] = &[
         "C-S-W-Right",
         r#"<action name="SendToDesktop" to="right" wrap="yes" />"#,
     ),
+    // The emoji selector, as Plasma's Meta+. (emoji.rs).
+    (
+        "W-period",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell emoji" />"#,
+    ),
     // Volume and brightness keys: the shell changes them and shows the
     // level on screen (osd.rs).
     (
