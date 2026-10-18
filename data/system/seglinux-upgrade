@@ -122,9 +122,11 @@ setup_seglinux() {
         return 0
     elif ! has_repo seglinux; then
         key=$(mktemp)
-        if ! curl -fsSL "$updates/seglinux.gpg" -o "$key"; then
+        # Quietly: until the signed packages are published, SegLinux is
+        # built from its source further on (build_seglinux).
+        if ! curl -fsL "$updates/seglinux.gpg" -o "$key"; then
             rm -f "$key"
-            warn "SegLinux's own updates are not published yet; updating everything else."
+            say "SegLinux's signed packages are not published yet: SegLinux will be built from its source after the system upgrade."
             return 0
         fi
         fpr=$(gpg --batch --show-keys --with-colons "$key" 2>/dev/null | awk -F: '/^fpr/ {print $10; exit}')
