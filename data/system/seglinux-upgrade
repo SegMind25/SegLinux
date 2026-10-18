@@ -138,6 +138,23 @@ setup_seglinux() {
     has_repo seglinux || add_repo seglinux "Server = $updates"
 }
 
+# Packages a newer release replaces in a way pacman asks about, defaulting
+# to "no" (and with --noconfirm, stopping): Plasma 6.8 dropped its X11
+# session, which plasma-workspace now conflicts with. Plasma on Wayland and
+# the SegLinux desktop stay.
+retire_replaced() {
+    local name by
+    while read -r name by; do
+        if pacman -Q "$name" >/dev/null 2>&1 &&
+            pacman -Si "$by" 2>/dev/null | sed -n 's/^Conflicts With *: //p' | grep -qw "$name"; then
+            say "Removing $name: the newer $by replaces it"
+            pacman -Rdd --noconfirm "$name"
+        fi
+    done <<'LIST'
+plasma-x11-session plasma-workspace
+LIST
+}
+
 # SegLinux's newest version, numbered as its published packages are
 # (0.1.0.<commits on main>), and the commit to build: "VERSION COMMIT".
 latest() {
@@ -339,7 +356,9 @@ main() {
     local before
     before=$(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')
     say "Upgrading the system"
-    pacman -Syu "$@"
+    pacman -Sy
+    retire_replaced
+    pacman -Su "$@"
     if $from_source || ! seglinux_published; then
         build_seglinux "$@"
     fi
