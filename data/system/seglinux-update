@@ -1,0 +1,8 @@
+#!/bin/bash
+# seglinux-update is now seglinux-upgrade. For the one-time command of older
+# instructions (curl .../seglinux-update -o /tmp/seglinux-update && sudo bash
+# /tmp/seglinux-update): fetches seglinux-upgrade and runs it.
+set -euo pipefail
+script=$(mktemp)
+curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-upgrade -o "$script"
+exec bash "$script" "$@"

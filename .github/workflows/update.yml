@@ -1,7 +1,7 @@
 name: SegLinux update
 
 # Every change to SegLinux on main becomes an update that installed systems
-# get with `sudo seglinux-update` (docs/updating.md), without a new ISO:
+# get with `sudo seglinux-upgrade` (docs/updating.md), without a new ISO:
 # the seglinux package is built, signed with the SEGLINUX_SIGNING_KEY secret
 # and published to the release "packages". "Run workflow" publishes the
 # current main by hand (for example right after adding the secret).

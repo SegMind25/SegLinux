@@ -7,7 +7,7 @@
 # Defaults: the full edition, OpenRC and the linux-zen kernel. --lite builds
 # the small Lite edition (OpenRC only), whose Setup downloads the apps.
 # --package-only builds only the seglinux package (iso/out/packages/), the
-# update installed systems get with seglinux-update.
+# update installed systems get with seglinux-upgrade.
 # The build runs in a privileged Artix container (docker or podman), so any
 # Linux host works; --native runs it on an Artix host (docs/building.md).
 # The ISO and its .sha256 end up in iso/out/.

@@ -103,10 +103,12 @@ package() {
     install -Dm755 "$data/desktop/seglinux-session" "$pkgdir/usr/bin/seglinux-session"
     install -Dm755 "$data/system/seglinux-terminal" "$pkgdir/usr/bin/seglinux-terminal"
 
-    # Updates: seglinux-update, the default applications it offers, and the
+    # Upgrades: seglinux-upgrade (also seglinux-update, its former name), the
+    # default applications it offers, and the
     # key SegLinux's packages are signed with (when the build had it: CI
     # writes it from the SEGLINUX_SIGNING_KEY secret, see docs/updating.md).
-    install -Dm755 "$data/system/seglinux-update" "$pkgdir/usr/bin/seglinux-update"
+    install -Dm755 "$data/system/seglinux-upgrade" "$pkgdir/usr/bin/seglinux-upgrade"
+    ln -s seglinux-upgrade "$pkgdir/usr/bin/seglinux-update"
     install -Dm644 "$data/seglinux/default-apps" "$pkgdir/usr/share/seglinux/default-apps"
     if [[ -f $data/keyrings/seglinux.gpg ]]; then
         install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings" \

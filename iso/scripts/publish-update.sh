@@ -1,6 +1,6 @@
 #!/bin/bash
 # GitHub Actions: publishes the signed seglinux package as the update that
-# installed systems get with `sudo seglinux-update` (docs/updating.md).
+# installed systems get with `sudo seglinux-upgrade` (docs/updating.md).
 #
 #   iso/scripts/publish-update.sh DIR    (DIR holds seglinux-*.pkg.tar.zst)
 #
@@ -33,7 +33,7 @@ cp -L seglinux.files.tar.gz seglinux.files.upload && mv -f seglinux.files.upload
 if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
     gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "${GITHUB_SHA:-main}" --prerelease \
         --title "SegLinux updates" \
-        --notes "The package repository installed SegLinux systems update from: run \`sudo seglinux-update\` (docs/updating.md). Not an ISO."
+        --notes "The package repository installed SegLinux systems update from: run \`sudo seglinux-upgrade\` (docs/updating.md). Not an ISO."
 fi
 # The package first, then the database that names it; then the old
 # versions go (pacman only fetches what the database names).
@@ -44,4 +44,4 @@ old=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.as
 for name in $old; do
     gh release delete-asset "$tag" "$name" --repo "$GITHUB_REPOSITORY" --yes
 done
-echo "::notice title=SegLinux update published::$pkg: installed systems get it with sudo seglinux-update"
+echo "::notice title=SegLinux update published::$pkg: installed systems get it with sudo seglinux-upgrade"

@@ -1,16 +1,18 @@
 #!/bin/bash
-# seglinux-update: brings an installed SegLinux up to date without a new ISO:
-# Artix's packages, Brave (from Chaotic-AUR) and SegLinux itself (from
-# SegLinux's own signed repository on GitHub), then any application a newer
-# SegLinux installs by default. Every package is signature-checked by pacman.
+# seglinux-upgrade: brings an installed SegLinux up to the newest SegLinux,
+# as a new ISO would: its desktop, design, settings, performance tuning and
+# applications, with Artix's packages and Brave (Chaotic-AUR). Every
+# package from a repository is signature-checked by pacman.
 #
-#   sudo seglinux-update                 upgrade everything
-#   sudo seglinux-update --noconfirm     ... without questions (any pacman option)
-#   sudo seglinux-update --setup         only set up the repositories (Setup)
+#   sudo seglinux-upgrade                 upgrade everything
+#   sudo seglinux-upgrade --noconfirm     ... without questions (any pacman option)
+#   sudo seglinux-upgrade --setup         only set up the repositories (Setup)
+#   sudo seglinux-upgrade --from-source   build SegLinux from its newest source
 #
-# A system installed from an ISO older than this command gets it once with
-# (docs/updating.md), and from then on has `sudo seglinux-update`:
-#   curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update && sudo bash /tmp/seglinux-update
+# (seglinux-update is the same command, by its former name.) A system
+# installed from an ISO older than this command gets it once with
+# (docs/updating.md), and from then on has `sudo seglinux-upgrade`:
+#   curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-upgrade -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade
 set -euo pipefail
 
 updates=https://github.com/SegMind25/SegLinux/releases/download/packages
@@ -19,42 +21,38 @@ chaotic_key=3056513887B78AEB
 chaotic_cdn=https://cdn-mirror.chaotic.cx/chaotic-aur
 defaults=/usr/share/seglinux/default-apps
 offered=/var/lib/seglinux/offered-apps
-packaged=/usr/bin/seglinux-update
-local_copy=/usr/local/bin/seglinux-update
+source_url=https://github.com/SegMind25/SegLinux
+api=https://api.github.com/repos/SegMind25/SegLinux
+packaged=/usr/bin/seglinux-upgrade
+local_copy=/usr/local/bin/seglinux-upgrade
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33mWarning:\033[0m %s\n' "$*" >&2; }
-die() { printf 'seglinux-update: %s\n' "$*" >&2; exit 1; }
+die() { printf 'seglinux-upgrade: %s\n' "$*" >&2; exit 1; }
 
 has_repo() { grep -q "^\[$1\]" "$conf"; }
 
 # The one-time download (above) leaves the command installed, so that
-# `sudo seglinux-update` works from then on, until the seglinux package
+# `sudo seglinux-upgrade` works from then on, until the seglinux package
 # brings its own; that one then replaces it (retire_local_copy).
 install_command() {
     local self=${BASH_SOURCE[0]}
     [[ -e $packaged || $(realpath "$self") == "$local_copy" ]] && return 0
     install -Dm755 "$self" "$local_copy"
-    say "Installed the seglinux-update command: from now on, update with  sudo seglinux-update"
+    ln -sfn seglinux-upgrade "${local_copy%/*}/seglinux-update"
+    say "Installed the seglinux-upgrade command: from now on, upgrade with  sudo seglinux-upgrade"
 }
 
-# /usr/local/bin comes first in the PATH: the copy would hide the package's
-# newer command.
+# /usr/local/bin comes first in the PATH: the copies would hide the
+# package's newer command.
 retire_local_copy() {
-    if [[ -e $packaged && -f $local_copy ]] && grep -q '^# seglinux-update: ' "$local_copy"; then
-        rm -f "$local_copy"
-    fi
-}
-
-# Adds the repository $1, with the lines that follow, at the end of pacman.conf.
-add_repo() {
-    local name=$1
-    shift
-    cp -p "$conf" "$conf.before-seglinux-update"
-    {
-        printf '\n# Added by seglinux-update.\n[%s]\n' "$name"
-        printf '%s\n' "$@"
-    } >> "$conf"
+    local copy
+    [[ -e $packaged ]] || return 0
+    for copy in "$local_copy" "${local_copy%/*}/seglinux-update"; do
+        if [[ -L $copy ]] || { [[ -f $copy ]] && grep -q '^# seglinux-up\(date\|grade\): ' "$copy"; }; then
+            rm -f "$copy"
+        fi
+    done
 }
 
 # pacman's own key, which signing other keys needs; Setup creates it, but a
@@ -125,6 +123,94 @@ setup_seglinux() {
         rm -f "$key"
     fi
     has_repo seglinux || add_repo seglinux "Server = $updates"
+}
+
+# SegLinux's newest version, numbered as its published packages are
+# (0.1.0.<commits on main>), and the commit to build: "VERSION COMMIT".
+latest() {
+    local sha count
+    if [[ -n ${SEGLINUX_SOURCE:-} ]]; then
+        echo "${SEGLINUX_VERSION:-0.1.0.$(git -C "$SEGLINUX_SOURCE" rev-list --count HEAD)} local"
+        return
+    fi
+    sha=$(curl -fsS -H 'Accept: application/vnd.github.sha' "$api/commits/main") || return 1
+    count=$(curl -fsSI "$api/commits?sha=$sha&per_page=1" | tr -d '\r' |
+        sed -n 's/.*[?&]page=\([0-9]*\)>; rel="last".*/\1/p')
+    [[ $sha =~ ^[0-9a-f]{40}$ && $count =~ ^[0-9]+$ ]] || return 1
+    echo "0.1.0.$count $sha"
+}
+
+# SegLinux itself, built on this computer from its source on GitHub, the way
+# AUR packages are, while its signed packages are not published: the
+# desktop, Settings, sign-in screen, themes and tuning the newest ISO has.
+# makepkg does not build as root, so it builds as the account that ran sudo.
+build_seglinux() {
+    local user home version sha installed work top deps package
+    user=${SUDO_USER:-}
+    if [[ -z $user || $user == root ]]; then
+        warn "SegLinux itself is built from your account: run  sudo seglinux-upgrade  as yourself, not as root."
+        return 0
+    fi
+    if ! read -r version sha < <(latest); then
+        warn "Cannot find SegLinux's newest version (is github.com reachable?); SegLinux itself is not upgraded this time."
+        return 0
+    fi
+    [[ $version =~ ^[0-9][0-9.]*$ ]] || die "invalid version: $version"
+    installed=$(pacman -Q seglinux 2>/dev/null | awk '{print $2}')
+    if [[ -n $installed ]] && (($(vercmp "$installed" "$version") >= 0)); then
+        say "SegLinux $installed is the newest"
+        return 0
+    fi
+    if (($(df --output=avail -k /var/tmp | tail -n 1) < 4000000)); then
+        warn "Building SegLinux needs 4 GB free in /var/tmp; SegLinux itself is not upgraded this time."
+        return 0
+    fi
+    say "Building SegLinux $version from its source (a few minutes, once per new version)"
+    home=$(getent passwd "$user" | cut -d: -f6)
+    work=$(mktemp -d /var/tmp/seglinux-build.XXXXXX)
+    mkdir "$work/x"
+    if [[ $sha == local ]]; then
+        tar -C "$SEGLINUX_SOURCE" --exclude=./target --exclude=./.git --exclude=./iso/out \
+            --transform "s,^\.,seglinux-$version," -czf "$work/seglinux-$version.tar.gz" .
+        tar -C "$work/x" -xzf "$work/seglinux-$version.tar.gz"
+    else
+        curl -fsSL "$source_url/archive/$sha.tar.gz" -o "$work/source.tar.gz" || {
+            rm -rf "$work"
+            warn "Cannot download SegLinux's source; SegLinux itself is not upgraded this time."
+            return 0
+        }
+        top=$(tar -tzf "$work/source.tar.gz" | head -n 1 | cut -d/ -f1)
+        tar -C "$work/x" -xzf "$work/source.tar.gz"
+        mv "$work/x/$top" "$work/x/seglinux-$version"
+        tar -C "$work/x" -czf "$work/seglinux-$version.tar.gz" "seglinux-$version"
+    fi
+    cp "$work/x/seglinux-$version/packaging/seglinux/"{PKGBUILD,seglinux.install} "$work/"
+    rm -rf "$work/x" "$work/source.tar.gz"
+    sed -i "s/^pkgver=.*/pkgver=$version/" "$work/PKGBUILD"
+    chown -R "$user:" "$work"
+    as_user() { (cd "$work" && runuser -u "$user" -- env HOME="$home" CARGO_HOME="$home/.cache/seglinux/cargo" "$@"); }
+    # What it needs to build and run, as dependencies (pacman -Qdt lists
+    # them once nothing needs them).
+    deps=$(as_user makepkg --printsrcinfo | sed -n 's/^\t\(make\)\{0,1\}depends = //p')
+    # shellcheck disable=SC2086 # one package name per word
+    pacman -S --needed --noconfirm --asdeps base-devel $deps || {
+        rm -rf "$work"
+        warn "The tools to build SegLinux could not be installed; SegLinux itself is not upgraded this time."
+        return 0
+    }
+    if ! as_user makepkg -f --nocheck --noconfirm; then
+        rm -rf "$work"
+        warn "SegLinux $version did not build; your SegLinux stays as it is. Please report it: $source_url/issues"
+        return 0
+    fi
+    package=$(find "$work" -maxdepth 1 -name "seglinux-$version-*.pkg.tar.zst" | head -n 1)
+    pacman -U "$@" "$package" || warn "SegLinux $version was not installed."
+    rm -rf "$work"
+}
+
+# Whether SegLinux's signed repository is set up and serves SegLinux.
+seglinux_published() {
+    has_repo seglinux && pacman -Si seglinux >/dev/null 2>&1
 }
 
 # Applications a newer SegLinux installs by default, offered once each: one
@@ -204,13 +290,19 @@ offer_sign_in_screen() {
 }
 
 main() {
+    # --from-source is this command's; the rest is for pacman.
+    local from_source=false arg args=()
+    for arg in "$@"; do
+        if [[ $arg == --from-source ]]; then from_source=true; else args+=("$arg"); fi
+    done
+    set -- "${args[@]}"
     case ${1:-} in
         -h | --help)
-            sed -n '2,13s/^# \{0,1\}//p' "$0"
+            sed -n '2,16s/^# \{0,1\}//p' "$0"
             exit 0
             ;;
     esac
-    [[ $EUID == 0 ]] || die "run it as root: sudo seglinux-update"
+    [[ $EUID == 0 ]] || die "run it as root: sudo seglinux-upgrade"
 
     if [[ ${1:-} == --setup ]]; then
         setup_seglinux offline
@@ -229,21 +321,27 @@ main() {
     ensure_keyring
     setup_chaotic || warn "Chaotic-AUR could not be set up, so Brave is not updated this time; everything else is."
     setup_seglinux
-    say "Updating the system"
+    local before
+    before=$(pacman -Q seglinux 2>/dev/null || true)
+    say "Upgrading the system"
     pacman -Syu "$@"
+    if $from_source || ! seglinux_published; then
+        build_seglinux "$@"
+    fi
     install_new_defaults "$@"
     offer_sign_in_screen "$@"
     retire_local_copy
-    if has_repo seglinux; then
-        say "SegLinux is up to date: $(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')"
-    else
-        say "Artix and Brave are up to date. SegLinux's own updates come with this command once they are published (docs/updating.md)."
+    local after
+    after=$(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')
+    say "SegLinux is up to date: $after"
+    if [[ $after != "$before" ]]; then
+        say "Sign out and back in (or restart) to use the new SegLinux."
     fi
 }
 
 if [[ -z ${BASH_SOURCE[0]:-} ]]; then
     # Piped into bash, pacman's questions would read the rest of the script.
-    die "download it first, then run it: curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-update -o /tmp/seglinux-update && sudo bash /tmp/seglinux-update"
+    die "download it first, then run it: curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-upgrade -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade"
 elif [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     main "$@"
 fi

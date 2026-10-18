@@ -14,13 +14,16 @@ greeter_state() {
     fi
 }
 
-# The copy of seglinux-update that its one-time download leaves on systems
-# older than it (/usr/local/bin, first in the PATH) would hide this one.
+# The copies of seglinux-upgrade that its one-time download leaves on
+# systems older than it (/usr/local/bin, first in the PATH) would hide this
+# package's.
 retire_update_copy() {
-    local copy=/usr/local/bin/seglinux-update
-    if [[ -f $copy ]] && grep -q '^# seglinux-update: ' "$copy"; then
-        rm -f "$copy"
-    fi
+    local copy
+    for copy in /usr/local/bin/seglinux-upgrade /usr/local/bin/seglinux-update; do
+        if [[ -L $copy ]] || { [[ -f $copy ]] && grep -q '^# seglinux-up\(date\|grade\): ' "$copy"; }; then
+            rm -f "$copy"
+        fi
+    done
 }
 
 post_install() {

@@ -66,7 +66,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: shellcheck
         run: |
-          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-update \
+          shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-upgrade data/system/seglinux-update \
             packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh \
             data/system/fastfetch.bashrc
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
@@ -147,29 +147,30 @@ jobs:
         if: matrix.profile == 'seglinux-lite'
         run: iso/scripts/online-packages.sh -i openrc -k linux-zen
 
-  # `sudo seglinux-update` on a real Artix system, as on a SegLinux
+  # `sudo seglinux-upgrade` on a real Artix system, as on a SegLinux
   # installed from an older ISO (no Chaotic-AUR, a fresh pacman keyring).
   update-command:
-    name: sudo seglinux-update (Artix)
+    name: sudo seglinux-upgrade (Artix)
     runs-on: ubuntu-latest
     container: docker.io/artixlinux/artixlinux:base
     steps:
       - uses: actions/checkout@v4
       - name: An older SegLinux updates itself (the one-time curl command)
         run: |
-          cp data/system/seglinux-update /tmp/seglinux-update
-          bash /tmp/seglinux-update --noconfirm
+          cp data/system/seglinux-upgrade /tmp/seglinux-upgrade
+          bash /tmp/seglinux-upgrade --noconfirm
           grep -A1 '^\[chaotic-aur\]' /etc/pacman.conf
           pacman -Q chaotic-keyring chaotic-mirrorlist
           pacman -Si brave-bin | grep -E '^(Name|Version|Repository)'
-          # The command stays: `sudo seglinux-update` from then on.
-          test "$(command -v seglinux-update)" = /usr/local/bin/seglinux-update
+          # The command stays: `sudo seglinux-upgrade` from then on.
+          test "$(command -v seglinux-upgrade)" = /usr/local/bin/seglinux-upgrade
+          test "$(readlink /usr/local/bin/seglinux-update)" = seglinux-upgrade
           # Piped into bash it explains how to run it instead.
-          if cat data/system/seglinux-update | bash; then exit 1; fi
+          if cat data/system/seglinux-upgrade | bash; then exit 1; fi
       - name: Running it again changes nothing
         run: |
           cp /etc/pacman.conf /tmp/pacman.conf.before
-          seglinux-update --noconfirm
+          seglinux-upgrade --noconfirm
           test "$(sha256sum < /tmp/pacman.conf.before)" = "$(sha256sum < /etc/pacman.conf)"
           test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 1
       - name: SegLinux's own updates, once published
@@ -183,10 +184,10 @@ jobs:
           fi
       - name: The seglinux package's command replaces the downloaded one
         run: |
-          printf '#!/bin/sh\n' > /usr/bin/seglinux-update
-          bash -c 'source data/system/seglinux-update && retire_local_copy'
-          test ! -e /usr/local/bin/seglinux-update
-          rm /usr/bin/seglinux-update
+          printf '#!/bin/sh\n' > /usr/bin/seglinux-upgrade
+          bash -c 'source data/system/seglinux-upgrade && retire_local_copy'
+          test ! -e /usr/local/bin/seglinux-upgrade && test ! -e /usr/local/bin/seglinux-update
+          rm /usr/bin/seglinux-upgrade
       - name: An SDDM system is offered the new sign-in screen
         run: |
           # dinit (this container's init) with SDDM enabled and the greeter
@@ -197,7 +198,7 @@ jobs:
           printf '[Autologin]\nUser=alice\nSession=seglinux.desktop\n' > /etc/sddm.conf.d/20-seglinux-autologin.conf
           printf '#!/bin/sh\n' > /usr/bin/seglinux-greeter && chmod 755 /usr/bin/seglinux-greeter
           cp data/greeter/greetd.toml /usr/share/seglinux/greeter/greetd.toml
-          printf 'source data/system/seglinux-update\noffered=/tmp/offered\noffer_sign_in_screen\n' > /tmp/offer.sh
+          printf 'source data/system/seglinux-upgrade\noffered=/tmp/offered\noffer_sign_in_screen\n' > /tmp/offer.sh
           # Answers "y" on a terminal, as a person would (script needs libutempter).
           pacman -S --noconfirm --needed libutempter > /dev/null
           echo y | script -qec "bash /tmp/offer.sh" /dev/null
@@ -221,3 +222,18 @@ jobs:
           # A shell started from that shell does not repeat it.
           TERM=xterm-256color script -qec "bash -c 'bash -i -c true; true'" /dev/null > /tmp/nested.txt
           if grep -q '███' /tmp/nested.txt; then exit 1; fi
+      - name: SegLinux itself, built from source while its packages are not published
+        run: |
+          # As `sudo seglinux-upgrade` does from an account, here from this
+          # commit's source instead of GitHub's newest.
+          useradd -m tester
+          SUDO_USER=tester SEGLINUX_SOURCE="$PWD" SEGLINUX_VERSION=0.1.0.999999 \
+            bash data/system/seglinux-upgrade --noconfirm
+          pacman -Q seglinux | grep -q ' 0\.1\.0\.999999-'
+          test -x /usr/bin/seglinux-upgrade && test -L /usr/bin/seglinux-update
+          test ! -e /usr/local/bin/seglinux-upgrade
+          seglinux-shell --version
+          # Nothing newer: no second build.
+          SUDO_USER=tester SEGLINUX_SOURCE="$PWD" SEGLINUX_VERSION=0.1.0.999999 \
+            seglinux-upgrade --noconfirm | tee /tmp/again.txt
+          grep -q 'is the newest' /tmp/again.txt
