@@ -2,12 +2,15 @@
 //! dock with Start menu, applications, tray and clock, on the labwc Wayland
 //! compositor (which manages the windows, like KWin under Plasma).
 mod apps;
+mod badges;
+mod calc;
 mod catalog;
 mod common;
 mod compositor;
 mod config;
 mod desktop;
 mod dock;
+mod emoji;
 mod gaming;
 mod launcher;
 mod managed;
@@ -17,7 +20,9 @@ mod pins;
 mod services;
 mod settings;
 mod sni;
+mod supervise;
 mod tasks;
+mod trash;
 mod tray;
 
 use config::Config;
@@ -37,6 +42,7 @@ const HELP: &str = "SegLinux Shell
   --version            Show version
 
 Open Start: gapplication action org.seglinux.Shell menu
+Emoji selector: gapplication action org.seglinux.Shell emoji
 Volume and brightness keys: gapplication action org.seglinux.Shell volume \"'up'\"
   (volume: up, down, mute, mic-mute; brightness: up, down)";
 
@@ -134,6 +140,14 @@ fn main() -> glib::ExitCode {
             }
         }
     }
+    if !preview && settings.is_none() {
+        // The session's process keeps the desktop running (supervise.rs);
+        // the desktop itself is its child.
+        if std::env::var_os(supervise::CHILD).is_none() {
+            return supervise::run(&args);
+        }
+        common::shell_environment();
+    }
     // The configuration, with the command line's wallpaper if any.
     let load = {
         let wallpaper = wallpaper.clone();
@@ -225,6 +239,16 @@ fn main() -> glib::ExitCode {
             });
             app.add_action(&action);
         }
+        // The emoji selector (Super+.), as Plasma's.
+        let emoji_action = gio::SimpleAction::new("emoji", None);
+        let emoji_app = app.downgrade();
+        let emoji_services = services.clone();
+        emoji_action.connect_activate(move |_, _| {
+            if let Some(app) = emoji_app.upgrade() {
+                emoji::toggle(&app, !preview, &emoji_services.notifications);
+            }
+        });
+        app.add_action(&emoji_action);
 
         // Builds (or rebuilds) the desktop with the current configuration.
         let rebuild: Rc<dyn Fn()> = if preview {

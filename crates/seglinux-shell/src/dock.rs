@@ -1,6 +1,7 @@
 //! The floating dock at the bottom of the screen, like Plasma's floating
 //! panel: Start, show desktop, one icon per application (pinned, running or
 //! both), the tray and the clock.
+use crate::badges::Badges;
 use crate::pins::{self, Change};
 use crate::services::Services;
 use crate::tasks::{self, Action, Task, Tasks};
@@ -140,7 +141,14 @@ pub fn dock(
         // until it notices, and must not keep it alive.
         let apps_box = apps_box.downgrade();
         let handle = handle.clone();
+        let notifications = services.notifications.clone();
+        let badges = services.badges.clone();
         move |windows: &[Task]| {
+            notifications.set_fullscreen(
+                windows
+                    .iter()
+                    .any(|w| w.fullscreen && w.active && !w.minimized),
+            );
             let Some(apps_box) = apps_box.upgrade() else {
                 return;
             };
@@ -159,7 +167,14 @@ pub fn dock(
                     ),
                     None => (apps::for_window(&slot.app_id), None),
                 };
-                apps_box.append(&app_button(&slot, app, place, handle.clone(), icon_size));
+                apps_box.append(&app_button(
+                    &slot,
+                    app,
+                    place,
+                    handle.clone(),
+                    icon_size,
+                    &badges,
+                ));
             }
         }
     };
@@ -186,12 +201,59 @@ fn app_button(
     place: Option<Place>,
     handle: Rc<OnceCell<Tasks>>,
     icon_size: i32,
+    badges: &Badges,
 ) -> gtk::Button {
     let button = gtk::Button::new();
     button.add_css_class("app");
     let image = gtk::Image::from_gicon(&apps::icon(app.as_ref()));
     image.set_pixel_size(icon_size);
-    button.set_child(Some(&image));
+    // The application's count and progress over its icon (badges.rs).
+    let overlay = gtk::Overlay::new();
+    overlay.set_child(Some(&image));
+    overlay.set_overflow(gtk::Overflow::Hidden);
+    let count = gtk::Label::new(None);
+    count.add_css_class("dock-badge");
+    count.set_halign(gtk::Align::End);
+    count.set_valign(gtk::Align::Start);
+    count.set_visible(false);
+    overlay.add_overlay(&count);
+    let progress = gtk::ProgressBar::new();
+    progress.add_css_class("dock-progress");
+    progress.set_valign(gtk::Align::End);
+    progress.set_visible(false);
+    overlay.add_overlay(&progress);
+    button.set_child(Some(&overlay));
+    if let Some(id) = app.as_ref().and_then(|a| a.id()) {
+        let id = id.to_string();
+        let show = {
+            let (badges, button) = (badges.clone(), button.downgrade());
+            let (count, progress) = (count.downgrade(), progress.downgrade());
+            move || -> bool {
+                let (Some(button), Some(count), Some(progress)) =
+                    (button.upgrade(), count.upgrade(), progress.upgrade())
+                else {
+                    return false;
+                };
+                let badge = badges.get(&id);
+                count.set_text(&match badge.count {
+                    Some(n) if n > 99 => "99+".to_string(),
+                    Some(n) => n.to_string(),
+                    None => String::new(),
+                });
+                count.set_visible(badge.count.is_some());
+                progress.set_fraction(badge.progress.unwrap_or(0.0));
+                progress.set_visible(badge.progress.is_some());
+                if badge.urgent {
+                    button.add_css_class("attention");
+                } else {
+                    button.remove_css_class("attention");
+                }
+                true
+            }
+        };
+        show();
+        badges.subscribe(show);
+    }
     if !slot.windows.is_empty() {
         button.add_css_class("running");
     }
@@ -393,6 +455,7 @@ mod tests {
             app_id: app_id.into(),
             active,
             minimized: false,
+            fullscreen: false,
         }
     }
 

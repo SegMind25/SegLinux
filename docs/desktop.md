@@ -71,6 +71,24 @@ Laid out like a Plasma desktop with a floating panel:
   lower and mute the output; the microphone key mutes the input; the
   brightness keys change the screen's backlight in 5% steps, through
   elogind (no root needed, never fully dark).
+- **From Plasma's desktop** (KDE plasma-desktop), in Rust:
+  - **Emoji selector** (Super+., or *Emoji Selector* in Start): search,
+    categories, recently used; the chosen emoji is copied, ready to paste.
+  - **Calculator in Start's search**: `12*7`, `(3+4.5)/2`, `2^10`, `15%`,
+    `sqrt 2`; Enter copies the answer.
+  - **Badges on dock icons**: unread counts (Telegram, Discord,
+    Thunderbird), download and copy progress (Brave, Dolphin) and requests
+    for attention, which applications send with the Unity launcher API, as
+    Plasma's task manager shows them.
+  - **Trash on the desktop**, full or empty: double-click opens it (in
+    Dolphin, which restores files), right-click empties it. Desktop icons
+    have *Open*, *Rename…* and *Move to Trash*; the desktop, *New folder…*.
+- **Steady**: if the desktop shell ever crashes, it starts again at once
+  (dock, wallpaper and notifications come back; after five crashes in two
+  minutes it stops trying). Notification pop-ups wait in the history while a
+  fullscreen window (a game, a video) is in front; critical ones still show.
+  At idle the shell wakes the processor about once every four seconds
+  (it was 40 times a second before October 2026).
 - **Terminal** (Super+Enter, kitty): each new window or tab starts with
   system information under SegLinux's logo (fastfetch); `fastfetch` shows it
   again. Shells started from a shell, scripts, and the terminal panels of
@@ -136,14 +154,14 @@ Try it without signing out: `seglinux-greeter --demo` opens it in a window
 (the password `demo` "signs in" and prints the session it would start).
 
 **Systems installed from an older ISO** keep SDDM until `sudo
-seglinux-update` has brought a SegLinux with the greeter (see
+seglinux-upgrade` has brought a SegLinux with the greeter (see
 [updating.md](updating.md)): it then asks once whether to switch (OpenRC and
 dinit), and the new sign-in screen appears at the next restart, keeping
 SDDM's automatic sign-in if there was one. To switch by hand instead (OpenRC; for runit or dinit install `greetd-runit` or
 `greetd-dinit` and switch the services with their own tools):
 
 ```sh
-sudo seglinux-update                       # brings seglinux-greeter (docs/updating.md)
+sudo seglinux-upgrade                       # brings seglinux-greeter (docs/updating.md)
 sudo pacman -S --needed greetd greetd-openrc
 sudo cp /usr/share/seglinux/greeter/greetd.toml /etc/greetd/config.toml
 sudo install -d -o greeter -g greeter /var/lib/seglinux-greeter
@@ -174,6 +192,7 @@ A compositor supporting layer-shell and foreign-toplevel is required.
 | Super+L | Lock |
 | Super+D | Show desktop |
 | Super+I | Settings |
+| Super+. | Emoji selector |
 | Super+Left / Right | Snap a window |
 | Ctrl+Super+Left / Right | Previous / next workspace |
 | Ctrl+Shift+Super+Left / Right | Move the window to the previous / next workspace |
@@ -232,6 +251,20 @@ Settings. These are settings of the SegLinux session; the Plasma session
 keeps its own.
 
 ## Resource use
+
+**The whole system.** Measured on 15 October 2026 in a virtual machine (4 GB,
+no GPU) with the live system, after sign-in, idle, a terminal open: 792 MB
+in use (`free -m`). The largest parts: kitty 185 MB and its helper 31 MB,
+labwc 154 MB (drawing with Mesa's software OpenGL, as without a GPU),
+the desktop shell 60 MB, WirePlumber 33 MB, syslog-ng 28 MB, the polkit
+agent 25 MB, NetworkManager 22 MB, xdg-desktop-portal and its helpers about
+60 MB (the shell no longer starts them: applications start them when they
+need them). Earlier versions of this page and of the website gave 59 MB as
+if it were the system's memory: it was only the desktop's own processes,
+measured on a virtual screen. On a real computer the GPU driver and the
+applications you run add their share.
+
+**The desktop's own processes**, measured on their own:
 
 The desktop's idle footprint, re-measured on 13 October 2026 with release
 builds: labwc on a 1920×1080 headless output (CPU renderer), the shell

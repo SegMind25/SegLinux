@@ -6,6 +6,8 @@ use crate::config::Config;
 use crate::services::Services;
 use crate::{notify, sni};
 use gtk::{gdk, gio, glib, prelude::*};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Duration;
 
 pub fn tray(
@@ -455,35 +457,128 @@ fn clock(format: &str) -> gtk::MenuButton {
     content.append(&gtk::Calendar::new());
     popover.set_child(Some(&content));
     button.set_popover(Some(&popover));
+    let seconds = shows_seconds(format);
     let format = format.to_string();
-    let tick = move |label: &gtk::Label, today: &gtk::Label| {
-        if let Ok(now) = glib::DateTime::now_local() {
-            if let Ok(text) = now.format(&format) {
-                label.set_text(&text);
+    let tick: Rc<dyn Fn() -> bool> = {
+        let (label, today) = (label.downgrade(), today.downgrade());
+        Rc::new(move || {
+            let (Some(label), Some(today)) = (label.upgrade(), today.upgrade()) else {
+                return false;
+            };
+            if let Ok(now) = glib::DateTime::now_local() {
+                if let Ok(text) = now.format(&format) {
+                    label.set_text(&text);
+                }
+                if let Ok(date) = now.format("%A, %d %B %Y") {
+                    label.set_tooltip_text(Some(&date));
+                    today.set_text(&date);
+                }
             }
-            if let Ok(date) = now.format("%A, %d %B %Y") {
-                label.set_tooltip_text(Some(&date));
-                today.set_text(&date);
-            }
-        }
+            true
+        })
     };
-    tick(&label, &today);
-    let (label, today) = (label.downgrade(), today.downgrade());
-    glib::timeout_add_local(Duration::from_secs(1), move || {
-        match (label.upgrade(), today.upgrade()) {
-            (Some(label), Some(today)) => {
-                tick(&label, &today);
-                glib::ControlFlow::Continue
-            }
-            _ => glib::ControlFlow::Break,
+    tick();
+    schedule_tick(tick.clone(), seconds);
+    // Timers stand still while the computer sleeps: catch up on waking.
+    if let Ok(system) = gio::bus_get_sync(gio::BusType::System, gio::Cancellable::NONE) {
+        let weak = Rc::downgrade(&tick);
+        let subscription = Rc::new(RefCell::new(None));
+        let held = subscription.clone();
+        subscription.replace(Some(system.subscribe_to_signal(
+            Some("org.freedesktop.login1"),
+            Some("org.freedesktop.login1.Manager"),
+            Some("PrepareForSleep"),
+            Some("/org/freedesktop/login1"),
+            None,
+            gio::DBusSignalFlags::NONE,
+            move |signal| {
+                let waking = signal
+                    .parameters
+                    .get::<(bool,)>()
+                    .is_some_and(|(sleeping,)| !sleeping);
+                match weak.upgrade() {
+                    Some(tick) if waking => {
+                        tick();
+                    }
+                    Some(_) => {}
+                    None => {
+                        held.take();
+                    }
+                }
+            },
+        )));
+        // The subscription lives as long as the clock.
+        button.connect_destroy(move |_| {
+            subscription.take();
+        });
+    }
+    button
+}
+
+/// Whether a clock format (strftime, as GLib's) shows seconds: %S, %T, %r,
+/// %X, %c or %s.
+pub fn shows_seconds(format: &str) -> bool {
+    let mut chars = format.chars();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            continue;
+        }
+        let mut next = chars.next();
+        // Flags and modifiers: %-S, %_H, %OS, %EX...
+        while matches!(next, Some('-' | '_' | '0' | '^' | '#' | 'E' | 'O')) {
+            next = chars.next();
+        }
+        if matches!(next, Some('S' | 'T' | 'r' | 'X' | 'c' | 's')) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Milliseconds until the clock next changes: the next second, or the next
+/// minute when it shows none (a minute clock wakes the computer once a
+/// minute, not sixty times).
+pub fn until_next_tick(seconds: bool, second: u32, microsecond: u32) -> u64 {
+    let into_second = u64::from(microsecond / 1000);
+    let rest_of_second = 1000 - into_second.min(999);
+    if seconds {
+        rest_of_second
+    } else {
+        u64::from(59 - second.min(59)) * 1000 + rest_of_second
+    }
+}
+
+fn schedule_tick(tick: Rc<dyn Fn() -> bool>, seconds: bool) {
+    let delay = glib::DateTime::now_local()
+        .map(|now| until_next_tick(seconds, now.second() as u32, now.microsecond() as u32))
+        .unwrap_or(1000);
+    // A few milliseconds late rather than early, so the new minute has come.
+    glib::timeout_add_local_once(Duration::from_millis(delay + 5), move || {
+        if tick() {
+            schedule_tick(tick, seconds);
         }
     });
-    button
 }
 
 #[cfg(test)]
 mod tests {
-    use super::battery_icon;
+    use super::{battery_icon, shows_seconds, until_next_tick};
+
+    #[test]
+    fn clock_ticks() {
+        assert!(!shows_seconds("%H:%M"));
+        assert!(!shows_seconds("%a %d %b  %H:%M"));
+        assert!(shows_seconds("%H:%M:%S"));
+        assert!(shows_seconds("%T"));
+        assert!(shows_seconds("%-I:%M:%S %p"));
+        assert!(!shows_seconds("100%% %H:%M"), "%% is a percent sign");
+        assert!(!shows_seconds("%H:%M %%S"));
+        // 12:00:30.250: next minute in 29.75 s; next second in 0.75 s.
+        assert_eq!(until_next_tick(false, 30, 250_000), 29_750);
+        assert_eq!(until_next_tick(true, 30, 250_000), 750);
+        assert_eq!(until_next_tick(false, 59, 999_999), 1);
+        assert_eq!(until_next_tick(false, 0, 0), 60_000);
+    }
 
     #[test]
     fn battery_icons_in_steps() {

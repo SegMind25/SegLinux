@@ -1,13 +1,15 @@
 //! What the desktop offers other applications, once per session (the docks
 //! are rebuilt when settings or monitors change; these are not): the
-//! notification service, the system tray and the on-screen display.
-use crate::{notify, osd, sni};
+//! notification service, the system tray, the on-screen display and the
+//! badges applications put on their dock icons.
+use crate::{badges, notify, osd, sni};
 
 #[derive(Clone)]
 pub struct Services {
     pub notifications: notify::Center,
     pub tray: sni::Host,
     pub osd: osd::Osd,
+    pub badges: badges::Badges,
 }
 
 impl Services {
@@ -18,6 +20,7 @@ impl Services {
             notifications: notify::Center::start(app, layer),
             tray: sni::Host::start(),
             osd: osd::Osd::new(app, layer),
+            badges: badges::Badges::start(),
         }
     }
 }

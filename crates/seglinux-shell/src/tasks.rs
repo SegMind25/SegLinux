@@ -1,10 +1,14 @@
 //! Open windows, from wlroots foreign-toplevel (never process-name
 //! guessing): the dock lists them and can activate, minimize, close them and
 //! show the desktop.
+//!
+//! The compositor connection is part of GTK's main loop: the desktop wakes
+//! up when the compositor has news (a window opened, closed, retitled,
+//! focused), never to look for it.
 use gtk::{glib, prelude::*};
-use std::{collections::BTreeMap, sync::mpsc, time::Duration};
+use std::{cell::RefCell, collections::BTreeMap, os::fd::AsRawFd, rc::Rc};
 use wayland_client::{
-    Connection, Dispatch, Proxy, QueueHandle, WEnum,
+    Connection, Dispatch, EventQueue, Proxy, QueueHandle, WEnum,
     protocol::{wl_registry, wl_seat},
 };
 use wayland_protocols_wlr::foreign_toplevel::v1::client::{
@@ -18,6 +22,7 @@ pub struct Task {
     pub app_id: String,
     pub active: bool,
     pub minimized: bool,
+    pub fullscreen: bool,
 }
 
 /// What the dock asks the compositor to do.
@@ -30,13 +35,32 @@ pub enum Action {
     ShowDesktop,
 }
 
-/// Sends actions to the compositor connection.
+struct Link {
+    connection: Connection,
+    queue: RefCell<EventQueue<State>>,
+    state: RefCell<State>,
+    source: RefCell<Option<glib::SourceId>>,
+}
+
+impl Drop for Link {
+    fn drop(&mut self) {
+        if let Some(source) = self.source.take() {
+            source.remove();
+        }
+    }
+}
+
+/// Sends actions to the compositor (nothing without one, as in the preview
+/// on X11).
 #[derive(Clone)]
-pub struct Tasks(mpsc::Sender<Action>);
+pub struct Tasks(Option<Rc<Link>>);
 
 impl Tasks {
     pub fn send(&self, action: Action) {
-        let _ = self.0.send(action);
+        if let Some(link) = &self.0 {
+            link.state.borrow().apply(action);
+            let _ = link.connection.flush();
+        }
     }
 }
 
@@ -44,16 +68,15 @@ struct Entry {
     proxy: handle::ZwlrForeignToplevelHandleV1,
     task: Task,
 }
+#[derive(Default)]
 struct State {
     windows: BTreeMap<u32, Entry>,
     seat: Option<wl_seat::WlSeat>,
-    updates: mpsc::Sender<Vec<Task>>,
+    changed: bool,
 }
 impl State {
-    fn publish(&self) {
-        let _ = self
-            .updates
-            .send(self.windows.values().map(|w| w.task.clone()).collect());
+    fn tasks(&self) -> Vec<Task> {
+        self.windows.values().map(|w| w.task.clone()).collect()
     }
 
     fn apply(&self, action: Action) {
@@ -87,65 +110,94 @@ impl State {
     }
 }
 
+/// Reads what the compositor sent and dispatches it. False when the
+/// connection is gone.
+fn pump(link: &Link) -> bool {
+    let mut queue = link.queue.borrow_mut();
+    let mut state = link.state.borrow_mut();
+    if queue.dispatch_pending(&mut state).is_err() {
+        return false;
+    }
+    if let Some(guard) = queue.prepare_read() {
+        match guard.read() {
+            Ok(_) => {}
+            Err(wayland_client::backend::WaylandError::Io(e))
+                if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => return false,
+        }
+    }
+    queue.dispatch_pending(&mut state).is_ok() && link.connection.flush().is_ok()
+}
+
 /// Follows the open windows. `on_update` runs on the GTK main loop whenever
 /// the list changes, for as long as `owner` exists: when the dock is
-/// rebuilt (new monitor, changed settings), the old one's timer stops, and
-/// its compositor connection closes once its `Tasks` are dropped.
+/// rebuilt (new monitor, changed settings), the old one stops listening and
+/// its compositor connection closes.
 pub fn watch(owner: &impl IsA<gtk::Widget>, on_update: impl Fn(&[Task]) + 'static) -> Tasks {
-    let (updates_tx, updates_rx) = mpsc::channel();
-    let (actions_tx, actions_rx) = mpsc::channel::<Action>();
-    std::thread::spawn(move || {
-        let Ok(connection) = Connection::connect_to_env() else {
-            return;
+    let Ok(connection) = Connection::connect_to_env() else {
+        return Tasks(None);
+    };
+    let mut queue = connection.new_event_queue();
+    let qh = queue.handle();
+    connection.display().get_registry(&qh, ());
+    let mut state = State::default();
+    // The first round trip lists the globals (and binds the window list
+    // while handling them); the second sends that and brings the windows
+    // already open.
+    if queue.roundtrip(&mut state).is_err() || queue.roundtrip(&mut state).is_err() {
+        return Tasks(None);
+    }
+    let fd = connection.backend().poll_fd().as_raw_fd();
+    let link = Rc::new(Link {
+        connection,
+        queue: RefCell::new(queue),
+        state: RefCell::new(state),
+        source: RefCell::default(),
+    });
+    let weak = Rc::downgrade(&link);
+    let report = move |link: &Link| {
+        let tasks = {
+            let mut state = link.state.borrow_mut();
+            if !std::mem::take(&mut state.changed) {
+                return;
+            }
+            state.tasks()
         };
-        let mut queue = connection.new_event_queue();
-        let qh = queue.handle();
-        connection.display().get_registry(&qh, ());
-        let mut state = State {
-            windows: BTreeMap::new(),
-            seat: None,
-            updates: updates_tx,
-        };
-        if queue.roundtrip(&mut state).is_err() {
-            return;
-        }
-        loop {
-            if queue.dispatch_pending(&mut state).is_err() {
-                break;
+        on_update(&tasks);
+    };
+    report(&link);
+    let source = glib::unix_fd_add_local(
+        fd,
+        glib::IOCondition::IN | glib::IOCondition::ERR | glib::IOCondition::HUP,
+        move |_, condition| {
+            let Some(link) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            let alive = !condition.intersects(glib::IOCondition::ERR | glib::IOCondition::HUP)
+                && pump(&link);
+            report(&link);
+            if alive {
+                glib::ControlFlow::Continue
+            } else {
+                // The compositor is gone (the session is ending).
+                link.source.take();
+                glib::ControlFlow::Break
             }
-            loop {
-                match actions_rx.try_recv() {
-                    Ok(action) => state.apply(action),
-                    Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => return,
-                }
-            }
-            if connection.flush().is_err() {
-                break;
-            }
-            // Non-blocking socket read; a short poll keeps UI commands responsive.
-            if let Some(guard) = connection.prepare_read() {
-                match guard.read() {
-                    Ok(_) => {}
-                    Err(wayland_client::backend::WaylandError::Io(e))
-                        if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                    Err(_) => break,
-                }
-            }
-            std::thread::sleep(Duration::from_millis(35));
+        },
+    );
+    link.source.replace(Some(source));
+    // The dock owns the connection: it closes with the dock. (The listener
+    // holds the dock's buttons, which hold the connection: stopping the
+    // listener breaks that circle.)
+    let held = RefCell::new(Some(link.clone()));
+    owner.as_ref().connect_destroy(move |_| {
+        if let Some(link) = held.take()
+            && let Some(source) = link.source.take()
+        {
+            source.remove();
         }
     });
-    let owner = owner.downgrade();
-    glib::timeout_add_local(Duration::from_millis(100), move || {
-        if owner.upgrade().is_none() {
-            return glib::ControlFlow::Break;
-        }
-        if let Some(tasks) = updates_rx.try_iter().last() {
-            on_update(&tasks);
-        }
-        glib::ControlFlow::Continue
-    });
-    Tasks(actions_tx)
+    Tasks(Some(link))
 }
 
 impl Dispatch<wl_registry::WlRegistry, ()> for State {
@@ -201,6 +253,7 @@ impl Dispatch<manager::ZwlrForeignToplevelManagerV1, ()> for State {
                         app_id: String::new(),
                         active: false,
                         minimized: false,
+                        fullscreen: false,
                     },
                 },
             );
@@ -240,13 +293,14 @@ impl Dispatch<handle::ZwlrForeignToplevelHandleV1, ()> for State {
                     let has = |s: handle::State| states.contains(&WEnum::Value(s));
                     entry.task.active = has(handle::State::Activated);
                     entry.task.minimized = has(handle::State::Minimized);
+                    entry.task.fullscreen = has(handle::State::Fullscreen);
                 }
             }
-            handle::Event::Done => state.publish(),
+            handle::Event::Done => state.changed = true,
             handle::Event::Closed => {
                 state.windows.remove(&id);
                 proxy.destroy();
-                state.publish();
+                state.changed = true;
             }
             _ => {}
         }

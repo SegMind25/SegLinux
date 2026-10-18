@@ -7,7 +7,7 @@ xdg-user-dirs-update
 if [ -x /usr/lib/seglinux/live-autostart ]; then
     /usr/lib/seglinux/live-autostart &
 fi
-# The shell draws a wallpaper and a dock: GTK's CPU renderer does that with
-# about 40 MB of memory, its OpenGL renderer needs several times more. Only
-# the shell is affected; games and applications keep using the GPU.
-GSK_RENDERER="${GSK_RENDERER:-cairo}" seglinux-shell &
+# The desktop (wallpaper, dock, notifications), restarted if it ever crashes.
+# It picks its own way of drawing (common.rs, shell_environment);
+# applications and games keep using the GPU.
+seglinux-shell &

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Emoji Selector
+Comment=Find an emoji and copy it (Super+.)
+Exec=gapplication action org.seglinux.Shell emoji
+Icon=face-smile
+Type=Application
+Categories=Utility;
+Keywords=emoji;smiley;emoticon;symbol;
+NotShowIn=KDE;
