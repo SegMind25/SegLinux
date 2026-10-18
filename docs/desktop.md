@@ -163,14 +163,17 @@ SDDM's automatic sign-in if there was one. To switch by hand instead (OpenRC; fo
 
 ```sh
 sudo seglinux-upgrade                       # brings seglinux-greeter (docs/updating.md)
+sudo rc-update del sddm default
+sudo pacman -Rdd sddm-openrc        # it conflicts with greetd-openrc
 sudo pacman -S --needed greetd greetd-openrc
 sudo cp /usr/share/seglinux/greeter/greetd.toml /etc/greetd/config.toml
 sudo install -d -o greeter -g greeter /var/lib/seglinux-greeter
-sudo rc-update del sddm default && sudo rc-update add greetd default
+sudo rc-update add greetd default
 ```
 
-and restart. To go back: `sudo rc-update del greetd default && sudo
-rc-update add sddm default`.
+and restart. (The switch removes `sddm-openrc`, which conflicts with
+`greetd-openrc`.) To go back: `sudo rc-update del greetd default && sudo
+pacman -S sddm-openrc && sudo rc-update add sddm default`.
 
 ## Try it without switching desktop
 
