@@ -46,7 +46,9 @@ Laid out like a Plasma desktop with a floating panel:
     Discord, Telegram, nm-applet... see below), network state (click for
     the connection editor, or nmtui), volume (click for the mixer, scroll
     to change, middle click to mute), battery on laptops, notifications,
-    quick settings (sound, Bluetooth when the computer has it, display,
+    quick settings (a **Dark mode** switch, which applications that follow the
+    system's light or dark preference follow too; sound, Bluetooth when the
+    computer has it, display,
     lock, desktop settings, power) and the date and time (click for a
     calendar).
 - **Notifications**: the desktop is the session's notification service

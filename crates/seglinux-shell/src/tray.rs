@@ -398,6 +398,7 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
     heading.add_css_class("heading");
     heading.set_xalign(0.0);
     content.append(&heading);
+    content.append(&dark_mode_switch(preview));
     let bluetooth = bluetooth_tool();
     let (bluetooth_command, bluetooth_args) = bluetooth.clone().unwrap_or(("", vec![]));
     for (label, icon, command, args) in [
@@ -441,6 +442,39 @@ fn quick_settings(app: &gtk::Application, preview: bool) -> gtk::Popover {
     content.append(&common::power_buttons(preview));
     popover.set_child(Some(&content));
     popover
+}
+
+/// Dark or light, for the desktop and the applications that follow the
+/// system: saved in shell.toml like Settings' Desktop theme, which the
+/// desktop applies at once.
+fn dark_mode_switch(preview: bool) -> gtk::Box {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    row.add_css_class("quick-toggle");
+    row.append(&gtk::Image::from_icon_name("weather-clear-night-symbolic"));
+    let label = gtk::Label::new(Some("Dark mode"));
+    label.set_xalign(0.0);
+    label.set_hexpand(true);
+    row.append(&label);
+    let config = Config::try_load().unwrap_or_default();
+    let switch = gtk::Switch::builder()
+        .active(config.theme == crate::config::Theme::Dark)
+        .valign(gtk::Align::Center)
+        .build();
+    switch.set_sensitive(!preview);
+    switch.connect_state_set(|_, dark| {
+        let mut config = Config::try_load().unwrap_or_default();
+        config.theme = if dark {
+            crate::config::Theme::Dark
+        } else {
+            crate::config::Theme::Light
+        };
+        if let Err(error) = crate::settings::save_text(&Config::path(), &config.to_toml()) {
+            common::show_error(&format!("Cannot change the theme: {error}"));
+        }
+        glib::Propagation::Proceed
+    });
+    row.append(&switch);
+    row
 }
 
 /// The clock; a click shows the calendar.

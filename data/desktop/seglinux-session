@@ -4,7 +4,6 @@ set -eu
 export XDG_CURRENT_DESKTOP=SegLinux:wlroots
 export XDG_SESSION_DESKTOP=seglinux
 export XDG_SESSION_TYPE=wayland
-export GTK_THEME=Adwaita:dark
 export GDK_BACKEND=wayland
 export QT_QPA_PLATFORM=wayland
 # Breeze cursors come with Plasma (full edition); Adwaita's with GTK (Lite).
