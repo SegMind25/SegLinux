@@ -54,6 +54,32 @@ fn apply_gtk_settings(config: &Config) {
     }
 }
 
+/// The system's light or dark preference, which applications follow:
+/// GNOME's color-scheme (read by GTK and libadwaita applications, and by
+/// Brave, Firefox and Qt through xdg-desktop-portal) and the GTK 3 theme.
+/// Only the session's desktop sets it, not the preview or Settings.
+fn apply_system_theme(config: &Config) {
+    if std::env::var_os(supervise::CHILD).is_none() {
+        return;
+    }
+    let dark = config.theme == config::Theme::Dark;
+    let Some(schema) = gio::SettingsSchemaSource::default()
+        .and_then(|source| source.lookup("org.gnome.desktop.interface", true))
+    else {
+        return;
+    };
+    let settings = gio::Settings::new("org.gnome.desktop.interface");
+    if schema.has_key("color-scheme") {
+        let _ = settings.set_string(
+            "color-scheme",
+            if dark { "prefer-dark" } else { "prefer-light" },
+        );
+    }
+    if schema.has_key("gtk-theme") {
+        let _ = settings.set_string("gtk-theme", if dark { "Adwaita-dark" } else { "Adwaita" });
+    }
+}
+
 /// GTK 4.20 replaced gtk-application-prefer-dark-theme with
 /// gtk-interface-color-scheme and warns when the old setting is used; older
 /// GTK only knows the old one.
@@ -218,6 +244,7 @@ fn main() -> glib::ExitCode {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
         apply_gtk_settings(&config.borrow());
+        apply_system_theme(&config.borrow());
         if let Some(page) = &settings {
             settings::open(app, &config.borrow(), page, &css);
             return;
@@ -402,6 +429,7 @@ fn main() -> glib::ExitCode {
             }
             css.load_from_data(&fresh.css());
             apply_gtk_settings(&fresh);
+            apply_system_theme(&fresh);
             if !preview && let Err(error) = compositor::sync(&fresh) {
                 eprintln!("Cannot update the compositor's settings: {error}");
             }

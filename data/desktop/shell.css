@@ -60,6 +60,7 @@ dialog, .settings-window { background: #202326; }
 .settings-section { background: alpha(#ffffff, 0.04); border: 1px solid alpha(#ffffff, 0.08); border-radius: 10px; padding: 2px 0; }
 .settings-row { padding: 9px 14px; min-height: 34px; }
 .settings-row + .settings-row { border-top: 1px solid alpha(#ffffff, 0.06); }
+.quick-toggle { padding: 4px 8px; }
 .settings-section > button { margin: 4px 10px; }
 .dim-label { opacity: 0.72; }
 .caption { font-size: 12px; }
