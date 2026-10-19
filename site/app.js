@@ -306,10 +306,14 @@ function render(releases, source) {
   for (const node of document.querySelectorAll("[data-iso-sizes]")) {
     if (lite && full) node.textContent = `Lite ${formatSize(lite.size)} · Full ${formatSize(full.size)}`;
   }
+  // The newest image of each edition is listed; the older ones wait behind
+  // a button, not as a long list.
+  const current = new Set([lite, full].filter(Boolean));
+  const older = builds.filter((build) => !current.has(build)).length;
   const rows = builds.map((build) =>
     el(
       "tr",
-      {},
+      current.has(build) ? {} : { class: "older" },
       el("td", {}, releaseTime(build)),
       el("td", {}, build.edition === "lite" ? "Lite" : "Full", ...(build.previousName ? [el("span", { class: "tag", title: "Built before the project was renamed from Wincraft" }, "old name")] : [])),
       el("td", {}, build.label),
@@ -319,10 +323,25 @@ function render(releases, source) {
     ),
   );
   document.getElementById("builds").replaceChildren(...rows);
+  const toggle = document.getElementById("builds-toggle");
+  toggle.hidden = older === 0;
+  toggle.dataset.count = older;
+  showOlder(toggle.getAttribute("aria-expanded") === "true");
   const status = document.getElementById("builds-status");
   status.textContent = `${builds.length} image${builds.length === 1 ? "" : "s"} available · Select a file to download directly.`;
   return true;
 }
+
+function showOlder(shown) {
+  const toggle = document.getElementById("builds-toggle");
+  const count = Number(toggle.dataset.count || 0);
+  for (const row of document.querySelectorAll("#builds tr.older")) row.hidden = !shown;
+  toggle.setAttribute("aria-expanded", String(shown));
+  toggle.textContent = shown ? "Hide older builds" : `Show ${count} older build${count === 1 ? "" : "s"}`;
+}
+document.getElementById("builds-toggle").addEventListener("click", (event) => {
+  showOlder(event.currentTarget.getAttribute("aria-expanded") !== "true");
+});
 
 async function loadReleases() {
   let shown = false;
