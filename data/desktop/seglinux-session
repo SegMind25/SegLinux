@@ -6,6 +6,9 @@ export XDG_SESSION_DESKTOP=seglinux
 export XDG_SESSION_TYPE=wayland
 export GDK_BACKEND=wayland
 export QT_QPA_PLATFORM=wayland
+# Electron applications (Vesktop, Discord, VS Code) run on Wayland rather
+# than through Xwayland: sharp text and working screen sharing.
+export ELECTRON_OZONE_PLATFORM_HINT=auto
 # Breeze cursors come with Plasma (full edition); Adwaita's with GTK (Lite).
 if [ -d /usr/share/icons/breeze_cursors ]; then
     export XCURSOR_THEME=breeze_cursors

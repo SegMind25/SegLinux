@@ -322,3 +322,24 @@ and does not unlock KDE Wallet at sign-in as SDDM did.
 - [GTK4 Rust bindings](https://gtk-rs.org/gtk4-rs/stable/latest/docs/gtk4/)
 - [gtk4-layer-shell](https://docs.rs/gtk4-layer-shell/0.7.1/gtk4_layer_shell/)
 - [labwc configuration](https://labwc.github.io/labwc-config.5.html)
+
+## Screenshots and screen sharing
+
+- **Print**: the whole screen. **Shift+Print** or **Super+Shift+S**: drag
+  to choose an area (Esc cancels). The picture is saved in
+  Pictures/Screenshots and copied, ready to paste with Ctrl+V.
+- Screen sharing in Vesktop, Discord, OBS and browsers goes through
+  xdg-desktop-portal-wlr. With one screen it is shared at once; with
+  several, SegLinux asks which one. Sharing a single window is not
+  available yet: share the screen it is on. Electron applications run on
+  Wayland in this session (`ELECTRON_OZONE_PLATFORM_HINT=auto`), which
+  screen sharing needs.
+
+## Network and memory tuning
+
+- TCP BBR with fq pacing, TCP Fast Open, no slow restart after idle and
+  MTU probing (`/etc/sysctl.d/81-seglinux-network.conf`): fewer lag spikes
+  while something downloads, steadier speed on slow and fast connections.
+- Compressed swap in memory (zram, zstd, half the RAM up to 8 GB), set up
+  at boot by `/usr/lib/seglinux/zram-setup`: low-end PCs keep more open
+  without stutter. Check it with `swapon --show`.

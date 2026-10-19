@@ -1,0 +1,28 @@
+#!/bin/sh
+# Compressed swap in memory (zram), run by udev when /dev/zram0 appears.
+# Low-end PCs keep more programs and browser tabs open without lags, and
+# nothing is written to the disk. Half the memory, at most 8 GB; zstd
+# usually fits it in a quarter of that. A swap partition or file stays, for
+# what zram cannot hold.
+set -eu
+PATH=/usr/bin:/usr/sbin:/bin:/sbin
+dev=/dev/zram0
+sys=/sys/block/zram0
+# Already in use (a second run, or set up by hand): leave it.
+grep -q "^$dev " /proc/swaps && exit 0
+[ "$(cat "$sys/disksize")" = 0 ] || exit 0
+total_kib=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
+size_kib=$((total_kib / 2))
+[ "$size_kib" -gt 8388608 ] && size_kib=8388608
+echo zstd > "$sys/comp_algorithm" 2>/dev/null || true
+echo "${size_kib}K" > "$sys/disksize"
+mkswap -U clear "$dev" >/dev/null
+swapon -p 100 "$dev"
+# Swapping to memory is cheap: use it before dropping file caches, and
+# read one page at a time (what Fedora and SteamOS do with zram).
+echo 100 > /proc/sys/vm/swappiness
+echo 0 > /proc/sys/vm/page-cluster
+# zswap would compress the same pages a second time on their way here.
+if [ -w /sys/module/zswap/parameters/enabled ]; then
+    echo 0 > /sys/module/zswap/parameters/enabled
+fi

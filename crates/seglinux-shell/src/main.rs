@@ -17,6 +17,7 @@ mod managed;
 mod notify;
 mod osd;
 mod pins;
+mod screenshot;
 mod services;
 mod settings;
 mod sni;
@@ -39,10 +40,12 @@ const HELP: &str = "SegLinux Shell
   --wallpaper PATH     Override the background
   --settings [PAGE]    Open Settings (appearance, desktop, windows, gaming, system)
   --gaming-mode-args   Print gamescope's options for the Gaming Mode session
+  --pick-output        Choose the screen to share (xdg-desktop-portal-wlr)
   --version            Show version
 
 Open Start: gapplication action org.seglinux.Shell menu
 Emoji selector: gapplication action org.seglinux.Shell emoji
+Screenshot: gapplication action org.seglinux.Shell screenshot \"'screen'\" (or 'area')
 Volume and brightness keys: gapplication action org.seglinux.Shell volume \"'up'\"
   (volume: up, down, mute, mic-mute; brightness: up, down)";
 
@@ -134,6 +137,10 @@ fn main() -> glib::ExitCode {
     if args.iter().any(|a| a == "--version") {
         println!("seglinux-shell {}", env!("CARGO_PKG_VERSION"));
         return glib::ExitCode::SUCCESS;
+    }
+    // For xdg-desktop-portal-wlr: the screen to share.
+    if args.iter().any(|a| a == "--pick-output") {
+        return screenshot::pick_output();
     }
     // For seglinux-gaming-session: one option per line, without starting GTK.
     if args.iter().any(|a| a == "--gaming-mode-args") {
@@ -276,6 +283,14 @@ fn main() -> glib::ExitCode {
             }
         });
         app.add_action(&emoji_action);
+        // Print: the whole screen; Shift+Print and Super+Shift+S: an area.
+        let screenshot_action = gio::SimpleAction::new("screenshot", Some(glib::VariantTy::STRING));
+        let screenshot_services = services.clone();
+        screenshot_action.connect_activate(move |_, kind| {
+            let area = kind.and_then(|k| k.str()) == Some("area");
+            screenshot::take(area, &screenshot_services.notifications);
+        });
+        app.add_action(&screenshot_action);
 
         // Builds (or rebuilds) the desktop with the current configuration.
         let rebuild: Rc<dyn Fn()> = if preview {
