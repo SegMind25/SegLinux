@@ -55,6 +55,8 @@ rootfs:
     - wdisplays
     - xdg-desktop-portal-wlr
     - xdg-desktop-portal-gtk
+    - grim                         # screenshots (Print, Win+Shift+S)
+    - slurp
 
     # Plasma remains available as a fallback session during shell development.
     - plasma-desktop               # desktop, taskbar, Start menu

@@ -1,0 +1,2 @@
+# Compressed swap in memory on /dev/zram0 (/usr/lib/seglinux/zram-setup).
+ACTION=="add", KERNEL=="zram0", SUBSYSTEM=="block", RUN+="/usr/lib/seglinux/zram-setup"

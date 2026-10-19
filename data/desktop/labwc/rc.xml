@@ -36,6 +36,9 @@
     <keybind key="C-W-Right"><action name="GoToDesktop" to="right" wrap="yes" /></keybind>
     <keybind key="C-S-W-Left"><action name="SendToDesktop" to="left" wrap="yes" /></keybind>
     <keybind key="C-S-W-Right"><action name="SendToDesktop" to="right" wrap="yes" /></keybind>
+    <keybind key="Print"><action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'screen'&quot;" /></keybind>
+    <keybind key="S-Print"><action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'area'&quot;" /></keybind>
+    <keybind key="W-S-s"><action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'area'&quot;" /></keybind>
     <keybind key="W-period"><action name="Execute" command="gapplication action org.seglinux.Shell emoji" /></keybind>
     <keybind key="XF86AudioRaiseVolume"><action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'up'&quot;" /></keybind>
     <keybind key="XF86AudioLowerVolume"><action name="Execute" command="gapplication action org.seglinux.Shell volume &quot;'down'&quot;" /></keybind>

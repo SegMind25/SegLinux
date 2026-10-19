@@ -64,6 +64,20 @@ const KEYBINDS: &[(&str, &str)] = &[
         "C-S-W-Right",
         r#"<action name="SendToDesktop" to="right" wrap="yes" />"#,
     ),
+    // Screenshots (screenshot.rs): the whole screen, or an area as
+    // Windows' Snipping Tool.
+    (
+        "Print",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'screen'&quot;" />"#,
+    ),
+    (
+        "S-Print",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'area'&quot;" />"#,
+    ),
+    (
+        "W-S-s",
+        r#"<action name="Execute" command="gapplication action org.seglinux.Shell screenshot &quot;'area'&quot;" />"#,
+    ),
     // The emoji selector, as Plasma's Meta+. (emoji.rs).
     (
         "W-period",

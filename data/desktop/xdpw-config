@@ -1,0 +1,5 @@
+# Screen sharing in the SegLinux desktop (Discord, Vesktop, OBS, browsers).
+# With one screen it is shared at once; with several, SegLinux asks which.
+[screencast]
+chooser_type=simple
+chooser_cmd=seglinux-shell --pick-output

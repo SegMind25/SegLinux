@@ -38,6 +38,8 @@ optdepends=(
     'polkit-gnome: authentication agent in the SegLinux session'
     'xdg-desktop-portal-wlr: screen sharing in the Rust desktop'
     'xdg-desktop-portal-gtk: desktop file and URI portals'
+    'grim: screenshots in the Rust desktop'
+    'slurp: screenshots of an area in the Rust desktop'
     'gamemode: segrun runs games under GameMode'
     'mangohud: segrun --hud performance overlay'
     'gamescope: SegLinux Gaming Mode session and segrun --gamescope'
@@ -48,6 +50,8 @@ backup=(
     'etc/seglinux/greeter.toml'
     'etc/binfmt.d/wine.conf'
     'etc/sysctl.d/80-seglinux-gaming.conf'
+    'etc/sysctl.d/81-seglinux-network.conf'
+    'etc/xdg/xdg-desktop-portal-wlr/config'
     'etc/gamemode.ini'
     'etc/security/limits.d/90-seglinux-esync.conf'
     'etc/modules-load.d/10-ntsync.conf'
@@ -156,6 +160,12 @@ package() {
     install -Dm644 "$data/system/sysctl-gaming.conf" "$pkgdir/etc/sysctl.d/80-seglinux-gaming.conf"
     install -Dm644 "$data/system/limits-esync.conf" "$pkgdir/etc/security/limits.d/90-seglinux-esync.conf"
     install -Dm644 "$data/system/modules-ntsync.conf" "$pkgdir/etc/modules-load.d/10-ntsync.conf"
+    install -Dm644 "$data/system/sysctl-network.conf" "$pkgdir/etc/sysctl.d/81-seglinux-network.conf"
+    install -Dm644 "$data/system/modules-network.conf" "$pkgdir/usr/lib/modules-load.d/seglinux-network.conf"
+    install -Dm644 "$data/system/modules-zram.conf" "$pkgdir/usr/lib/modules-load.d/seglinux-zram.conf"
+    install -Dm644 "$data/system/udev-zram.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-zram.rules"
+    install -Dm755 "$data/system/zram-setup" "$pkgdir/usr/lib/seglinux/zram-setup"
+    install -Dm644 "$data/desktop/xdpw-config" "$pkgdir/etc/xdg/xdg-desktop-portal-wlr/config"
     install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-seglinux-ntsync.rules"
 
     # Gaming and latency tuning
