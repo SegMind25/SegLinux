@@ -817,15 +817,19 @@ pub fn build(
             description: format!(
                 "Installing the NVIDIA driver for {gpu} (needs a network connection)"
             ),
-            actions: vec![Action::chroot_optional(Cmd::new("pacman").args([
-                "-Syu",
-                "--noconfirm",
-                "--needed",
-                "nvidia-open-dkms",
-                "nvidia-utils",
-                "lib32-nvidia-utils",
-                "nvidia-settings",
-            ]))],
+            // The image carries no kernel headers (325 MiB nobody else
+            // needs); DKMS builds the driver against the ones fetched here.
+            actions: vec![Action::chroot_optional(
+                Cmd::new("pacman")
+                    .args(["-Syu", "--noconfirm", "--needed"])
+                    .arg(kernel_headers(facts.kernel.as_deref()))
+                    .args([
+                        "nvidia-open-dkms",
+                        "nvidia-utils",
+                        "lib32-nvidia-utils",
+                        "nvidia-settings",
+                    ]),
+            )],
         });
     }
     sp.push(Step {
@@ -1082,6 +1086,12 @@ fn run_command_step(c: &crate::answer::RunCommand) -> Step {
     }
 }
 
+/// The headers package of the kernel the new system runs. The stock
+/// kernel's is the fallback when the running one is unknown.
+fn kernel_headers(kernel: Option<&str>) -> String {
+    format!("{}-headers", kernel.unwrap_or("linux"))
+}
+
 /// `UTF-8`/`utf8` -> `UTF-8` for locale.gen.
 fn charset_name(charset: &str) -> String {
     match charset.to_ascii_lowercase().replace('-', "").as_str() {
@@ -1137,6 +1147,7 @@ mod tests {
             network: true,
             memory: 4 * GIB,
             gpus: vec![],
+            kernel: Some("linux-zen".into()),
             timezones: None,
             locales: None,
             keyboards: None,
@@ -1288,9 +1299,19 @@ mod tests {
         }];
         let text = build_plan(&answer(""), &f).unwrap().to_string();
         assert!(text.contains("Installing the NVIDIA driver for NVIDIA 10de:2684"));
-        assert!(text.contains("pacman -Syu --noconfirm --needed nvidia-open-dkms nvidia-utils lib32-nvidia-utils nvidia-settings  # may fail"));
+        assert!(text.contains("pacman -Syu --noconfirm --needed linux-zen-headers nvidia-open-dkms nvidia-utils lib32-nvidia-utils nvidia-settings  # may fail"));
         // The driver is installed before the initramfs is built.
         assert!(text.find("nvidia-open-dkms").unwrap() < text.find("mkinitcpio -P").unwrap());
+
+        // The headers match the kernel that is running; the stock kernel's
+        // are the fallback when it cannot be told.
+        f.kernel = Some("linux-lts".into());
+        let text = build_plan(&answer(""), &f).unwrap().to_string();
+        assert!(text.contains("--needed linux-lts-headers nvidia-open-dkms"));
+        f.kernel = None;
+        let text = build_plan(&answer(""), &f).unwrap().to_string();
+        assert!(text.contains("--needed linux-headers nvidia-open-dkms"));
+        f.kernel = Some("linux-zen".into());
 
         let a = answer("[drivers]\nnvidia = \"never\"\n");
         assert!(

@@ -22,7 +22,6 @@ live-session:
     - acpid
     - bluetoothd
     - cronie
-    - cupsd
     - syslog-ng
     - NetworkManager
     - greetd
@@ -76,17 +75,12 @@ rootfs:
     - print-manager                # Devices and Printers
     - discover                     # Microsoft Store
     - flatpak
-    - xorg-server
-    - xorg-xwayland
-    - xdg-user-dirs
-    - xdg-utils
 
     # Accessories
     - dolphin                      # File Explorer
     - kitty                        # Terminal
     - kate                         # Notepad
     - kcalc                        # Calculator
-    - spectacle                    # Snipping Tool
     - gwenview                     # Photos
     - okular                       # PDF reader
     - ark                          # compressed folders
@@ -120,7 +114,6 @@ rootfs:
     # Courier New, Calibri) so documents keep their layout
     - noto-fonts
     - noto-fonts-emoji
-    - ttf-liberation
     - ttf-carlito
 
     # Running Windows programs and games

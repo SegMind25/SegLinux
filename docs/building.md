@@ -22,12 +22,13 @@ The ISO and its checksum are written to `iso/out/`, for example
 
 `common.yaml` names the stock `linux` kernel, which is what artools expects.
 For `linux-zen` (or `linux-lts`) the build swaps the kernel in a staged copy
-of the profile and runs `buildiso` with a patched copy of the artools
+of the profile. It always runs `buildiso` with a patched copy of the artools
 library (`LIBDIR`): artools reads the live kernel's version from
-`/usr/src/linux/version`, which only the stock kernel's headers provide, and
-the copy reads it from `/usr/lib/modules` instead. The installed artools
-files are not modified. If artools changes that code, the build stops with a
-message suggesting `-k linux`.
+`/usr/src/linux/version`, which only a kernel's headers provide, and the
+images carry no headers (only DKMS drivers need them, and Setup downloads
+them with the NVIDIA driver), so the copy reads the version from
+`/usr/lib/modules` instead. The installed artools files are not modified.
+If artools changes that code, the build stops with a message.
 
 Needs: about 25 GB of free disk space, a network connection, and root
 rights for the container (`--privileged`, because `buildiso` mounts file

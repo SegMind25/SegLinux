@@ -131,9 +131,10 @@ fi
 
 # Kernel: common.yaml names the stock kernel, which artools expects; swap in
 # the requested one. artools derives the live initramfs' kernel version from
-# /usr/src/linux/version, which only the stock linux-headers provides, so for
-# other kernels buildiso runs with a patched copy of its library (buildiso
-# honours LIBDIR) that reads the version from /usr/lib/modules instead.
+# /usr/src/linux/version, which only a kernel's headers provide. The images
+# carry no headers (only DKMS drivers need them, and Setup downloads those),
+# so for every kernel buildiso runs with a patched copy of its library
+# (buildiso honours LIBDIR) that reads the version from /usr/lib/modules.
 # Copy artools' library once so that buildiso (which honours LIBDIR) runs
 # with patched code; the installed artools files stay untouched.
 patched_lib() {
@@ -156,12 +157,11 @@ patch_lib() {
 use_kernel() {
     sed -i -E "s/^(\s*-\s*)linux$/\1$kernel/; s/^(\s*-\s*)linux-headers$/\1$kernel-headers/" \
         "$workspace/iso-profiles/common/common.yaml"
-    [[ $kernel == linux ]] && return
-    patched_lib || die "this buildiso does not honour LIBDIR; build with -k linux"
+    patched_lib || die "this buildiso does not honour LIBDIR; the images have no kernel headers for it to read the kernel version from"
     # shellcheck disable=SC2016 # literal shell code, not expansions
     patch_lib iso/initcpio.sh 'k=$(<"$mnt"/usr/src/linux/version)' \
         'k=$(basename "$(dirname "$(find "$mnt"/usr/lib/modules -mindepth 2 -maxdepth 2 -name vmlinuz | sort -V | tail -n1)")")' ||
-        die "artools changed how it finds the kernel version in iso/initcpio.sh; build with -k linux"
+        die "artools changed how it finds the kernel version in iso/initcpio.sh"
 }
 step "Using the $kernel kernel"
 use_kernel

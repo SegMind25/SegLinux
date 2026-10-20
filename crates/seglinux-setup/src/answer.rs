@@ -323,6 +323,8 @@ pub enum CommandPass {
 }
 
 /// Services enabled on every installation (missing ones are skipped).
+/// `cupsd` is installed but not started: few gaming PCs print, and OpenRC has
+/// no socket activation to start it on demand (`seg svc enable cupsd`).
 pub const DEFAULT_SERVICES: &[&str] = &[
     "dbus",
     "elogind",
@@ -332,7 +334,6 @@ pub const DEFAULT_SERVICES: &[&str] = &[
     "NetworkManager",
     "greetd",
     "bluetoothd",
-    "cupsd",
     "cronie",
     "syslog-ng",
     "ntpd",

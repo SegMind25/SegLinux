@@ -200,6 +200,7 @@ pub fn demo_facts() -> Facts {
         network: true,
         memory: 8 * GIB,
         gpus: vec![],
+        kernel: Some("linux-zen".into()),
         timezones: Some(set(&[
             "UTC",
             "Africa/Tunis",
