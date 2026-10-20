@@ -90,11 +90,15 @@ published.
   kitty as the terminal (File Explorer → Dolphin, Store → Discover, ...).
   The terminal opens with system information under the SegLinux logo
   (fastfetch).
-* **Built for gaming.** linux-zen kernel, Steam with Proton, Lutris,
-  GameMode, MangoHud and gamescope; a Steam "Gaming Mode" session; variable
-  refresh rate and tearing for fullscreen games; zram swap, NTSYNC, I/O
-  scheduler and sysctl tuning; NVIDIA's driver installed automatically on
-  GeForce GTX 16/RTX cards. See [docs/gaming.md](docs/gaming.md).
+* **Built for gaming.** linux-zen kernel (with the stock kernel beside it to
+  fall back on), Steam with Proton, Lutris, Wine Staging, GameMode, MangoHud
+  and gamescope; a Steam "Gaming Mode" session; variable refresh rate and
+  tearing for fullscreen games; zram swap, NTSYNC, I/O scheduler and sysctl
+  tuning; NVIDIA's driver installed automatically on GeForce GTX 16/RTX
+  cards, and only for hardware that is there. `seg game run -- %command%` in
+  Steam's launch options boosts the CPU and GPU while a game runs and puts
+  everything back after; `seg game check` says what is missing, with the
+  fix. See [docs/gaming.md](docs/gaming.md).
 * **Runs Windows programs.** Double-click an `.exe`, `.msi`, `.lnk` or
   `.bat`, or type `./setup.exe`: `segrun` inspects the program, prepares a
   Wine prefix (with DXVK/VKD3D-Proton when the program uses Direct3D) and
@@ -103,10 +107,12 @@ published.
   or dinit; rolling release.
 * **`seg`, one small tool for the system.** `seg info`, `seg svc` (the same
   commands on OpenRC, runit, dinit and s6), `seg clean`, `seg tune`
-  (light, balanced or performance), `seg zram` and `seg doctor`, which finds
-  problems and prints their fixes. A single Rust binary of about 550 KiB; see
+  (light, balanced, gaming or performance), `seg zram`, `seg game` (see
+  above) and `seg doctor`, which finds problems and prints their fixes. A
+  single Rust binary of about 700 KiB; see
   [tools/seg](tools/seg/README.md). What the images weigh and what was taken
-  off them: [docs/lean-audit.md](docs/lean-audit.md).
+  off them: [docs/lean-audit.md](docs/lean-audit.md). What changed:
+  [CHANGELOG.md](CHANGELOG.md).
 
 ## Website
 
