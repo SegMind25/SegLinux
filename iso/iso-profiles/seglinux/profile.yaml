@@ -133,8 +133,7 @@ rootfs:
     - lutris                       # GOG, Epic, Battle.net and other launchers
     - gamemode                     # CPU/GPU tuning while a game runs
     - lib32-gamemode
-    - mangohud                     # FPS and frame-time overlay (64-bit games)
-    - lib32-mangohud               # the same for 32-bit games
+    - mangohud                     # FPS and frame-time overlay (64-bit games; Artix has no lib32-mangohud)
     - gamescope                    # gaming compositor, Gaming Mode session
     - dosbox
     - mesa

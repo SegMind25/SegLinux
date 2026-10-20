@@ -56,7 +56,8 @@ Measurements and the reasons behind each removal are in
 ### Changed
 
 - `wine` -> `wine-staging` (the Staging patches: esync/fsync/NTSYNC, game
-  fixes) and `lib32-mangohud` added in the full edition.
+  fixes) in the full edition. `lib32-mangohud` was tried and is not in the
+  Artix repositories, so 32-bit games get no MangoHud overlay.
 - Open-file hard limit 524288 -> 1048576 (the kernel's maximum); the
   `gamemode` group may use `nice -10`.
 - Shader caches: Mesa 4 GB -> 10 GB; NVIDIA's shader cache set to 10 GB and

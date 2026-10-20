@@ -23,8 +23,8 @@ and RTX cards, the open-source driver for older NVIDIA cards.
 Without --yes it only prints them and the command that installs them. With
 --yes (as root) it runs  pacman -S --needed --noconfirm  with that list.
 
-  --games   also Steam, gamescope, MangoHud (64 and 32 bit), Wine Staging
-            and winetricks
+  --games   also Steam, gamescope, MangoHud (64-bit: the Artix repositories
+            have no 32-bit MangoHud), Wine Staging and winetricks
   --lutris  also Lutris (a big package; Steam does not need it)
 ";
 
@@ -153,7 +153,6 @@ pub fn plan(
             "steam",
             "gamescope",
             "mangohud",
-            "lib32-mangohud",
             "wine-staging",
             "winetricks",
         ] {
@@ -392,13 +391,15 @@ mod tests {
             "steam",
             "gamescope",
             "mangohud",
-            "lib32-mangohud",
             "wine-staging",
             "winetricks",
             "lutris",
         ] {
             assert!(all.packages.contains(&pkg.to_string()), "{pkg}");
         }
+        // Not in the Artix repositories (CI's pacman -Sp said so): do not add
+        // it back without checking.
+        assert!(!all.packages.contains(&"lib32-mangohud".to_string()));
         let games_only = plan_games();
         assert_eq!(
             games_only.packages.last().map(String::as_str),

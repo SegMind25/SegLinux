@@ -59,7 +59,7 @@ Steam and Lutris keep their own settings for the games they start.
 | Wine Staging, winetricks | Windows programs and games outside Steam (`segrun`); Staging adds the esync/fsync/NTSYNC patches and game fixes |
 | GameMode | Performance governor, I/O priority and GPU performance level while a game runs |
 | `seg game` | The same idea without a daemon, plus a readiness check and the driver packages for the GPUs found ([below](#seg-game)) |
-| MangoHud (64 and 32 bit) | FPS, frame time, CPU/GPU load overlay |
+| MangoHud | FPS, frame time, CPU/GPU load overlay for 64-bit games (the Artix repositories have no 32-bit MangoHud; 32-bit games get no overlay unless you build `lib32-mangohud` from the AUR) |
 | gamescope | Valve's gaming compositor: frame limiting, FSR upscaling, Gaming Mode |
 | Mesa, Vulkan (AMD, Intel, NVK) + 32-bit | Graphics drivers, including for 32-bit games |
 | NVIDIA driver | Installed by Setup on GeForce GTX 16 / RTX and newer when online (see below) |
@@ -114,7 +114,7 @@ Right-click the game → Properties → General → Launch options:
 | Goal | Launch options |
 |---|---|
 | Boost while the game runs | `seg game run -- %command%` |
-| Boost, and MangoHud (64 or 32 bit) | `seg game run -- mangohud %command%` |
+| Boost, and MangoHud (64-bit games) | `seg game run -- mangohud %command%` |
 | Boost, inside gamescope (render 1440p, 165 Hz, adaptive sync) | `seg game run -- gamescope -W 2560 -H 1440 -r 165 --adaptive-sync -f -- %command%` |
 | A Proton variable as well | `PROTON_LOG=1 seg game run -- %command%` |
 | Only the cheap parts (no governor or GPU change) | `seg game run --no-boost -- %command%` |
@@ -223,7 +223,7 @@ a build container with no GPU and the stock kernel, to show the format:
   `nvidia-settings`) for GeForce GTX 16 / RTX and newer; the open-source NVK
   driver for older NVIDIA cards, because NVIDIA's current driver does not
   support them. `--yes` runs `pacman -S --needed --noconfirm` with the list;
-  `--games` adds Steam, gamescope, MangoHud (64 and 32 bit), Wine Staging and
+  `--games` adds Steam, gamescope, MangoHud (64-bit only), Wine Staging and
   winetricks; `--lutris` adds Lutris. It also tells you when `[lib32]` is not
   enabled in `/etc/pacman.conf`.
 * `sudo seg game apply` applies the gaming sysctls and makes `/dev/ntsync`
