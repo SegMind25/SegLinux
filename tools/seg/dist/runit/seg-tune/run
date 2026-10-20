@@ -1,0 +1,6 @@
+#!/bin/sh
+# Applies the saved `seg tune` profile once, then stays "up" so runit does
+# not start it again.
+exec 2>&1
+/usr/bin/seg tune apply
+exec sleep infinity

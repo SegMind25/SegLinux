@@ -1,0 +1,5 @@
+# Compressed swap in memory (zram): zstd, half the RAM. See: seg zram status
+type = scripted
+command = /usr/bin/seg zram on
+stop-command = /usr/bin/seg zram off
+restart = false

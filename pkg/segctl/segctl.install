@@ -1,0 +1,40 @@
+# The gamemode group (SegLinux Setup puts every user in it, and the package
+# gamemode uses the same name): seg game run may raise the CPU governor for
+# its members, through /etc/sudoers.d/seg-game.
+make_group() {
+    getent group gamemode >/dev/null 2>&1 || groupadd -r gamemode >/dev/null 2>&1 || true
+}
+
+# Start the zram swap, the gaming settings and the tuning profile at every boot.
+#
+# This may run in a chroot (the image build) whose init is not the host's, so
+# the init is chosen by what is installed here (--offline), not by PID 1.
+enable_services() {
+    command -v seg >/dev/null 2>&1 || return 0
+    local svc
+    for svc in "$@"; do
+        seg svc --offline enable "$svc" >/dev/null 2>&1 || true
+    done
+}
+
+post_install() {
+    make_group
+    enable_services seg-zram seg-game seg-tune
+}
+
+# An upgrade from before seg game gets that one service and the group; the
+# others are left as the user has them (someone who disabled one keeps it so).
+post_upgrade() {
+    make_group
+    if [ "$(vercmp "$2" 0.1.0-2)" -lt 0 ]; then
+        enable_services seg-game
+    fi
+}
+
+pre_remove() {
+    command -v seg >/dev/null 2>&1 || return 0
+    local svc
+    for svc in seg-tune seg-game seg-zram; do
+        seg svc --offline disable "$svc" >/dev/null 2>&1 || true
+    done
+}

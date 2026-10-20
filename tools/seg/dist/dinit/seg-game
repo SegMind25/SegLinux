@@ -1,0 +1,4 @@
+# The gaming sysctls and device permissions (/dev/ntsync) at boot.
+type = scripted
+command = /usr/bin/seg game apply
+restart = false

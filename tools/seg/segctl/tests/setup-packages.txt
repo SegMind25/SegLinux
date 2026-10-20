@@ -1,0 +1,23 @@
+# Every package `seg game setup` can choose, one per line. A test keeps this in step
+# with src/game/setup.rs; CI resolves them on Artix (check-packages.sh -x).
+gamescope
+lib32-mesa
+lib32-nvidia-utils
+lib32-vulkan-icd-loader
+lib32-vulkan-intel
+lib32-vulkan-radeon
+linux-zen-headers
+lutris
+mangohud
+mesa
+nvidia-open-dkms
+nvidia-settings
+nvidia-utils
+steam
+vulkan-icd-loader
+vulkan-intel
+vulkan-nouveau
+vulkan-radeon
+vulkan-tools
+wine-staging
+winetricks

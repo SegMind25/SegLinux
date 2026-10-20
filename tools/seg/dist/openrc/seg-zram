@@ -1,0 +1,23 @@
+#!/usr/bin/openrc-run
+# shellcheck shell=sh disable=SC2034
+# Compressed swap in memory (zram): zstd, half the RAM, used before any disk
+# swap. See: seg zram status
+
+description="Compressed swap in memory (zram)"
+
+depend() {
+	after modules sysctl udev
+	before seg-tune
+}
+
+start() {
+	ebegin "Setting up zram swap"
+	/usr/bin/seg zram on >/dev/null
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping zram swap"
+	/usr/bin/seg zram off >/dev/null
+	eend $?
+}

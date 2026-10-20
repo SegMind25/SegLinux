@@ -1,0 +1,11 @@
+processor	: 0
+vendor_id	: AuthenticAMD
+cpu family	: 25
+model		: 97
+model name	: AMD Ryzen 9 5950X 16-Core Processor
+stepping	: 2
+cache size	: 1024 KB
+
+processor	: 1
+vendor_id	: AuthenticAMD
+model name	: AMD Ryzen 9 5950X 16-Core Processor

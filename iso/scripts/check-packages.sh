@@ -4,7 +4,10 @@
 # Run on Artix (or in the build container); needs pacman and go-yq.
 #
 #   iso/scripts/check-packages.sh [-i openrc|runit|dinit|s6] [-k kernel]
-#                                 [-p profile] [-c pacman.conf]
+#                                 [-p profile] [-c pacman.conf] [-x file]
+#
+# -x names a file of packages that tools install later (one per line, `#`
+# comments): they must exist and resolve together with the root file system.
 set -euo pipefail
 
 iso_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -13,14 +16,16 @@ kernel=linux
 profile=seglinux
 conf=$iso_dir/pacman.conf.d/iso-x86_64.conf
 local_repo=/var/lib/seglinux-repo
+extra_file=
 
-while getopts "i:k:p:c:h" opt; do
+while getopts "i:k:p:c:x:h" opt; do
     case $opt in
         i) init=$OPTARG ;;
         k) kernel=$OPTARG ;;
         p) profile=$OPTARG ;;
         c) conf=$OPTARG ;;
-        *) sed -n '2,9s/^# \{0,1\}//p' "$0"; exit 2 ;;
+        x) extra_file=$OPTARG ;;
+        *) sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 2 ;;
     esac
 done
 
@@ -65,12 +70,18 @@ trap 'rm -rf "$db" "$work_conf"' EXIT
 chmod 755 "$db"
 cp "$conf" "$work_conf"
 
+extra=
+if [[ -n $extra_file ]]; then
+    [[ -f $extra_file ]] || { echo "no package list at $extra_file" >&2; exit 1; }
+    extra=$(grep -v '^[[:space:]]*#' "$extra_file" | sed -e "s/^linux-headers$/$kernel-headers/" | sort -u)
+fi
+
 skip=()
 if [[ ! -f $local_repo/seglinux.db ]]; then
-    # The seglinux package is built during the ISO build; when checking
-    # before that, leave the local repository out.
+    # The seglinux and segctl packages are built during the ISO build; when
+    # checking before that, leave the local repository out.
     awk '/^\[seglinux\]/{skip=1; next} /^\[/{skip=0} !skip' "$conf" > "$work_conf"
-    skip=(seglinux)
+    skip=(seglinux segctl)
     echo "note: $local_repo has no repository yet; not checking: ${skip[*]}"
 fi
 
@@ -82,7 +93,7 @@ declare -A have=()
 for name in "${available[@]}"; do have[$name]=1; done
 
 missing=()
-for name in $rootfs $livefs; do
+for name in $rootfs $livefs $extra; do
     [[ " ${skip[*]} " == *" $name "* ]] && continue
     [[ -n ${have[$name]:-} ]] && continue
     # Not a package name: maybe a group or a virtual package someone provides.
@@ -111,4 +122,8 @@ resolve() {
 resolve rootfs $rootfs
 # shellcheck disable=SC2086
 resolve "rootfs+livefs" $rootfs $livefs
-echo "All $(echo "$rootfs $livefs" | wc -w) package names of profile '$profile' ($init) are available."
+if [[ -n $extra ]]; then
+    # shellcheck disable=SC2086
+    resolve "rootfs+tools ($extra_file)" $rootfs $extra
+fi
+echo "All $(echo "$rootfs $livefs $extra" | wc -w) package names of profile '$profile' ($init) are available."

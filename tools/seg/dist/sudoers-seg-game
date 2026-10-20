@@ -1,0 +1,6 @@
+# seg game run raises the CPU governor and an AMD GPU's power level while a
+# game runs, and puts them back. These two commands, with these arguments and
+# nothing else, are all the gamemode group may run as root; the program checks
+# the process id and the governor, and touches only the cpufreq and amdgpu
+# power files.
+%gamemode ALL=(root) NOPASSWD: /usr/bin/seg game boost on [0-9]*, /usr/bin/seg game boost off [0-9]*

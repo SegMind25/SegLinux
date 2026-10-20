@@ -178,6 +178,7 @@ latest() {
 # makepkg does not build as root, so it builds as the account that ran sudo.
 build_seglinux() {
     local user home version sha installed work top deps packages
+    local segctl_dir segctl_version segctl_deps segctl_packages=()
     user=${SUDO_USER:-}
     if [[ -z $user || $user == root ]]; then
         warn "SegLinux itself is built from your account: run  sudo seglinux-upgrade  as yourself, not as root."
@@ -218,10 +219,27 @@ build_seglinux() {
         tar -C "$work/x" -czf "$work/seglinux-$version.tar.gz" "seglinux-$version"
     fi
     cp "$work/x/seglinux-$version/packaging/seglinux/"{PKGBUILD,seglinux.install} "$work/"
+    # seg, the system tool (package segctl: seg game, the zram and tuning
+    # services), is built from the same source: its recipe, and its folder as
+    # the source tarball the recipe names.
+    segctl_dir=
+    if [[ -f $work/x/seglinux-$version/pkg/segctl/PKGBUILD ]]; then
+        segctl_dir=$work/segctl
+        mkdir "$segctl_dir"
+        cp "$work/x/seglinux-$version/pkg/segctl/"{PKGBUILD,segctl.install} "$segctl_dir/"
+        segctl_version=$(sed -n 's/^pkgver=//p' "$segctl_dir/PKGBUILD")
+        tar -C "$work/x/seglinux-$version" --transform "s,^\./tools/seg,segctl-$segctl_version/tools/seg," \
+            -czf "$segctl_dir/segctl-$segctl_version.tar.gz" ./tools/seg
+    fi
     rm -rf "$work/x" "$work/source.tar.gz"
     sed -i "s/^pkgver=.*/pkgver=$version/" "$work/PKGBUILD"
     chown -R "$user:" "$work"
-    as_user() { (cd "$work" && runuser -u "$user" -- env HOME="$home" CARGO_HOME="$home/.cache/seglinux/cargo" "$@"); }
+    as_user_in() {
+        local dir=$1
+        shift
+        (cd "$dir" && runuser -u "$user" -- env HOME="$home" CARGO_HOME="$home/.cache/seglinux/cargo" "$@")
+    }
+    as_user() { as_user_in "$work" "$@"; }
     # What it needs to build and run, as dependencies (pacman -Qdt lists
     # them once nothing needs them).
     deps=$(as_user makepkg --printsrcinfo | sed -n 's/^\t\(make\)\{0,1\}depends = //p') || {
@@ -229,8 +247,12 @@ build_seglinux() {
         warn "SegLinux's build recipe could not be read; SegLinux itself is not upgraded this time."
         return 0
     }
+    segctl_deps=
+    if [[ -n $segctl_dir ]]; then
+        segctl_deps=$(as_user_in "$segctl_dir" makepkg --printsrcinfo | sed -n 's/^\t\(make\)\{0,1\}depends = //p') || segctl_dir=
+    fi
     # shellcheck disable=SC2086 # one package name per word
-    pacman -S --needed --noconfirm --asdeps base-devel $deps || {
+    pacman -S --needed --noconfirm --asdeps base-devel $deps $segctl_deps || {
         rm -rf "$work"
         warn "The tools to build SegLinux could not be installed; SegLinux itself is not upgraded this time."
         return 0
@@ -240,8 +262,16 @@ build_seglinux() {
         warn "SegLinux $version did not build; your SegLinux stays as it is. Please report it: $source_url/issues"
         return 0
     fi
+    # seg is a smaller extra: if it does not build, SegLinux is still upgraded.
+    if [[ -n $segctl_dir ]]; then
+        if as_user_in "$segctl_dir" makepkg -f --nocheck --noconfirm; then
+            segctl_packages=("$segctl_dir"/segctl-*.pkg.tar.zst)
+        else
+            warn "seg (the segctl package) did not build; it is not upgraded this time."
+        fi
+    fi
     packages=("$work"/seglinux-"$version"-*.pkg.tar.zst)
-    pacman -U "$@" "${packages[0]}" || warn "SegLinux $version was not installed."
+    pacman -U "$@" "${packages[0]}" "${segctl_packages[@]}" || warn "SegLinux $version was not installed."
     rm -rf "$work"
 }
 

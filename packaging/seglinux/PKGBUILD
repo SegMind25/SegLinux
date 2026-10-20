@@ -6,7 +6,7 @@
 
 pkgname=seglinux
 pkgver=0.1.0
-pkgrel=8
+pkgrel=10
 pkgdesc="SegLinux: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/SegLinux"
@@ -51,6 +51,7 @@ backup=(
     'etc/binfmt.d/wine.conf'
     'etc/sysctl.d/80-seglinux-gaming.conf'
     'etc/sysctl.d/81-seglinux-network.conf'
+    'etc/makepkg.conf.d/10-seglinux.conf'
     'etc/xdg/xdg-desktop-portal-wlr/config'
     'etc/gamemode.ini'
     'etc/security/limits.d/90-seglinux-esync.conf'
@@ -62,6 +63,7 @@ backup=(
     'etc/xdg/mimeapps.list'
     'etc/xdg/fastfetch/config.jsonc'
     'etc/bash/bashrc.d/seglinux-fastfetch.bashrc'
+    'etc/bash/bashrc.d/seglinux-rust-tools.bashrc'
 )
 # The project was called Wincraft before.
 provides=('wincraft')
@@ -165,6 +167,7 @@ package() {
     install -Dm644 "$data/system/modules-zram.conf" "$pkgdir/usr/lib/modules-load.d/seglinux-zram.conf"
     install -Dm644 "$data/system/udev-zram.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-zram.rules"
     install -Dm755 "$data/system/zram-setup" "$pkgdir/usr/lib/seglinux/zram-setup"
+    install -Dm644 "$data/system/makepkg-seglinux.conf" "$pkgdir/etc/makepkg.conf.d/10-seglinux.conf"
     install -Dm644 "$data/desktop/xdpw-config" "$pkgdir/etc/xdg/xdg-desktop-portal-wlr/config"
     install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-seglinux-ntsync.rules"
 
@@ -172,6 +175,7 @@ package() {
     install -Dm644 "$data/system/udev-ioschedulers.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules"
     install -Dm644 "$data/system/modules-ddcutil.conf" "$pkgdir/etc/modules-load.d/ddcutil.conf"
     install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nowatchdog.conf"
+    install -Dm644 "$data/system/modprobe-nvidia.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nvidia.conf"
     install -Dm644 "$data/system/gamemode.ini" "$pkgdir/etc/gamemode.ini"
     install -Dm644 "$data/system/profile-gaming.sh" "$pkgdir/etc/profile.d/seglinux-gaming.sh"
 
@@ -182,6 +186,7 @@ package() {
     install -Dm644 "$data/fastfetch/config.jsonc" "$pkgdir/etc/xdg/fastfetch/config.jsonc"
     install -Dm644 "$data/fastfetch/logo.txt" "$pkgdir/usr/share/seglinux/fastfetch/logo.txt"
     install -Dm644 "$data/system/fastfetch.bashrc" "$pkgdir/etc/bash/bashrc.d/seglinux-fastfetch.bashrc"
+    install -Dm644 "$data/system/rust-tools.bashrc" "$pkgdir/etc/bash/bashrc.d/seglinux-rust-tools.bashrc"
     install -Dm755 "$data/system/apply-branding" "$pkgdir/usr/lib/seglinux/apply-branding"
     install -Dm755 "$data/system/pipewire-session" "$pkgdir/usr/lib/seglinux/pipewire-session"
     install -Dm755 "$data/system/restore-trimmed-files" "$pkgdir/usr/lib/seglinux/restore-trimmed-files"

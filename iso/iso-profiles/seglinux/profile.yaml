@@ -22,7 +22,6 @@ live-session:
     - acpid
     - bluetoothd
     - cronie
-    - cupsd
     - syslog-ng
     - NetworkManager
     - greetd
@@ -38,6 +37,10 @@ rootfs:
     - seglinux
     # The seglinux package brings the boot menu theme; buildiso-hooks.sh
     # puts it on the image in place of Artix's.
+    # seg: services on any init, cleaning, tuning, zram swap and checks. It
+    # enables the seg-zram and seg-tune services. Built from tools/seg into
+    # the same local repository.
+    - segctl
 
     # Chaotic-AUR's key and mirrors: Brave and its updates come from there
     # (see iso/scripts/chaotic-aur.sh).
@@ -76,17 +79,18 @@ rootfs:
     - print-manager                # Devices and Printers
     - discover                     # Microsoft Store
     - flatpak
-    - xorg-server
-    - xorg-xwayland
-    - xdg-user-dirs
-    - xdg-utils
+
+    # Command-line tools written in Rust (see docs/lean-audit.md)
+    - ripgrep                      # rg: searches folders far faster than grep -r
+    - fd                           # fd: find with sane defaults
+    - eza                          # ls with colors and git status (ll, la)
+    - zoxide                       # z: cd to the folders you use most
 
     # Accessories
     - dolphin                      # File Explorer
     - kitty                        # Terminal
     - kate                         # Notepad
     - kcalc                        # Calculator
-    - spectacle                    # Snipping Tool
     - gwenview                     # Photos
     - okular                       # PDF reader
     - ark                          # compressed folders
@@ -120,17 +124,16 @@ rootfs:
     # Courier New, Calibri) so documents keep their layout
     - noto-fonts
     - noto-fonts-emoji
-    - ttf-liberation
     - ttf-carlito
 
     # Running Windows programs and games
-    - wine
+    - wine-staging                 # Wine with the Staging patches (esync/fsync/NTSYNC, game fixes); provides wine
     - winetricks
     - steam                        # Steam and Proton
     - lutris                       # GOG, Epic, Battle.net and other launchers
     - gamemode                     # CPU/GPU tuning while a game runs
     - lib32-gamemode
-    - mangohud                     # FPS and frame-time overlay (64-bit games)
+    - mangohud                     # FPS and frame-time overlay (64-bit games; Artix has no lib32-mangohud)
     - gamescope                    # gaming compositor, Gaming Mode session
     - dosbox
     - mesa

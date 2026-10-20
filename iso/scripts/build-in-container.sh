@@ -9,8 +9,8 @@
 # PACKAGE_ONLY=true stops after the package (OUT_DIR/packages/): the update
 # the SegLinux update workflow publishes.
 #
-# Steps: build the seglinux package from this checkout into a local pacman
-# repository, point artools at it, check the package lists, run buildiso
+# Steps: build the seglinux and segctl packages from this checkout into a
+# local pacman repository, point artools at it, check the package lists, run buildiso
 # and copy the ISO (renamed seglinux-*.iso or seglinux-lite-*.iso) plus its
 # checksum to OUT_DIR.
 set -euo pipefail
@@ -92,6 +92,23 @@ if [[ ${PACKAGE_ONLY:-false} == true ]]; then
     exit 0
 fi
 
+step "Building the segctl package"
+# seg, from tools/seg: a package of its own that goes into the same local
+# repository (the update workflow publishes only the seglinux package).
+segctl_version=$(sed -n 's/^pkgver=//p' "$repo/pkg/segctl/PKGBUILD")
+segwork=/var/tmp/segctl-pkg
+rm -rf "$segwork"
+mkdir -p "$segwork"
+cp "$repo/pkg/segctl/PKGBUILD" "$repo/pkg/segctl/segctl.install" "$segwork/"
+tar -C "$repo" --exclude=./tools/seg/target \
+    --transform "s,^\./tools/seg,segctl-$segctl_version/tools/seg," \
+    -czf "$segwork/segctl-$segctl_version.tar.gz" ./tools/seg
+chown -R "$build_user:" "$segwork"
+(cd "$segwork" && sudo -H -u "$build_user" env CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" \
+    ${RUSTUP_HOME:+"RUSTUP_HOME=$RUSTUP_HOME"} makepkg -f --noconfirm)
+cp "$segwork"/segctl-*.pkg.tar.zst "$local_repo/"
+repo-add -q "$local_repo/seglinux.db.tar.gz" "$local_repo"/segctl-*.pkg.tar.zst
+
 step "Configuring artools"
 conf="iso-x86_64.conf"
 # Use one explicit config location under both sudo and pkexec. artools
@@ -131,9 +148,10 @@ fi
 
 # Kernel: common.yaml names the stock kernel, which artools expects; swap in
 # the requested one. artools derives the live initramfs' kernel version from
-# /usr/src/linux/version, which only the stock linux-headers provides, so for
-# other kernels buildiso runs with a patched copy of its library (buildiso
-# honours LIBDIR) that reads the version from /usr/lib/modules instead.
+# /usr/src/linux/version, which only a kernel's headers provide. The images
+# carry no headers (only DKMS drivers need them, and Setup downloads those),
+# so for every kernel buildiso runs with a patched copy of its library
+# (buildiso honours LIBDIR) that reads the version from /usr/lib/modules.
 # Copy artools' library once so that buildiso (which honours LIBDIR) runs
 # with patched code; the installed artools files stay untouched.
 patched_lib() {
@@ -156,12 +174,11 @@ patch_lib() {
 use_kernel() {
     sed -i -E "s/^(\s*-\s*)linux$/\1$kernel/; s/^(\s*-\s*)linux-headers$/\1$kernel-headers/" \
         "$workspace/iso-profiles/common/common.yaml"
-    [[ $kernel == linux ]] && return
-    patched_lib || die "this buildiso does not honour LIBDIR; build with -k linux"
+    patched_lib || die "this buildiso does not honour LIBDIR; the images have no kernel headers for it to read the kernel version from"
     # shellcheck disable=SC2016 # literal shell code, not expansions
     patch_lib iso/initcpio.sh 'k=$(<"$mnt"/usr/src/linux/version)' \
         'k=$(basename "$(dirname "$(find "$mnt"/usr/lib/modules -mindepth 2 -maxdepth 2 -name vmlinuz | sort -V | tail -n1)")")' ||
-        die "artools changed how it finds the kernel version in iso/initcpio.sh; build with -k linux"
+        die "artools changed how it finds the kernel version in iso/initcpio.sh"
 }
 step "Using the $kernel kernel"
 use_kernel

@@ -1,0 +1,5 @@
+# Applies the saved `seg tune` profile (CPU governor, I/O schedulers and
+# memory settings) at boot. Choose the profile with: sudo seg tune <mode>
+type = scripted
+command = /usr/bin/seg tune apply
+restart = false

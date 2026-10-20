@@ -4,8 +4,18 @@
 # nothing is written to the disk. Half the memory, at most 8 GB; zstd
 # usually fits it in a quarter of that. A swap partition or file stays, for
 # what zram cannot hold.
+#
+# seg (the segctl package) does the work when it is installed: `seg zram on`
+# is the same thing, and the seg-zram service runs it too. It leaves a device
+# alone that has a size already, as this script does: on installed systems
+# SegLinux Setup's own rule (/etc/udev/rules.d/99-seglinux-zram.rules) sizes
+# and formats zram0, and fstab switches it on. The rest of this file is for
+# systems that were updated to this script before segctl.
 set -eu
 PATH=/usr/bin:/usr/sbin:/bin:/sbin
+if command -v seg >/dev/null 2>&1; then
+    exec seg zram on --if-unconfigured
+fi
 dev=/dev/zram0
 sys=/sys/block/zram0
 # Already in use (a second run, or set up by hand): leave it.

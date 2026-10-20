@@ -1,0 +1,21 @@
+# A workspace of its own: `seg` is a tiny, dependency-light tool with its own
+# release profile (size over speed, no unwinding), unlike the GTK desktop
+# crates in the repository's root workspace.
+[workspace]
+resolver = "3"
+members = ["segctl"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["SegLinux contributors"]
+repository = "https://github.com/SegMind25/SegLinux"
+homepage = "https://github.com/SegMind25/SegLinux"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
