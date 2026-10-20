@@ -37,6 +37,10 @@ rootfs:
     - seglinux
     # The seglinux package brings the boot menu theme; buildiso-hooks.sh
     # puts it on the image in place of Artix's.
+    # seg: services on any init, cleaning, tuning, zram swap and checks. It
+    # enables the seg-zram and seg-tune services. Built from tools/seg into
+    # the same local repository.
+    - segctl
 
     # Chaotic-AUR's key and mirrors: Brave and its updates come from there
     # (see iso/scripts/chaotic-aur.sh).

@@ -339,6 +339,9 @@ pub const DEFAULT_SERVICES: &[&str] = &[
     "ntpd",
     "acpid",
     "power-profiles-daemon",
+    // From the segctl package: zram swap and the saved `seg tune` profile.
+    "seg-zram",
+    "seg-tune",
 ];
 
 /// Groups every user joins (missing ones are skipped).

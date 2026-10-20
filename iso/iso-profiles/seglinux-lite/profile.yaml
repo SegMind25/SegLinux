@@ -25,6 +25,8 @@ rootfs:
     - seglinux
     # The seglinux package brings the boot menu theme; buildiso-hooks.sh
     # puts it on the image in place of Artix's.
+    # seg: zram swap, tuning and checks (tools/seg); also built locally.
+    - segctl
     - labwc
     - gtk4
     - gtk4-layer-shell

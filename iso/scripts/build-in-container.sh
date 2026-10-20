@@ -9,8 +9,8 @@
 # PACKAGE_ONLY=true stops after the package (OUT_DIR/packages/): the update
 # the SegLinux update workflow publishes.
 #
-# Steps: build the seglinux package from this checkout into a local pacman
-# repository, point artools at it, check the package lists, run buildiso
+# Steps: build the seglinux and segctl packages from this checkout into a
+# local pacman repository, point artools at it, check the package lists, run buildiso
 # and copy the ISO (renamed seglinux-*.iso or seglinux-lite-*.iso) plus its
 # checksum to OUT_DIR.
 set -euo pipefail
@@ -91,6 +91,23 @@ if [[ ${PACKAGE_ONLY:-false} == true ]]; then
     step "Done: $(cd "$out/packages" && ls seglinux-*.pkg.tar.zst)"
     exit 0
 fi
+
+step "Building the segctl package"
+# seg, from tools/seg: a package of its own that goes into the same local
+# repository (the update workflow publishes only the seglinux package).
+segctl_version=$(sed -n 's/^pkgver=//p' "$repo/pkg/segctl/PKGBUILD")
+segwork=/var/tmp/segctl-pkg
+rm -rf "$segwork"
+mkdir -p "$segwork"
+cp "$repo/pkg/segctl/PKGBUILD" "$repo/pkg/segctl/segctl.install" "$segwork/"
+tar -C "$repo" --exclude=./tools/seg/target \
+    --transform "s,^\./tools/seg,segctl-$segctl_version/tools/seg," \
+    -czf "$segwork/segctl-$segctl_version.tar.gz" ./tools/seg
+chown -R "$build_user:" "$segwork"
+(cd "$segwork" && sudo -H -u "$build_user" env CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" \
+    ${RUSTUP_HOME:+"RUSTUP_HOME=$RUSTUP_HOME"} makepkg -f --noconfirm)
+cp "$segwork"/segctl-*.pkg.tar.zst "$local_repo/"
+repo-add -q "$local_repo/seglinux.db.tar.gz" "$local_repo"/segctl-*.pkg.tar.zst
 
 step "Configuring artools"
 conf="iso-x86_64.conf"

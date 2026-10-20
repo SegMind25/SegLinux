@@ -1281,7 +1281,8 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("/dev/vda4"));
-        assert!(!text.contains("zram"));
+        // No zram line in the fstab (the seg-zram service is on either way).
+        assert!(!text.contains("/dev/zram0"), "{text}");
         assert!(
             text.contains(
                 "GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0\""
