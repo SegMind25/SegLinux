@@ -32,16 +32,65 @@ linux-zen), the last ISO build before this work.
 | Boot time in QEMU | not measured | not measured |
 | Rust code | 24,849 lines, 7 crates | |
 
-Boot time and idle RAM could not be measured for this work: the sandbox it
-ran in has no route to the Artix mirrors, no QEMU and no loop devices, so an
-ISO cannot be built or booted there (see "Verification limits" in the final
-section).
+Boot time and idle RAM could not be measured when the audit was written: the
+sandbox it ran in has no route to the Artix mirrors, no QEMU and no loop
+devices. The "After" numbers come from a GitHub Actions build instead.
+
+## After
+
+Measured by the temporary "ISO check" workflow (since removed) on 20 October
+2026, commit `57a1b1f` of this branch: both editions built with the real
+`build-in-container.sh` (OpenRC, linux-zen) and the images opened. The
+repositories are rolling, so every package is a day newer than in the
+"Before" build; that is part of the differences, mostly the small ones.
+
+| Metric | Lite before | Lite after | Full before | Full after |
+|---|---|---|---|---|
+| ISO | 774,014,976 B | 774,531,072 B (+0.07 %) | 3,030,378,496 B | **2,887,837,696 B (-4.7 %, -136 MiB)** |
+| `LiveOS/rootfs.img` | 637.2 MiB | 637.6 MiB | 2,681.8 MiB | **2,545.8 MiB (-5.1 %)** |
+| initramfs | 49.7 MiB | 49.7 MiB | 156.7 MiB | 156.7 MiB |
+| Installed system, uncompressed | 1,790.1 MiB | 1,792.0 MiB | 7,139.8 MiB | **about 6,665 MiB (-6.6 %, -475 MiB)** |
+| Package list entries (OpenRC) | 48 | 49 (+`segctl`) | 164 (159 unique) | **152 (152 unique)** |
+| Packages in the built image | not recorded | 351 | not recorded | 1,083 |
+| Services started in the live session | 1 | 1 | 8 | 7 (no `cupsd`) |
+| Services Setup enables on an installed system | 14 | 15 (-`cupsd`, +`seg-zram`, +`seg-tune`) | | |
+| Kernel header folders on the image | 0 | 0 | 1 (325 MiB) | 0 |
+| Rust code | 24,849 lines | 29,610 (24,907 in `crates/`, 4,703 new in `tools/seg/`) | | |
+| `seg` binary | | 567,536 B (stripped, `opt-level = "z"`, LTO, `panic = "abort"`) | | |
+| Idle RAM | not measured | 430.7 MiB of 2.9 GiB in use, 2 min after boot, QEMU/KVM, logged in on a text console | 792 MB (15 Oct, other setup) | not measured |
+| Boot time | not measured | not measured (see below) | not measured | not measured |
+
+The Lite edition never had kernel headers (it has its own `common.yaml`), so
+removing them only shrinks the full edition; Lite grew by the `segctl`
+package (a 0.6 MB binary and a few service files) and the day's package
+updates. The full edition's saving is the headers (325 MiB), `spectacle` with
+`opencv` (113 MiB), the X server stack and `inxi`.
+
+What the image check confirmed, per edition: `seg`, the zram and tune
+services (OpenRC links, runit and dinit definitions), the weekly `fstrim`
+job, the makepkg drop-in, the I/O scheduler rule and, in the full edition,
+`rg`, `fd`, `eza`, `zoxide`; `Xorg`, `spectacle` and `inxi` are gone.
+
+What booting Lite in QEMU (KVM, text console, 150 s of waiting) showed:
+`linux-zen` 7.2.11 comes up on OpenRC, the `modules` service loads `ntsync`,
+`tcp_bbr`, `sch_fq` and `zram`, `seg-tune` and `seg-zram` start, `seg zram
+status` reports an active 1.4 GiB zstd device, and `seg info`, `seg tune`,
+`seg svc list --enabled` and `seg doctor` work on the real system. It also
+found a bug of the new code: `seg doctor` called `killprocs`, `mount-ro` and
+`savecache` (OpenRC `shutdown` runlevel) "enabled but stopped". Fixed in
+`6e323a4`; the fix is covered by a unit test and was **not** booted again.
+The same boot showed `vm.swappiness` 100 under zram; Setup's 180 is kept
+since `cfd6ba8`, also not booted again.
+
+Boot time is not reported: the harness looks at the screen every 31 s, and
+QEMU on a shared CI runner is not a stable clock. The full edition was built
+and opened, not booted.
 
 ## Bloat table
 
 | Item | Size / cost | Why it is bloat | Action |
 |---|---|---|---|
-| `linux-zen-headers` (`linux-headers` in the list) | 325.1 MiB, on both editions (Lite's Setup downloads it too) | Only needed to build `nvidia-open-dkms` on GTX 16 / RTX GPUs. Setup already downloads that driver in a step that needs a network. | **remove** from the image; Setup adds the running kernel's headers to the NVIDIA step |
+| `linux-zen-headers` (`linux-headers` in the list) | 325.1 MiB, on the full edition (`common.yaml`; Lite has its own list and never had it) | Only needed to build `nvidia-open-dkms` on GTX 16 / RTX GPUs. Setup already downloads that driver in a step that needs a network. | **remove** from the image; Setup adds the running kernel's headers to the NVIDIA step |
 | `spectacle` (and `opencv`, which only it needs) | `opencv` 112.8 MiB, plus the libraries only opencv uses | Second screenshot tool: the desktop has its own (Print, Super+Shift+S: grim + slurp). Spectacle would only serve the Plasma fallback session. | **remove** |
 | `xorg-server`, `xf86-input-*`, `xf86-video-*` | tens of MiB | Legacy X server and its drivers. The sessions are Wayland (labwc, Plasma Wayland); applications use XWayland. The Lite image already ships only `xorg-xwayland`. | **replace** with `xorg-xwayland` only, as Lite does |
 | `inxi` | ~1 MiB (Perl stays: OpenRC needs it) | Third system-information tool beside fastfetch and KInfoCenter | **remove** |
@@ -143,3 +192,28 @@ These are product choices, so they were measured and left alone:
    `qt6-webengine`.
 4. **A Qt 6 media player instead of VLC**: removes Qt 5, about 100 MiB.
 5. **Brave from Chaotic-AUR**: the only AUR-origin package of the image.
+
+## Verification limits
+
+Run for this work: `cargo fmt --check`, `cargo clippy -- -D warnings` and
+`cargo test` for the workspace and for `tools/seg`; `shellcheck` on every
+shell script of the repository; the CI jobs of `.github/workflows/ci.yml`
+(package lists resolve with `pacman -Sp` in an `artixlinux` container, the
+udev rules pass `udevadm verify`, no package is listed twice); `seg` itself
+inside an Artix container (`info`, `doctor`, `clean`, `tune`, `zram status`,
+`svc` against the real OpenRC and dinit layouts); the fstrim script's stamp
+logic; both ISOs built in CI and the Lite one booted in QEMU, as above.
+
+Not done, and not claimed:
+
+* No ISO was built or booted in the sandbox the work was done in (no
+  mirrors, no QEMU, no loop devices): every ISO fact above comes from CI.
+* Only the OpenRC images were built. The runit, dinit and s6 definitions
+  were checked against the files the Artix packages install and by their
+  unit tests, not by booting those inits.
+* The full edition was not booted, so its idle RAM and boot time are not
+  known, and `cfd6ba8` and `6e323a4` (after the image check) were not
+  booted.
+* The installed-system path (Setup writing the files, `grub-install`) was not
+  run; its plan is covered by the unit tests.
+* No real hardware: nothing about GPUs, cpufreq or NVMe was exercised.
