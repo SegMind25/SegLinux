@@ -9,6 +9,8 @@ members = [
     "crates/seglinux-installer",
     "crates/seglinux-greeter",
 ]
+# seg has its own workspace and release profile (tools/seg/Cargo.toml).
+exclude = ["tools/seg"]
 
 [workspace.package]
 version = "0.1.0"

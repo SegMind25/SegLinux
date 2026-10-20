@@ -1,0 +1,17 @@
+[package]
+name = "segctl"
+description = "seg: system information, services, cleaning, tuning, zram and checks for SegLinux, over runit, OpenRC, dinit and s6"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "LicenseRef-SegLinux-unspecified"
+publish = false
+
+[[bin]]
+name = "seg"
+path = "src/main.rs"
+
+[dependencies]
+lexopt = "0.3"

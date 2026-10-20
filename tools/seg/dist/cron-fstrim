@@ -1,0 +1,3 @@
+# Weekly TRIM for SSDs (see /usr/lib/seg/fstrim-weekly): checked every hour,
+# done once a week.
+17 * * * * root /usr/lib/seg/fstrim-weekly

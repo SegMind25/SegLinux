@@ -1,0 +1,17 @@
+#!/usr/bin/openrc-run
+# shellcheck shell=sh disable=SC2034
+# Applies the saved `seg tune` profile (CPU governor, I/O schedulers and
+# memory settings) at boot. Choose the profile with: sudo seg tune <mode>
+
+description="Apply the saved seg tune profile"
+
+depend() {
+	# Last writer wins: let power-profiles-daemon and the zram swap settle first.
+	after sysctl udev power-profiles-daemon seg-zram
+}
+
+start() {
+	ebegin "Applying the seg tune profile"
+	/usr/bin/seg tune apply >/dev/null
+	eend $?
+}
