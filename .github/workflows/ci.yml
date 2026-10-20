@@ -207,7 +207,9 @@ jobs:
           pacman-key --populate artix
           pacman -Sy --noconfirm --needed go-yq
           iso/scripts/chaotic-aur.sh
-      - run: iso/scripts/check-packages.sh -p ${{ matrix.profile }} -i ${{ matrix.init }} -k linux-zen
+      # -x: the packages `seg game setup` can choose (NVIDIA's driver, the
+      # Vulkan drivers, the games stack) must exist and resolve on top of the image.
+      - run: iso/scripts/check-packages.sh -p ${{ matrix.profile }} -i ${{ matrix.init }} -k linux-zen -x tools/seg/segctl/tests/setup-packages.txt
       - name: Packages the Lite edition downloads during Setup
         if: matrix.profile == 'seglinux-lite'
         run: iso/scripts/online-packages.sh -i openrc -k linux-zen
