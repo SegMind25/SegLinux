@@ -58,7 +58,7 @@ prints it):
 | Virtual desktops (Win+Ctrl+Left/Right) | labwc workspaces, with the same shortcut; their number is set in Settings |
 | Xbox app / Game Bar, Game Mode | Steam, Lutris, MangoHud, GameMode and the SegLinux Gaming Mode session (see [gaming.md](gaming.md)) |
 | Window buttons (minimize, maximize, close on the right), Alt+Tab thumbnails | KWin defaults in `/etc/xdg/kwinrc` |
-| File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, Spectacle, Gwenview, System Monitor, Partition Manager |
+| File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, the desktop's own screenshots (Print, Super+Shift+S), Gwenview, System Monitor, Partition Manager |
 | Microsoft Store | Discover with Flathub (Flatpak) |
 | Windows Update | `sudo seglinux-upgrade` (see [updating.md](updating.md)) or Discover |
 | Edge, Office, Media Player | Brave, LibreOffice, VLC |

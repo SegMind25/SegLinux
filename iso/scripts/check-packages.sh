@@ -67,10 +67,10 @@ cp "$conf" "$work_conf"
 
 skip=()
 if [[ ! -f $local_repo/seglinux.db ]]; then
-    # The seglinux package is built during the ISO build; when checking
-    # before that, leave the local repository out.
+    # The seglinux and segctl packages are built during the ISO build; when
+    # checking before that, leave the local repository out.
     awk '/^\[seglinux\]/{skip=1; next} /^\[/{skip=0} !skip' "$conf" > "$work_conf"
-    skip=(seglinux)
+    skip=(seglinux segctl)
     echo "note: $local_repo has no repository yet; not checking: ${skip[*]}"
 fi
 

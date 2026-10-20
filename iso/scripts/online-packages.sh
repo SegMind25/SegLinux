@@ -46,5 +46,5 @@ lite=$(rootfs "$profiles/seglinux-lite/common.yaml" "$profiles/seglinux-lite/pro
 
 echo "# Packages SegLinux Setup downloads when it installs the Lite edition:"
 echo "# the full edition's ($init, $kernel) minus what the Lite image has."
-# seglinux itself is built locally and already on the image.
-comm -23 <(echo "$full") <(echo "$lite") | grep -vx seglinux
+# seglinux and segctl are built locally and already on the image.
+comm -23 <(echo "$full") <(echo "$lite") | grep -vxE 'seglinux|segctl' || true

@@ -1,0 +1,31 @@
+#!/bin/sh
+# Trims the free space of every mounted file system that supports it, at most
+# once a week. cron starts this every hour (/etc/cron.d/seg-fstrim); the stamp
+# makes it run once, and a computer that was off on the usual day catches up
+# when it is next on. TRIM keeps SSDs fast; on other drives it does nothing.
+set -eu
+PATH=/usr/bin:/usr/sbin:/bin:/sbin
+stamp=/var/lib/seg/fstrim-last
+week=604800
+
+now=$(date +%s)
+if [ -r "$stamp" ]; then
+    last=$(cat "$stamp" 2>/dev/null || echo 0)
+    case $last in
+        '' | *[!0-9]*) last=0 ;;
+    esac
+    [ $((now - last)) -ge $week ] || exit 0
+fi
+
+mkdir -p "$(dirname "$stamp")"
+# Lowest CPU and disk priority: this runs while someone may be playing.
+if command -v ionice >/dev/null 2>&1; then
+    set -- ionice -c3 nice -n 19 fstrim -Av
+else
+    set -- nice -n 19 fstrim -Av
+fi
+# fstrim exits non-zero when one file system cannot be trimmed (a RAM disk,
+# a drive without TRIM): the others are still done.
+out=$("$@" 2>&1) || true
+printf '%s\n' "$out" | logger -t seg-fstrim 2>/dev/null || true
+printf '%s\n' "$now" > "$stamp"

@@ -101,6 +101,12 @@ published.
   starts it, under GameMode when it is a game.
 * **Fast, systemd-free base.** OpenRC by default (parallel boot), or runit
   or dinit; rolling release.
+* **`seg`, one small tool for the system.** `seg info`, `seg svc` (the same
+  commands on OpenRC, runit, dinit and s6), `seg clean`, `seg tune`
+  (light, balanced or performance), `seg zram` and `seg doctor`, which finds
+  problems and prints their fixes. A single Rust binary of about 550 KiB; see
+  [tools/seg](tools/seg/README.md). What the images weigh and what was taken
+  off them: [docs/lean-audit.md](docs/lean-audit.md).
 
 ## Website
 

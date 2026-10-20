@@ -1,0 +1,25 @@
+# Start the zram swap and the tuning profile at every boot.
+#
+# This may run in a chroot (the image build) whose init is not the host's, so
+# the init is chosen by what is installed here (--offline), not by PID 1.
+enable_services() {
+    command -v seg >/dev/null 2>&1 || return 0
+    local svc
+    for svc in seg-zram seg-tune; do
+        seg svc --offline enable "$svc" >/dev/null 2>&1 || true
+    done
+}
+
+post_install() {
+    enable_services
+}
+
+# Not on upgrade: someone who disabled a service keeps it disabled.
+
+pre_remove() {
+    command -v seg >/dev/null 2>&1 || return 0
+    local svc
+    for svc in seg-tune seg-zram; do
+        seg svc --offline disable "$svc" >/dev/null 2>&1 || true
+    done
+}

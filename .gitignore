@@ -7,6 +7,11 @@
 /packaging/seglinux/src/
 /packaging/seglinux/pkg/
 /packaging/seglinux/*.pkg.tar.*
+/tools/seg/target/
+/pkg/segctl/*.tar.gz
+/pkg/segctl/src/
+/pkg/segctl/pkg/
+/pkg/segctl/*.pkg.tar.*
 *.iso
 *.iso.sha256
 _site/

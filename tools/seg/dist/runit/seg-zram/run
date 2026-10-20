@@ -1,0 +1,6 @@
+#!/bin/sh
+# Sets up zram swap once, then stays "up" so runit does not start it again.
+# `sv stop seg-zram` runs ./finish, which turns it off.
+exec 2>&1
+/usr/bin/seg zram on
+exec sleep infinity
