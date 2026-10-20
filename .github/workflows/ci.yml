@@ -59,6 +59,37 @@ jobs:
       - name: Validate the default segrun configuration
         run: cargo run --locked -q -p segrun -- --config data/seglinux/segrun.toml config
 
+  # seg (tools/seg) is a workspace of its own with its own release profile.
+  seg:
+    name: seg (fmt, clippy, tests, size)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/seg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/seg
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      # Without the test cfg, where unwrap and expect are compile errors.
+      - run: cargo clippy --locked -- -D warnings
+      - run: cargo test --locked
+      - name: Dependencies stay minimal (seg and lexopt only)
+        run: |
+          cargo tree --locked -e normal --prefix none | sort -u
+          test "$(cargo tree --locked -e normal --prefix none | sort -u | wc -l)" -le 2
+      - name: Release binary size
+        run: |
+          cargo build --locked --release
+          ls -l target/release/seg
+          target/release/seg --version
+          echo "seg is $(stat -c %s target/release/seg) bytes" >> "$GITHUB_STEP_SUMMARY"
+
   scripts:
     name: Shell scripts and profile files
     runs-on: ubuntu-latest
@@ -68,12 +99,15 @@ jobs:
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-upgrade data/system/seglinux-update \
             packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh \
-            data/system/fastfetch.bashrc
+            data/system/fastfetch.bashrc data/system/rust-tools.bashrc
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
             data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
             data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
-            data/system/profile-gaming.sh data/greeter/seglinux-greeter-session
+            data/system/profile-gaming.sh data/greeter/seglinux-greeter-session data/system/zram-setup \
+            tools/seg/dist/fstrim-weekly tools/seg/dist/runit/*/run tools/seg/dist/runit/seg-zram/finish \
+            tools/seg/dist/openrc/seg-tune tools/seg/dist/openrc/seg-zram
+          shellcheck -s bash pkg/segctl/segctl.install
           shellcheck -s bash iso/iso-profiles/seglinux-lite/live-overlay/etc/skel/.bash_profile
       - name: YAML, JSON and XML syntax
         run: |
@@ -85,6 +119,30 @@ jobs:
           sed '/^ *\/\//d' data/fastfetch/config.jsonc | python3 -m json.tool > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml \
             data/greeter/labwc/rc.xml data/greeter/labwc/menu.xml
+      - name: Package lists have no repeats
+        run: |
+          python3 - <<'EOF'
+          import collections, yaml
+          failed = False
+          for profile, common in (("seglinux", "iso/iso-profiles/common/common.yaml"),
+                                  ("seglinux-lite", "iso/iso-profiles/seglinux-lite/common.yaml")):
+              c = yaml.safe_load(open(common))
+              p = yaml.safe_load(open(f"iso/iso-profiles/{profile}/profile.yaml"))
+              xorg = "packages-xlibre" if p["live-session"].get("use-xlibre") else "packages-xorg"
+              for init in ("openrc", "runit", "dinit"):
+                  names = []
+                  for key in ("packages-base", "packages-apps", xorg, "packages-misc"):
+                      names += c.get(key) or []
+                  names += (c.get("packages-init") or {}).get(init) or []
+                  names += p["rootfs"]["packages"] + ((p["rootfs"].get("packages-init") or {}).get(init) or [])
+                  repeats = [n for n, k in collections.Counter(names).items() if k > 1]
+                  if repeats:
+                      failed = True
+                      print(f"{profile} ({init}): listed more than once: {', '.join(repeats)}")
+          raise SystemExit(1 if failed else 0)
+          EOF
+      - name: udev rules
+        run: udevadm verify --no-style data/system/*.rules
       - name: Overlay links resolve
         run: |
           broken=$(find iso/iso-profiles -xtype l)
