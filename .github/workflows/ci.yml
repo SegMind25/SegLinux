@@ -79,10 +79,17 @@ jobs:
       # Without the test cfg, where unwrap and expect are compile errors.
       - run: cargo clippy --locked -- -D warnings
       - run: cargo test --locked
-      - name: Dependencies stay minimal (seg and lexopt only)
+      - name: Dependencies stay minimal (seg, lexopt and libc only)
         run: |
           cargo tree --locked -e normal --prefix none | sort -u
-          test "$(cargo tree --locked -e normal --prefix none | sort -u | wc -l)" -le 2
+          test "$(cargo tree --locked -e normal --prefix none | sort -u | wc -l)" -le 3
+      # The only unsafe code is the few libc calls of src/game/proc.rs.
+      - name: unsafe stays in one file
+        run: |
+          test "$(grep -rEl '\bunsafe[[:space:]]*(\{|fn|impl|extern)' segctl/src)" = "segctl/src/game/proc.rs"
+      - name: sudoers rule is valid
+        run: |
+          sudo visudo -cf dist/sudoers-seg-game
       - name: Release binary size
         run: |
           cargo build --locked --release
@@ -106,7 +113,7 @@ jobs:
             data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
             data/system/profile-gaming.sh data/greeter/seglinux-greeter-session data/system/zram-setup \
             tools/seg/dist/fstrim-weekly tools/seg/dist/runit/*/run tools/seg/dist/runit/seg-zram/finish \
-            tools/seg/dist/openrc/seg-tune tools/seg/dist/openrc/seg-zram
+            tools/seg/dist/openrc/seg-tune tools/seg/dist/openrc/seg-zram tools/seg/dist/openrc/seg-game
           shellcheck -s bash pkg/segctl/segctl.install
           shellcheck -s bash iso/iso-profiles/seglinux-lite/live-overlay/etc/skel/.bash_profile
       - name: YAML, JSON and XML syntax

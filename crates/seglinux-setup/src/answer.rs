@@ -266,8 +266,14 @@ pub struct PerformanceSection {
     /// OpenRC: start services in parallel (`rc_parallel`) for a faster boot.
     pub parallel_boot: bool,
     /// Kernel parameters added to SegLinux's defaults
-    /// (`loglevel=3 quiet nowatchdog nmi_watchdog=0`).
+    /// (`loglevel=3 quiet nowatchdog nmi_watchdog=0 transparent_hugepage=madvise`,
+    /// `zswap.enabled=0` with zram, `amd_pstate=active` on AMD processors).
+    /// A parameter given here replaces the default of the same name.
     pub kernel_parameters: Vec<String>,
+    /// Install the other kernel (`linux` next to `linux-zen`, the reverse for
+    /// the stock kernel) as a boot menu entry to fall back on, when the
+    /// network is reachable. The kernel that is installed is never removed.
+    pub fallback_kernel: bool,
 }
 
 impl Default for PerformanceSection {
@@ -275,6 +281,7 @@ impl Default for PerformanceSection {
         Self {
             parallel_boot: true,
             kernel_parameters: Vec::new(),
+            fallback_kernel: true,
         }
     }
 }
@@ -342,6 +349,8 @@ pub const DEFAULT_SERVICES: &[&str] = &[
     // From the segctl package: zram swap and the saved `seg tune` profile.
     "seg-zram",
     "seg-tune",
+    // The gaming sysctls and /dev/ntsync permissions, on every init.
+    "seg-game",
 ];
 
 /// Groups every user joins (missing ones are skipped).

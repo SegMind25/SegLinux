@@ -21,7 +21,10 @@ MON = "/tmp/qemu-mon.sock"
 WORK = "/tmp/qemu-check"
 os.makedirs(WORK, exist_ok=True)
 
-KEYS = {" ": "spc", "-": "minus", ".": "dot", ";": "semicolon", "/": "slash", "\n": "ret", "_": "shift-minus", "=": "equal"}
+KEYS = {" ": "spc", "-": "minus", ".": "dot", ";": "semicolon", "/": "slash", "\n": "ret", "_": "shift-minus", "=": "equal",
+        "|": "shift-backslash", "'": "apostrophe", ",": "comma", "$": "shift-4", "^": "shift-6", ":": "shift-semicolon",
+        "[": "bracket_left", "]": "bracket_right", "*": "shift-8", "(": "shift-9", ")": "shift-0", "&": "shift-7",
+        "?": "shift-slash", ">": "shift-dot", "<": "shift-comma", '"': "shift-apostrophe"}
 
 
 def log(msg):
@@ -67,7 +70,7 @@ class Monitor:
 
     def type(self, text):
         for ch in text:
-            self.key(KEYS.get(ch, ch))
+            self.key("shift-" + ch.lower() if ch.isupper() else KEYS.get(ch, ch))
 
     def screen_text(self, tag):
         ppm = f"{WORK}/{tag}.ppm"
@@ -113,11 +116,21 @@ def main():
         time.sleep(4)
         mon.type("seglinux\n")
         time.sleep(8)
-        for i, command in enumerate(["seg info", "seg zram status", "seg tune", "seg svc list --enabled", "seg doctor"]):
+        commands = [
+            "seg info",
+            "seg game check | cut -c1-92 | grep -v '   fix'",
+            "seg game run --dry-run -- echo hi",
+            "seg game run -- sleep 2; echo exit=$?",
+            "sysctl vm.max_map_count vm.compaction_proactiveness kernel.split_lock_mitigate; ls -l /dev/ntsync; getent group gamemode",
+            "seg game setup; seg tune gaming --dry-run | head -12",
+            "seg svc list --enabled | grep -E 'seg|sysctl|udev'",
+            "seg doctor",
+        ]
+        for i, command in enumerate(commands):
             mon.type("clear\n")
             time.sleep(1)
             mon.type(command + "\n")
-            time.sleep(12)
+            time.sleep(14)
             log(f"--- $ {command}:\n" + mon.screen_text(f"cmd{i}"))
     except Exception as e:
         log(f"qemu check stopped: {type(e).__name__}: {e}")

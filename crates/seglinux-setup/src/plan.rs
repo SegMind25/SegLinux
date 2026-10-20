@@ -832,6 +832,22 @@ pub fn build(
             )],
         });
     }
+    // A second kernel to fall back on: the boot menu lists every installed
+    // kernel (the newest, linux-zen, stays the default). Optional, like every
+    // step that needs the network: without it the system has the one kernel.
+    if answer.performance.fallback_kernel
+        && facts.network
+        && let Some(other) = fallback_kernel(facts.kernel.as_deref())
+    {
+        sp.push(Step {
+            description: format!(
+                "Installing the {other} kernel as a fallback boot entry (needs a network connection)"
+            ),
+            actions: vec![Action::chroot_optional(
+                Cmd::new("pacman").args(["-Syu", "--noconfirm", "--needed", other]),
+            )],
+        });
+    }
     sp.push(Step {
         description: "Building the boot image (initramfs)".into(),
         actions: vec![Action::chroot(Cmd::new("mkinitcpio").arg("-P"))],
@@ -860,7 +876,10 @@ pub fn build(
     grub.push(Action::set_key(
         "/etc/default/grub",
         "GRUB_CMDLINE_LINUX_DEFAULT",
-        format!("\"{}\"", kernel_parameters(answer, &layout).join(" ")),
+        format!(
+            "\"{}\"",
+            kernel_parameters(answer, &layout, facts).join(" ")
+        ),
     ));
     let efi_install = |extra: &[&str]| {
         Cmd::new("grub-install")
@@ -1060,7 +1079,7 @@ pub fn build(
 /// soft-lockup watchdogs (less background work and fewer interrupts while
 /// gaming), zswap off when zram provides the swap, then the answer file's
 /// own parameters.
-pub fn kernel_parameters(answer: &Answer, layout: &Layout) -> Vec<String> {
+pub fn kernel_parameters(answer: &Answer, layout: &Layout, facts: &Facts) -> Vec<String> {
     let mut params: Vec<String> = ["loglevel=3", "quiet", "nowatchdog", "nmi_watchdog=0"]
         .iter()
         .map(|s| s.to_string())
@@ -1068,12 +1087,47 @@ pub fn kernel_parameters(answer: &Answer, layout: &Layout) -> Vec<String> {
     if layout.zram.is_some() {
         params.push("zswap.enabled=0".into());
     }
+    // Hugepages only for programs that ask for them (games, databases): the
+    // kernel default of `always` can stall on compaction. Arch's kernels
+    // already say madvise; this makes it so on every kernel.
+    // AMD processors from Zen 2 on do better with amd-pstate in active mode
+    // (the processor picks its frequency, guided by the energy hints that
+    // `seg game run` sets). Kernels or processors without it ignore this.
+    let mut defaults = vec!["transparent_hugepage=madvise"];
+    if facts.cpu_vendor.as_deref() == Some("AuthenticAMD") {
+        defaults.push("amd_pstate=active");
+    }
+    // The answer file's own parameters win: one with the same name replaces
+    // the default, the rest are added.
+    let key = |p: &str| p.split('=').next().unwrap_or(p).to_string();
+    let own: Vec<String> = answer
+        .performance
+        .kernel_parameters
+        .iter()
+        .map(|p| key(p))
+        .collect();
+    for d in defaults {
+        if !own.contains(&key(d)) {
+            params.push(d.into());
+        }
+    }
     for p in &answer.performance.kernel_parameters {
         if !params.contains(p) {
             params.push(p.clone());
         }
     }
     params
+}
+
+/// The kernel to install next to the one that runs, so that the boot menu
+/// has a second entry: `linux` beside `linux-zen` or `linux-lts`, `linux-zen`
+/// beside the stock kernel. The one that runs is never touched.
+pub fn fallback_kernel(running: Option<&str>) -> Option<&'static str> {
+    match running {
+        Some("linux-zen") | Some("linux-lts") | Some("linux-hardened") => Some("linux"),
+        Some("linux") => Some("linux-zen"),
+        _ => None,
+    }
 }
 
 fn run_command_step(c: &crate::answer::RunCommand) -> Step {
@@ -1148,6 +1202,7 @@ mod tests {
             memory: 4 * GIB,
             gpus: vec![],
             kernel: Some("linux-zen".into()),
+            cpu_vendor: None,
             timezones: None,
             locales: None,
             keyboards: None,
@@ -1200,7 +1255,7 @@ mod tests {
         assert!(text.contains("| /dev/zram0  none  swap  defaults,discard,pri=100  0 0"));
         assert!(text.contains("| vm.swappiness = 180"));
         assert!(text.contains(
-            "set GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0 zswap.enabled=0\" in /etc/default/grub"
+            "set GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0 zswap.enabled=0 transparent_hugepage=madvise\" in /etc/default/grub"
         ));
         assert!(text.contains("set rc_parallel=\"YES\" in /etc/rc.conf"));
         // The sign-in screen preselects the SegLinux desktop and the user.
@@ -1285,7 +1340,7 @@ mod tests {
         assert!(!text.contains("/dev/zram0"), "{text}");
         assert!(
             text.contains(
-                "GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0\""
+                "GRUB_CMDLINE_LINUX_DEFAULT=\"loglevel=3 quiet nowatchdog nmi_watchdog=0 transparent_hugepage=madvise\""
             )
         );
     }
@@ -1359,13 +1414,127 @@ mod tests {
         assert!(!full.contains("restore-trimmed-files"));
     }
 
+    fn cmdline(a: &Answer, f: &Facts) -> String {
+        let text = build_plan(a, f).unwrap().to_string();
+        let start = text.find("set GRUB_CMDLINE_LINUX_DEFAULT=\"").unwrap();
+        let rest = &text[start + "set GRUB_CMDLINE_LINUX_DEFAULT=\"".len()..];
+        rest[..rest.find('"').unwrap()].to_string()
+    }
+
+    #[test]
+    fn amd_processors_get_amd_pstate_active_and_others_do_not() {
+        let mut f = facts();
+        f.cpu_vendor = Some("AuthenticAMD".into());
+        let c = cmdline(&answer(""), &f);
+        assert!(
+            c.ends_with("transparent_hugepage=madvise amd_pstate=active"),
+            "{c}"
+        );
+        f.cpu_vendor = Some("GenuineIntel".into());
+        assert!(!cmdline(&answer(""), &f).contains("amd_pstate"));
+        f.cpu_vendor = None;
+        assert!(!cmdline(&answer(""), &f).contains("amd_pstate"));
+    }
+
+    #[test]
+    fn an_answer_file_replaces_a_default_of_the_same_name() {
+        let mut f = facts();
+        f.cpu_vendor = Some("AuthenticAMD".into());
+        let a = answer(
+            "[performance]\nkernel_parameters = [\"amd_pstate=passive\", \"transparent_hugepage=always\"]\n",
+        );
+        let c = cmdline(&a, &f);
+        assert!(
+            c.contains("amd_pstate=passive") && !c.contains("amd_pstate=active"),
+            "{c}"
+        );
+        assert!(
+            c.contains("transparent_hugepage=always")
+                && !c.contains("transparent_hugepage=madvise"),
+            "{c}"
+        );
+        // Mitigations are never touched by Setup.
+        assert!(!c.contains("mitigations"), "{c}");
+    }
+
+    #[test]
+    fn the_other_kernel_is_chosen_to_fall_back_on() {
+        assert_eq!(fallback_kernel(Some("linux-zen")), Some("linux"));
+        assert_eq!(fallback_kernel(Some("linux-lts")), Some("linux"));
+        assert_eq!(fallback_kernel(Some("linux")), Some("linux-zen"));
+        assert_eq!(fallback_kernel(Some("linux-cachyos")), None);
+        assert_eq!(fallback_kernel(None), None);
+    }
+
+    #[test]
+    fn a_fallback_kernel_is_installed_before_the_boot_image_is_built() {
+        let f = facts();
+        let text = build_plan(&answer(""), &f).unwrap().to_string();
+        assert!(
+            text.contains(
+                "Installing the linux kernel as a fallback boot entry (needs a network connection)"
+            ),
+            "{text}"
+        );
+        let install = text
+            .find("pacman -Syu --noconfirm --needed linux  # may fail")
+            .unwrap();
+        assert!(install < text.find("mkinitcpio -P").unwrap());
+        assert!(install < text.find("grub-mkconfig").unwrap());
+
+        // The stock kernel gets zen beside it.
+        let mut stock = facts();
+        stock.kernel = Some("linux".into());
+        assert!(
+            build_plan(&answer(""), &stock)
+                .unwrap()
+                .to_string()
+                .contains("--needed linux-zen  # may fail")
+        );
+
+        // Not without a network, when switched off, or for a kernel we do not know.
+        let mut offline = facts();
+        offline.network = false;
+        assert!(
+            !build_plan(&answer(""), &offline)
+                .unwrap()
+                .to_string()
+                .contains("fallback boot entry")
+        );
+        let off = answer("[performance]\nfallback_kernel = false\n");
+        assert!(
+            !build_plan(&off, &f)
+                .unwrap()
+                .to_string()
+                .contains("fallback boot entry")
+        );
+        let mut unknown = facts();
+        unknown.kernel = None;
+        assert!(
+            !build_plan(&answer(""), &unknown)
+                .unwrap()
+                .to_string()
+                .contains("fallback boot entry")
+        );
+    }
+
+    #[test]
+    fn nothing_removes_a_kernel() {
+        let text = build_plan(&answer(""), &facts()).unwrap().to_string();
+        assert!(!text.contains("pacman -R"), "{text}");
+    }
+
     #[test]
     fn extra_kernel_parameters() {
         let a = answer(
             "[performance]\nparallel_boot = false\nkernel_parameters = [\"amd_pstate=active\", \"quiet\"]\n",
         );
         let text = build_plan(&a, &facts()).unwrap().to_string();
-        assert!(text.contains("nmi_watchdog=0 zswap.enabled=0 amd_pstate=active\""));
+        // The answer file's own amd_pstate is the one that counts, once.
+        assert!(text.contains(
+            "nmi_watchdog=0 zswap.enabled=0 transparent_hugepage=madvise amd_pstate=active\""
+        ));
+        assert_eq!(text.matches("amd_pstate").count(), 1, "{text}");
         assert!(!text.contains("rc_parallel"));
     }
 

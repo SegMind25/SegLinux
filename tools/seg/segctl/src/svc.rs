@@ -37,6 +37,10 @@ impl State {
 pub struct Service {
     pub name: String,
     pub enabled: bool,
+    /// Enabled in a runlevel the boot goes through. OpenRC also has runlevels
+    /// that are not entered at boot (`shutdown`, `nonetwork`): a service
+    /// there is enabled, and not running while the system is up, by design.
+    pub runs_at_boot: bool,
     pub state: State,
 }
 
@@ -224,6 +228,7 @@ impl Svc {
     /// init can be asked, whether they run.
     pub fn list(&self) -> Result<Vec<Service>> {
         let (available, enabled) = self.available_and_enabled();
+        let boot_levels = self.openrc_boot_services();
         let states = if self.live() {
             self.states(&enabled)
         } else {
@@ -233,10 +238,30 @@ impl Svc {
             .into_iter()
             .map(|name| Service {
                 enabled: enabled.contains(&name),
+                runs_at_boot: match self.init {
+                    Init::OpenRc => boot_levels.contains(&name),
+                    _ => enabled.contains(&name),
+                },
                 state: states.get(&name).copied().unwrap_or(State::Unknown),
                 name,
             })
             .collect())
+    }
+
+    /// What OpenRC starts on the way up: the `sysinit`, `boot` and `default`
+    /// runlevels, in that order.
+    fn openrc_boot_services(&self) -> BTreeSet<String> {
+        let mut out = BTreeSet::new();
+        for level in ["sysinit", "boot", "default"] {
+            if let Ok(entries) = fs::read_dir(self.p(&format!("/etc/runlevels/{level}"))) {
+                out.extend(
+                    entries
+                        .flatten()
+                        .filter_map(|e| e.file_name().into_string().ok()),
+                );
+            }
+        }
+        out
     }
 
     fn available_and_enabled(&self) -> (BTreeSet<String>, BTreeSet<String>) {
@@ -591,6 +616,41 @@ mod tests {
     }
 
     #[test]
+    fn openrc_shutdown_and_nonetwork_services_do_not_run_at_boot() {
+        let t = TempDir::new();
+        for name in ["agetty", "killprocs", "local", "udev"] {
+            t.put(&format!("etc/init.d/{name}"), "");
+        }
+        for (level, name) in [
+            ("default", "agetty"),
+            ("shutdown", "killprocs"),
+            ("nonetwork", "local"),
+            ("sysinit", "udev"),
+        ] {
+            fs::create_dir_all(t.path().join("etc/runlevels").join(level)).unwrap();
+            symlink(
+                format!("/etc/init.d/{name}"),
+                t.path().join("etc/runlevels").join(level).join(name),
+            )
+            .unwrap();
+        }
+        let list = Svc::new(Init::OpenRc, t.path()).list().unwrap();
+        let flags: Vec<_> = list
+            .iter()
+            .map(|s| (s.name.as_str(), s.enabled, s.runs_at_boot))
+            .collect();
+        assert_eq!(
+            flags,
+            [
+                ("agetty", true, true),
+                ("killprocs", true, false),
+                ("local", true, false),
+                ("udev", true, true),
+            ]
+        );
+    }
+
+    #[test]
     fn list_combines_installed_and_enabled() {
         let t = TempDir::new();
         t.put("etc/init.d/a", "");
@@ -604,11 +664,13 @@ mod tests {
                 Service {
                     name: "a".into(),
                     enabled: false,
+                    runs_at_boot: false,
                     state: State::Unknown
                 },
                 Service {
                     name: "b".into(),
                     enabled: true,
+                    runs_at_boot: true,
                     state: State::Unknown
                 },
             ]

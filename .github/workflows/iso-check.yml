@@ -1,12 +1,11 @@
 name: ISO check
 
 # Builds an image on a branch WITHOUT publishing anything, looks inside it
-# and boots the Lite one in QEMU. Starts on a push to the work branch whose
-# commit message contains "[iso check]". Temporary: removed once the
-# seg/rust-lean-overhaul branch is checked.
+# and boots the Lite one in QEMU. Runs on pushes to a throwaway branch that
+# is deleted after the check; it is never part of a pull request.
 on:
   push:
-    branches: [seg/rust-lean-overhaul]
+    branches: [seg/iso-check-gaming]
 
 permissions:
   contents: read
@@ -14,7 +13,6 @@ permissions:
 jobs:
   iso:
     name: Build and inspect (${{ matrix.edition }}, openrc, linux-zen)
-    if: contains(github.event.head_commit.message, '[iso check]')
     runs-on: ubuntu-latest
     timeout-minutes: 150
     strategy:
@@ -41,7 +39,7 @@ jobs:
           SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
             ./iso/build.sh "${edition[@]}" -e docker -i openrc -k linux-zen
       - name: Inside the image
-        run: .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"
+        run: bash .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"
       - name: Boot it in QEMU (Lite)
         if: matrix.edition == 'lite'
         continue-on-error: true

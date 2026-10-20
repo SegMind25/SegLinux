@@ -1,0 +1,6 @@
+#!/bin/sh
+# Applies the gaming sysctls and device permissions once, then stays "up" so
+# runit does not start it again.
+exec 2>&1
+/usr/bin/seg game apply
+exec sleep infinity

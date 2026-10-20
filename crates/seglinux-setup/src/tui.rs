@@ -819,6 +819,7 @@ mod tests {
             memory: 8 * GIB,
             gpus: vec![],
             kernel: Some("linux-zen".into()),
+            cpu_vendor: None,
             timezones: Some(
                 ["UTC", "Europe/Paris", "Europe/Berlin"]
                     .iter()

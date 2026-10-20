@@ -7,8 +7,8 @@
 
 pkgname=segctl
 pkgver=0.1.0
-pkgrel=1
-pkgdesc="seg: services, cleaning, tuning, zram swap and health checks for SegLinux, on OpenRC, runit, dinit and s6"
+pkgrel=2
+pkgdesc="seg: services, cleaning, tuning, zram swap, game mode and health checks for SegLinux, on OpenRC, runit, dinit and s6"
 arch=('x86_64')
 url="https://github.com/SegMind25/SegLinux"
 # No license has been chosen for the SegLinux repository yet.
@@ -19,7 +19,12 @@ depends=('gcc-libs' 'glibc' 'util-linux' 'kmod' 'coreutils')
 makedepends=('cargo')
 optdepends=(
     'cronie: the weekly fstrim job (/etc/cron.d/seg-fstrim)'
-    'pacman: seg clean and seg doctor'
+    'pacman: seg clean, seg doctor and seg game setup'
+    'sudo: seg game run raises the CPU governor through it (the gamemode group)'
+    'vulkan-tools: seg game check asks vulkaninfo'
+    'mangohud: per-game overlay (mangohud = true in games.toml)'
+    'gamescope: per-game gamescope arguments'
+    'pciutils: names of the graphics cards in seg game check and setup'
 )
 # The profile the user chose, and the sysctl values it wrote.
 backup=(
@@ -56,15 +61,27 @@ package() {
 
     install -Dm755 target/release/seg "$pkgdir/usr/bin/seg"
 
-    # The seg-tune and seg-zram services for each init the project builds
-    # (they do nothing on one that is not installed).
-    install -Dm755 -t "$pkgdir/etc/init.d" dist/openrc/seg-tune dist/openrc/seg-zram
+    # The seg-tune, seg-zram and seg-game services for each init (they do
+    # nothing on one that is not installed).
+    install -Dm755 -t "$pkgdir/etc/init.d" dist/openrc/seg-tune dist/openrc/seg-zram dist/openrc/seg-game
     local svc
-    for svc in seg-tune seg-zram; do
+    for svc in seg-tune seg-zram seg-game; do
         install -Dm755 "dist/runit/$svc/run" "$pkgdir/etc/runit/sv/$svc/run"
     done
     install -Dm755 dist/runit/seg-zram/finish "$pkgdir/etc/runit/sv/seg-zram/finish"
-    install -Dm644 -t "$pkgdir/etc/dinit.d" dist/dinit/seg-tune dist/dinit/seg-zram
+    install -Dm644 -t "$pkgdir/etc/dinit.d" dist/dinit/seg-tune dist/dinit/seg-zram dist/dinit/seg-game
+    install -Dm644 -t "$pkgdir/etc/s6/sv/seg-game" dist/s6/seg-game/type dist/s6/seg-game/up
+
+    # seg game run: the root helper it calls through sudo, for the gamemode
+    # group only (the folder keeps the mode the sudo package gives it).
+    install -dm750 "$pkgdir/etc/sudoers.d"
+    install -m440 dist/sudoers-seg-game "$pkgdir/etc/sudoers.d/seg-game"
+
+    # Presets, off until asked for: low-latency PipeWire (seg game audio on)
+    # and a MangoHud overlay for the game profiles.
+    install -Dm644 -t "$pkgdir/usr/share/seg/pipewire/pipewire.conf.d" dist/pipewire/pipewire.conf.d/99-seg-lowlatency.conf
+    install -Dm644 -t "$pkgdir/usr/share/seg/pipewire/pipewire-pulse.conf.d" dist/pipewire/pipewire-pulse.conf.d/99-seg-lowlatency.conf
+    install -Dm644 dist/mangohud-gaming.conf "$pkgdir/usr/share/seg/mangohud-gaming.conf"
 
     # Defaults: the balanced profile.
     install -Dm644 dist/tune.conf "$pkgdir/etc/seg/tune.conf"

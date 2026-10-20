@@ -40,7 +40,7 @@ pub enum Outcome {
 /// Services that start at boot but are not running.
 pub fn failed_services(list: &[Service]) -> Vec<&Service> {
     list.iter()
-        .filter(|s| s.enabled && matches!(s.state, State::Crashed | State::Stopped))
+        .filter(|s| s.runs_at_boot && matches!(s.state, State::Crashed | State::Stopped))
         .collect()
 }
 
@@ -395,6 +395,7 @@ mod tests {
         Service {
             name: name.into(),
             enabled,
+            runs_at_boot: enabled,
             state,
         }
     }
@@ -424,6 +425,14 @@ mod tests {
             .map(|s| s.name.as_str())
             .collect();
         assert_eq!(failed, ["b", "c"]);
+    }
+
+    #[test]
+    fn services_of_runlevels_that_boot_does_not_enter_are_not_failures() {
+        // OpenRC's killprocs, mount-ro and savecache sit in `shutdown`.
+        let mut late = svc("killprocs", true, State::Stopped);
+        late.runs_at_boot = false;
+        assert!(failed_services(&[late]).is_empty());
     }
 
     #[test]

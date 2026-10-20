@@ -1,0 +1,17 @@
+#!/usr/bin/openrc-run
+# shellcheck shell=sh disable=SC2034
+# The gaming sysctls and device permissions (/dev/ntsync) at boot, on any
+# init: OpenRC's sysctl service does the sysctls too, this makes sure.
+
+description="Apply SegLinux's gaming sysctls and device permissions"
+
+depend() {
+	after sysctl udev
+	before seg-tune
+}
+
+start() {
+	ebegin "Applying the gaming settings"
+	/usr/bin/seg game apply >/dev/null
+	eend $?
+}

@@ -82,7 +82,8 @@ start it by hand: `sudo seglinux-setup install --unattend`.
 | `[bootloader] removable` | `true` | | Also install `\EFI\BOOT\BOOTX64.EFI` |
 | `[bootloader] os_prober` | `true` | | Add Windows and other systems to the boot menu |
 | `[performance] parallel_boot` | `true` | | OpenRC: start services in parallel (`rc_parallel`) |
-| `[performance] kernel_parameters` | `[]` | | Added to `loglevel=3 quiet nowatchdog nmi_watchdog=0` (and `zswap.enabled=0` with zram) |
+| `[performance] kernel_parameters` | `[]` | | Added to `loglevel=3 quiet nowatchdog nmi_watchdog=0 transparent_hugepage=madvise` (and `zswap.enabled=0` with zram, `amd_pstate=active` on AMD processors); a parameter of the same name replaces the default |
+| `[performance] fallback_kernel` | `true` | | With a network connection, also install the other kernel (`linux` beside `linux-zen`, `linux-zen` beside the stock one) as a boot menu entry to fall back on; the installed kernel is never removed |
 | `[drivers] nvidia` | `"auto"` | Driver installation | `"auto"`: install NVIDIA's driver for GeForce GTX 16/RTX and newer when online; `"never"` |
 | `[services] enable` / `disable` | `[]` | | On top of SegLinux's defaults |
 | `[[run]] pass`, `command`, `description` | | `RunSynchronous`, `SetupComplete.cmd` | Shell command run in the new system during `specialize` or `setup-complete` |
