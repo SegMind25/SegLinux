@@ -38,6 +38,9 @@ Measurements and the reasons behind each removal are in
 - Setup installs the **other kernel** (`linux` beside `linux-zen`, or the
   reverse) as a boot menu entry to fall back on when online
   (`[performance] fallback_kernel`); the installed kernel is never removed.
+- Transparent hugepages go from `always` to `madvise` at boot (`seg-game`
+  service), so the live image and upgraded systems get it too, not only
+  fresh installs.
 - Kernel command line: `transparent_hugepage=madvise` everywhere and
   `amd_pstate=active` on AMD processors (an answer file's parameter of the
   same name replaces the default).
@@ -62,6 +65,9 @@ Measurements and the reasons behind each removal are in
   `gamemode` group may use `nice -10`.
 - Shader caches: Mesa 4 GB -> 10 GB; NVIDIA's shader cache set to 10 GB and
   no longer deleted when full (`/etc/profile.d`, so on every init).
+- `sudo seglinux-upgrade` (the from-source path) now also builds and
+  installs `segctl`, so an older install gets `seg`, `seg game`, the
+  services and the sudoers rule; CI checks this on an Artix container.
 - `makepkg` builds with every thread; the I/O scheduler rule skips partitions
   and covers virtual disks.
 

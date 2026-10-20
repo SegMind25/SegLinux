@@ -1,7 +1,7 @@
 //! `seg game apply`, run at boot by the `seg-game` service of every init:
-//! the gaming sysctls and the permissions of /dev/ntsync. OpenRC and udev do
-//! both too; runit, dinit and s6 images may not, and applying twice is
-//! harmless.
+//! the gaming sysctls, transparent hugepages on `madvise` and the permissions
+//! of /dev/ntsync. OpenRC and udev do the sysctls and the device too; runit,
+//! dinit and s6 images may not, and applying twice is harmless.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -15,12 +15,23 @@ pub const HELP: &str = "\
 Usage: seg game apply
 
 Applies /etc/sysctl.d/80-seglinux-gaming.conf now (vm.max_map_count,
-kernel.split_lock_mitigate, vm.compaction_proactiveness, ...) and makes
-/dev/ntsync usable by every user, so Wine and Proton can use NTSYNC. Needs
-root. The seg-game service runs it at boot.
+kernel.split_lock_mitigate, vm.compaction_proactiveness, ...), changes
+transparent hugepages from `always` to `madvise` (linux-zen starts with
+`always`, which can stall a game on memory compaction; `never` is left as it
+is) and makes /dev/ntsync usable by every user, so Wine and Proton can use
+NTSYNC. Needs root. The seg-game service runs it at boot.
 ";
 
 pub const SYSCTL_FILE: &str = "etc/sysctl.d/80-seglinux-gaming.conf";
+const THP_FILE: &str = "sys/kernel/mm/transparent_hugepage/enabled";
+
+/// The word in brackets of `always [madvise] never`.
+fn thp_selected(text: &str) -> Option<&str> {
+    text.split_once('[')?
+        .1
+        .split_once(']')
+        .map(|(word, _)| word)
+}
 
 /// Apply the sysctls of the gaming file below `root`; then fix /dev/ntsync.
 pub fn apply(root: &Path) -> Result<Vec<String>> {
@@ -44,6 +55,13 @@ pub fn apply(root: &Path) -> Result<Vec<String>> {
                 e,
             ));
         }
+    }
+    let thp = root.join(THP_FILE);
+    if let Ok(text) = fs::read_to_string(&thp)
+        && thp_selected(&text) == Some("always")
+    {
+        fs::write(&thp, "madvise").context(format!("writing {}", thp.display()))?;
+        lines.push("transparent hugepages: always -> madvise".into());
     }
     let ntsync = root.join("dev/ntsync");
     if let Ok(meta) = fs::metadata(&ntsync) {
@@ -115,6 +133,42 @@ mod tests {
         // Again: nothing to do (the unknown key is still a note).
         let again = apply(t.path()).unwrap();
         assert!(again.iter().all(|l| l.starts_with("note:")), "{again:?}");
+    }
+
+    #[test]
+    fn hugepages_go_from_always_to_madvise_and_nothing_else_changes() {
+        let t = TempDir::new();
+        t.put(THP_FILE, "[always] madvise never\n");
+        let lines = apply(t.path()).unwrap();
+        assert!(
+            lines
+                .iter()
+                .any(|l| l == "transparent hugepages: always -> madvise"),
+            "{lines:?}"
+        );
+        assert_eq!(
+            fs::read_to_string(t.path().join(THP_FILE)).unwrap(),
+            "madvise"
+        );
+        // madvise is left alone, and so is never (someone chose it).
+        for already in ["always [madvise] never\n", "always madvise [never]\n"] {
+            let t = TempDir::new();
+            t.put(THP_FILE, already);
+            let lines = apply(t.path()).unwrap();
+            assert!(lines.iter().all(|l| !l.contains("hugepages")), "{lines:?}");
+            assert_eq!(
+                fs::read_to_string(t.path().join(THP_FILE)).unwrap(),
+                already
+            );
+        }
+    }
+
+    #[test]
+    fn the_hugepage_setting_is_read_from_the_brackets() {
+        assert_eq!(thp_selected("[always] madvise never"), Some("always"));
+        assert_eq!(thp_selected("always [madvise] never"), Some("madvise"));
+        assert_eq!(thp_selected("always madvise never"), None);
+        assert_eq!(thp_selected(""), None);
     }
 
     #[test]

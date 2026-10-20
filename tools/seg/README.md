@@ -121,7 +121,7 @@ safety notes are in [docs/gaming.md](../../docs/gaming.md#seg-game).
 | `seg game check` | PASS/WARN/FAIL/SKIP for Vulkan, GPU driver, lib32 drivers, ntsync, `vm.max_map_count`, open files, kernel, fallback kernel, governor, boost permission, hugepages, split lock, compaction, mitigations; the fix under each; exit 1 if any FAIL |
 | `seg game setup [--yes] [--games] [--lutris]` | the driver packages for the GPUs in this computer (from `/sys/class/drm` and `lspci`) and the command that installs them; `--yes` runs it |
 | `seg game profiles [FILE]` | check `~/.config/seg/games.toml` and list what it holds |
-| `seg game apply` | the gaming sysctls and `/dev/ntsync` permissions now (the `seg-game` service) |
+| `seg game apply` | the gaming sysctls, hugepages `always` -> `madvise`, and `/dev/ntsync` permissions now (the `seg-game` service) |
 | `seg game audio on\|off\|status` | low-latency PipeWire for the current user |
 | `seg game unsafe-boost on\|off\|status` | `mitigations=off`; needs `--i-understand` after a warning |
 

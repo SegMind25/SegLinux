@@ -83,7 +83,13 @@ each marked `# Added by seglinux-upgrade.`. It keeps the previous file as
 
 When SegLinux is built from source, the source comes over HTTPS from
 SegLinux's GitHub repository, as the ISO and this command do; pacman installs
-the package it builds as a local file, like any AUR package.
+the package it builds as a local file, like any AUR package. The same build
+also makes `segctl` from the `tools/seg` folder (the `seg` tool: `seg game`,
+the zram, tuning and game services, the sudoers rule for the `gamemode`
+group) and installs the two together; if only `segctl` fails to build,
+SegLinux is still upgraded. SegLinux's signed repository does not carry
+`segctl` yet (`.github/workflows/update.yml` builds `seglinux` only), so once
+packages are published `seg` still needs `--from-source` or the ISO.
 
 ## When an update fails
 
