@@ -12,13 +12,15 @@ use crate::sys::{self, human_bytes};
 use crate::tune;
 
 pub const HELP: &str = "\
-Usage: seg zram on|off|status [--size SIZE]
+Usage: seg zram on|off|status [--size SIZE] [--if-unconfigured]
 
   on       set up /dev/zram0 as swap: zstd, half of the RAM (at most 8G)
   off      stop using it and free its memory
   status   show whether it is on, its size and how well it compresses
 
---size SIZE  size of the device instead of half the RAM: 2G, 4096M, 512M
+--size SIZE        size of the device instead of half the RAM: 2G, 4096M, 512M
+--if-unconfigured  do nothing when /dev/zram0 already has a size (set by a
+                   udev rule: used by SegLinux's own rule, which runs at boot)
 
 `on` and `off` need root. The seg-zram service runs `seg zram on` at boot.
 ";
@@ -34,7 +36,16 @@ pub enum Action {
 
 pub struct Options {
     pub action: Action,
+    pub on: OnOptions,
+}
+
+#[derive(Default)]
+pub struct OnOptions {
+    /// Size of the device instead of half the RAM.
     pub size: Option<u64>,
+    /// Do nothing when /dev/zram0 has been given a size already: udev rules
+    /// (SegLinux Setup writes one) and fstab set it up in that case.
+    pub if_unconfigured: bool,
 }
 
 /// `2G`, `4096M`, `512m`, `1048576` (bytes) -> bytes.
@@ -173,7 +184,7 @@ impl Zram {
         ))
     }
 
-    pub fn on(&self, runner: &mut dyn Runner, size: Option<u64>, wait: Duration) -> Result<String> {
+    pub fn on(&self, runner: &mut dyn Runner, opts: &OnOptions, wait: Duration) -> Result<String> {
         if let Some(swap) = self.swap() {
             return Ok(format!(
                 "zram swap is already on ({})",
@@ -181,27 +192,37 @@ impl Zram {
             ));
         }
         self.ensure_device(runner, wait)?;
-        let bytes = match size {
-            Some(b) => b,
-            None => {
-                let meminfo = sys::read(self.p("/proc/meminfo"))?;
-                auto_size(mem_total_kib(&meminfo).ok_or_else(|| {
-                    Error::other("cannot read the memory size from /proc/meminfo")
-                })?)
-            }
-        };
-        // A configured but unused device must be reset before it can change.
-        if sys::read_trimmed(self.dev("disksize")).is_some_and(|s| s != "0") {
-            sys::write(self.dev("reset"), "1")?;
+        let configured = sys::read_trimmed(self.dev("disksize")).is_some_and(|s| s != "0");
+        if configured && opts.if_unconfigured {
+            return Ok("zram0 is set up by another rule already; leaving it".into());
         }
         let mut note = String::new();
-        let algorithms = sys::read_trimmed(self.dev("comp_algorithm")).unwrap_or_default();
-        if parse_algorithms(&algorithms).0.iter().any(|a| a == "zstd") {
-            sys::write(self.dev("comp_algorithm"), "zstd")?;
-        } else {
-            note = " (zstd is not available: using the kernel's default compression)".into();
+        let mut bytes = sys::read_trimmed(self.dev("disksize"))
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+        // A device somebody sized keeps its size (and compression) unless a
+        // size is asked for; an unused one must be reset to change.
+        if !configured || opts.size.is_some() {
+            bytes = match opts.size {
+                Some(b) => b,
+                None => {
+                    let meminfo = sys::read(self.p("/proc/meminfo"))?;
+                    auto_size(mem_total_kib(&meminfo).ok_or_else(|| {
+                        Error::other("cannot read the memory size from /proc/meminfo")
+                    })?)
+                }
+            };
+            if configured {
+                sys::write(self.dev("reset"), "1")?;
+            }
+            let algorithms = sys::read_trimmed(self.dev("comp_algorithm")).unwrap_or_default();
+            if parse_algorithms(&algorithms).0.iter().any(|a| a == "zstd") {
+                sys::write(self.dev("comp_algorithm"), "zstd")?;
+            } else {
+                note = " (zstd is not available: using the kernel's default compression)".into();
+            }
+            sys::write(self.dev("disksize"), &bytes.to_string())?;
         }
-        sys::write(self.dev("disksize"), &bytes.to_string())?;
         runner.run("mkswap", &["-U", "clear", DEVICE])?;
         runner.run("swapon", &["-p", "100", DEVICE])?;
 
@@ -213,15 +234,18 @@ impl Zram {
         // Swapping to memory needs no read-ahead.
         let _ = fs::write(self.p("/proc/sys/vm/page-cluster"), "0");
         // A saved `seg tune` profile decides the swappiness; without one,
-        // swap to memory early, as SteamOS and Fedora do.
+        // swap to memory early, as Setup's 90-seglinux-zram.conf does.
         let tuned = tune::Fs::new(&self.root);
         if tuned.saved_mode().is_some() {
             tuned.reapply_memory()?;
         } else {
-            let _ = fs::write(self.p("/proc/sys/vm/swappiness"), "100");
+            let _ = fs::write(
+                self.p("/proc/sys/vm/swappiness"),
+                tune::ZRAM_SWAPPINESS.to_string(),
+            );
         }
         Ok(format!(
-            "zram swap is on: {} of zstd-compressed memory{note}",
+            "zram swap is on: {} of compressed memory{note}",
             human_bytes(bytes)
         ))
     }
@@ -286,10 +310,11 @@ impl Zram {
 pub fn parse_args(parser: &mut lexopt::Parser) -> Result<Options> {
     use lexopt::prelude::*;
     let mut action = None;
-    let mut size = None;
+    let mut on = OnOptions::default();
     while let Some(arg) = parser.next()? {
         match arg {
-            Long("size") => size = Some(parse_size(&parser.value()?.string()?)?),
+            Long("size") => on.size = Some(parse_size(&parser.value()?.string()?)?),
+            Long("if-unconfigured") => on.if_unconfigured = true,
             Short('h') | Long("help") => {
                 out!("{HELP}");
                 std::process::exit(0);
@@ -311,7 +336,7 @@ pub fn parse_args(parser: &mut lexopt::Parser) -> Result<Options> {
     }
     Ok(Options {
         action: action.unwrap_or(Action::Status),
-        size,
+        on,
     })
 }
 
@@ -323,7 +348,7 @@ pub fn run(o: Options) -> Result<()> {
             sys::require_root("`seg zram on`")?;
             outln!(
                 "{}",
-                zram.on(&mut RealRunner, o.size, Duration::from_millis(100))?
+                zram.on(&mut RealRunner, &o.on, Duration::from_millis(100))?
             );
         }
         Action::Off => {
@@ -440,7 +465,9 @@ mod tests {
     fn on_configures_zstd_half_the_ram_and_swaps_to_it() {
         let t = fake("0\n", "lzo lzo-rle [lz4] zstd\n");
         let mut r = Recorder::default();
-        let msg = Zram::new(t.path()).on(&mut r, None, NO_WAIT).unwrap();
+        let msg = Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap();
         assert!(msg.starts_with("zram swap is on: "), "{msg}");
         assert_eq!(read(&t, "sys/block/zram0/comp_algorithm"), "zstd");
         assert_eq!(
@@ -454,7 +481,7 @@ mod tests {
         assert_eq!(read(&t, "sys/module/zswap/parameters/enabled"), "0");
         assert_eq!(read(&t, "proc/sys/vm/page-cluster"), "0");
         // No saved `seg tune` profile: swap to memory early.
-        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "100");
+        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "180");
     }
 
     #[test]
@@ -462,7 +489,14 @@ mod tests {
         let t = fake("1048576\n", "[lzo] zstd\n");
         let mut r = Recorder::default();
         Zram::new(t.path())
-            .on(&mut r, Some(2 << 30), NO_WAIT)
+            .on(
+                &mut r,
+                &OnOptions {
+                    size: Some(2 << 30),
+                    ..OnOptions::default()
+                },
+                NO_WAIT,
+            )
             .unwrap();
         assert_eq!(read(&t, "sys/block/zram0/reset"), "1");
         assert_eq!(
@@ -472,10 +506,51 @@ mod tests {
     }
 
     #[test]
+    fn a_device_another_rule_sized_is_left_alone() {
+        // SegLinux Setup's udev rule gives zram0 its size and formats it; the
+        // package's rule must not reset it under that rule's feet.
+        let t = fake("4294967296\n", "[zstd]\n");
+        let mut r = Recorder::default();
+        let msg = Zram::new(t.path())
+            .on(
+                &mut r,
+                &OnOptions {
+                    if_unconfigured: true,
+                    ..OnOptions::default()
+                },
+                NO_WAIT,
+            )
+            .unwrap();
+        assert!(msg.contains("leaving it"), "{msg}");
+        assert!(r.0.is_empty());
+        assert_eq!(read(&t, "sys/block/zram0/reset"), "");
+        assert_eq!(read(&t, "sys/block/zram0/disksize"), "4294967296");
+    }
+
+    #[test]
+    fn a_sized_device_that_is_not_swap_keeps_its_size_for_a_plain_on() {
+        let t = fake("4294967296\n", "[zstd]\n");
+        let mut r = Recorder::default();
+        let msg = Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap();
+        assert!(msg.starts_with("zram swap is on: 4.0 GiB"), "{msg}");
+        // No reset, same size; just formatted and switched on.
+        assert_eq!(read(&t, "sys/block/zram0/reset"), "");
+        assert_eq!(read(&t, "sys/block/zram0/disksize"), "4294967296");
+        assert_eq!(
+            r.0,
+            ["mkswap -U clear /dev/zram0", "swapon -p 100 /dev/zram0"]
+        );
+    }
+
+    #[test]
     fn on_falls_back_when_the_kernel_lacks_zstd() {
         let t = fake("0\n", "[lzo] lzo-rle lz4\n");
         let mut r = Recorder::default();
-        let msg = Zram::new(t.path()).on(&mut r, None, NO_WAIT).unwrap();
+        let msg = Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap();
         assert!(msg.contains("zstd is not available"), "{msg}");
         assert_eq!(
             read(&t, "sys/block/zram0/comp_algorithm"),
@@ -491,7 +566,9 @@ mod tests {
             "Filename Type Size Used Priority\n/dev/zram0 partition 4194300 0 100\n",
         );
         let mut r = Recorder::default();
-        let msg = Zram::new(t.path()).on(&mut r, None, NO_WAIT).unwrap();
+        let msg = Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap();
         assert!(msg.starts_with("zram swap is already on"), "{msg}");
         assert!(r.0.is_empty());
     }
@@ -504,7 +581,9 @@ mod tests {
         let mut r = Recorder::default();
         // The recorder does not create the device, so this gives up after
         // asking for the module.
-        let e = Zram::new(t.path()).on(&mut r, None, NO_WAIT).unwrap_err();
+        let e = Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap_err();
         assert_eq!(r.0, ["modprobe zram"]);
         assert!(matches!(e, Error::Unsupported(_)), "{e}");
     }
@@ -517,7 +596,9 @@ mod tests {
         t.put("proc/sys/vm/dirty_ratio", "20\n");
         t.put("proc/sys/vm/dirty_background_ratio", "10\n");
         let mut r = Recorder::default();
-        Zram::new(t.path()).on(&mut r, None, NO_WAIT).unwrap();
+        Zram::new(t.path())
+            .on(&mut r, &OnOptions::default(), NO_WAIT)
+            .unwrap();
         // The recorder cannot add the swap, so the profile sees no zram and
         // wants its own value; what matters is that tune decided, not 100.
         assert_eq!(read(&t, "proc/sys/vm/swappiness"), "10");

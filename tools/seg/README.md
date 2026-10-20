@@ -77,7 +77,8 @@ Dry run unless `--apply` is given.
 | CPU governor (first available) | powersave, conservative, schedutil, ondemand | schedutil, ondemand, powersave | performance |
 | energy/performance preference | power | balance_performance | performance |
 
-* With zram swap on, swappiness is at least 100: swapping to compressed memory
+* With zram swap on, swappiness is at least 180, the value Setup writes for
+  zram (/etc/sysctl.d/90-seglinux-zram.conf): swapping to compressed memory
   is cheaper than re-reading files from disk.
 * I/O scheduler of every disk: `none` for NVMe and virtual disks (their
   controller or host schedules), `mq-deadline` for SSDs, `bfq` for spinning
@@ -95,9 +96,11 @@ Dry run unless `--apply` is given.
 
 `seg zram on` loads the module if needed and makes /dev/zram0 swap: zstd,
 half the RAM (at most 8 GiB, because the device's table uses memory in
-proportion to its size; `--size 2G` overrides), priority 100. It also turns
-zswap off (it would compress the same pages twice) and sets
-`vm.page-cluster=0`. `seg zram off` swaps off and frees the memory; `status`
+proportion to its size; `--size 2G` overrides), priority 100. A device that
+already has a size (SegLinux Setup's udev rule gives zram0 one on installed
+systems) keeps it, and `--if-unconfigured`, which the package's udev rule
+uses, leaves such a device entirely alone. It also turns zswap off (it would
+compress the same pages twice) and sets `vm.page-cluster=0`. `seg zram off` swaps off and frees the memory; `status`
 shows size, use and compression ratio. The `seg-zram` service runs it at boot.
 
 ## seg doctor

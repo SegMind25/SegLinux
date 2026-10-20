@@ -108,7 +108,6 @@ File and line are those of the commit before this work (`4ca2f45`).
 | `iso/iso-profiles/seglinux/profile.yaml:79-82,123` | `xorg-server`, `xorg-xwayland`, `xdg-user-dirs`, `xdg-utils` and `ttf-liberation` also in `common.yaml:55,77-79,82` | listed once; CI now fails on a repeat |
 | `crates/seglinux-setup/src/plan.rs:824` | the NVIDIA DKMS driver could only build because 325 MiB of kernel headers were on every image | Setup installs the running kernel's headers in that step |
 | `iso/scripts/build-in-container.sh:157-160` | the artools patch that reads the kernel version without headers applied to non-stock kernels only; the stock kernel relied on `linux-headers` | applies to every kernel |
-| `crates/seglinux-setup/src/disk.rs:273` | comment names `/etc/udev/rules.d/99-seglinux-zram.rules`, which does not exist (it is `/usr/lib/udev/rules.d/60-seglinux-zram.rules`) | corrected |
 | `.github/workflows/ci.yml:72-76` | `data/system/zram-setup` was not shellchecked; the udev rules were not checked at all | both are now; new job for `seg` |
 | `crates/seglinux-setup/src/plan.rs:1273` | the swap partition test asserted that the plan never contains the word `zram` | asserts there is no `/dev/zram0` fstab line, which is what it means |
 

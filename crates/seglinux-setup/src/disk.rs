@@ -270,8 +270,7 @@ impl Layout {
             ));
         }
         if self.zram.is_some() {
-            // Created and formatted at boot: the udev rule 60-seglinux-zram.rules runs
-            // seg zram on (the seg-zram service does too).
+            // Created and formatted by /etc/udev/rules.d/99-seglinux-zram.rules.
             out.push_str("/dev/zram0  none  swap  defaults,discard,pri=100  0 0\n");
         }
         out

@@ -25,12 +25,17 @@ Usage: seg tune [light|balanced|performance|apply|status] [--dry-run]
   status        show the saved profile and the current values (default)
 
 Also sets the I/O scheduler of every disk: none for NVMe, mq-deadline for
-SSDs, bfq for spinning disks. With zram swap on, swappiness is at least 100
+SSDs, bfq for spinning disks. With zram swap on, swappiness is at least 180
 (compressed memory is cheaper to swap to than disk is to read from).
 
 The profile is saved in /etc/seg/tune.conf and /etc/sysctl.d/99-seg.conf.
 Needs root, except `status` and --dry-run.
 ";
+
+/// Swappiness with zram swap on: swapping to compressed memory is cheaper
+/// than re-reading files, so swap early. The value SegLinux Setup writes to
+/// /etc/sysctl.d/90-seglinux-zram.conf (ArchWiki, Fedora, Pop!_OS).
+pub const ZRAM_SWAPPINESS: u32 = 180;
 
 pub const CONF: &str = "/etc/seg/tune.conf";
 pub const SYSCTL_CONF: &str = "/etc/sysctl.d/99-seg.conf";
@@ -119,7 +124,7 @@ fn profile(mode: Mode) -> Profile {
 pub fn sysctl_values(mode: Mode, zram_active: bool) -> [(&'static str, u32); 4] {
     let p = profile(mode);
     let swappiness = if zram_active {
-        p.swappiness.max(100)
+        p.swappiness.max(ZRAM_SWAPPINESS)
     } else {
         p.swappiness
     };
@@ -575,21 +580,21 @@ mod tests {
     }
 
     #[test]
-    fn zram_raises_swappiness_to_at_least_100() {
+    fn zram_raises_swappiness_to_the_zram_value() {
         assert_eq!(
             sysctl_values(Mode::Performance, true)[0],
-            ("vm.swappiness", 100)
+            ("vm.swappiness", ZRAM_SWAPPINESS)
         );
         assert_eq!(
             sysctl_values(Mode::Balanced, true)[0],
-            ("vm.swappiness", 100)
+            ("vm.swappiness", ZRAM_SWAPPINESS)
         );
         assert_eq!(
             sysctl_values(Mode::Performance, false)[0],
             ("vm.swappiness", 10)
         );
         // Never lowered.
-        assert_eq!(sysctl_values(Mode::Light, true)[0].1, 100);
+        assert_eq!(sysctl_values(Mode::Light, true)[0].1, ZRAM_SWAPPINESS);
     }
 
     #[test]
@@ -821,8 +826,8 @@ mod tests {
         let fs_ = Fs::new(t.path());
         assert!(fs_.zram_active());
         fs_.apply(Mode::Performance, true, false).unwrap();
-        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "100");
-        assert!(read(&t, "etc/sysctl.d/99-seg.conf").contains("vm.swappiness = 100"));
+        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "180");
+        assert!(read(&t, "etc/sysctl.d/99-seg.conf").contains("vm.swappiness = 180"));
         // zram goes away: the saved profile's own value comes back.
         t.put("proc/swaps", "Filename Type Size Used Priority\n");
         fs_.reapply_memory().unwrap();
