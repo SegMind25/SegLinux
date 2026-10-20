@@ -1,6 +1,14 @@
-# I/O schedulers for low latency while games stream assets:
-# NVMe drives schedule themselves, other SSDs use mq-deadline and
-# spinning disks use BFQ, which keeps the desktop responsive.
-ACTION=="add|change", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/scheduler}="none"
-ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+# I/O schedulers for low latency while games stream assets (seg tune picks
+# the same ones): NVMe drives and virtual disks leave scheduling to their
+# controller or host, other SSDs use mq-deadline and spinning disks use
+# BFQ, which keeps the desktop responsive. Only whole disks have a queue:
+# partitions (nvme0n1p1, sda1) are skipped.
+SUBSYSTEM!="block", GOTO="seglinux_ioschedulers_end"
+ENV{DEVTYPE}!="disk", GOTO="seglinux_ioschedulers_end"
+ACTION!="add|change", GOTO="seglinux_ioschedulers_end"
+
+KERNEL=="nvme[0-9]*n[0-9]*|vd[a-z]|xvd[a-z]", ATTR{queue/scheduler}="none"
+KERNEL=="sd[a-z]|sd[a-z][a-z]|mmcblk[0-9]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+KERNEL=="sd[a-z]|sd[a-z][a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+
+LABEL="seglinux_ioschedulers_end"

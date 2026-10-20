@@ -6,7 +6,7 @@
 
 pkgname=seglinux
 pkgver=0.1.0
-pkgrel=8
+pkgrel=9
 pkgdesc="SegLinux: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/SegLinux"
@@ -51,6 +51,7 @@ backup=(
     'etc/binfmt.d/wine.conf'
     'etc/sysctl.d/80-seglinux-gaming.conf'
     'etc/sysctl.d/81-seglinux-network.conf'
+    'etc/makepkg.conf.d/10-seglinux.conf'
     'etc/xdg/xdg-desktop-portal-wlr/config'
     'etc/gamemode.ini'
     'etc/security/limits.d/90-seglinux-esync.conf'
@@ -165,6 +166,7 @@ package() {
     install -Dm644 "$data/system/modules-zram.conf" "$pkgdir/usr/lib/modules-load.d/seglinux-zram.conf"
     install -Dm644 "$data/system/udev-zram.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-zram.rules"
     install -Dm755 "$data/system/zram-setup" "$pkgdir/usr/lib/seglinux/zram-setup"
+    install -Dm644 "$data/system/makepkg-seglinux.conf" "$pkgdir/etc/makepkg.conf.d/10-seglinux.conf"
     install -Dm644 "$data/desktop/xdpw-config" "$pkgdir/etc/xdg/xdg-desktop-portal-wlr/config"
     install -Dm644 "$data/system/udev-ntsync.rules" "$pkgdir/usr/lib/udev/rules.d/70-seglinux-ntsync.rules"
 
