@@ -6,7 +6,7 @@
 
 pkgname=seglinux
 pkgver=0.1.0
-pkgrel=9
+pkgrel=10
 pkgdesc="SegLinux: lightweight Rust desktop, Windows program and game launcher, graphical installer and gaming tuning"
 arch=('x86_64')
 url="https://github.com/SegMind25/SegLinux"
@@ -175,6 +175,7 @@ package() {
     install -Dm644 "$data/system/udev-ioschedulers.rules" "$pkgdir/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules"
     install -Dm644 "$data/system/modules-ddcutil.conf" "$pkgdir/etc/modules-load.d/ddcutil.conf"
     install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nowatchdog.conf"
+    install -Dm644 "$data/system/modprobe-nvidia.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nvidia.conf"
     install -Dm644 "$data/system/gamemode.ini" "$pkgdir/etc/gamemode.ini"
     install -Dm644 "$data/system/profile-gaming.sh" "$pkgdir/etc/profile.d/seglinux-gaming.sh"
 
