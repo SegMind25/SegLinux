@@ -176,8 +176,10 @@ Found, not changed:
   the udev rule starts it whatever the answer says.
 * The two greetd `config.toml` and `pacman.conf` copies in the root overlays
   are identical to each other (and the first to `data/greeter/greetd.toml`).
-* `seglinux-upgrade` updates only the `seglinux` package, so a system
-  installed before this work does not get `segctl` that way yet.
+* `seglinux-upgrade` updated only the `seglinux` package, so a system
+  installed before this work did not get `segctl`. Fixed in the gaming work:
+  the from-source upgrade also builds and installs `segctl` (tested in CI on
+  an Artix container); the signed repository still carries `seglinux` only.
 
 ## Decisions for the maintainers
 

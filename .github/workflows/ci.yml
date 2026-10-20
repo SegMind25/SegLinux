@@ -302,6 +302,19 @@ jobs:
           SUDO_USER=tester SEGLINUX_SOURCE="$PWD" SEGLINUX_VERSION=0.1.0.999999 \
             bash data/system/seglinux-upgrade --noconfirm
           pacman -Q seglinux | grep -q ' 0\.1\.0\.999999-'
+          # seg (package segctl) comes with it, with its group, sudoers rule
+          # and services (pacman -U ran the package's install script).
+          pacman -Q segctl
+          seg --version
+          getent group gamemode
+          test "$(stat -c %a /etc/sudoers.d/seg-game)" = 440
+          visudo -cf /etc/sudoers.d/seg-game
+          test -x /etc/init.d/seg-game && test -f /etc/runit/sv/seg-game/run && test -f /etc/dinit.d/seg-game
+          ls /etc/dinit.d/boot.d /etc/runlevels/default 2>/dev/null | grep -E '^seg-' || true
+          # seg game works on a machine with no GPU: it reports, it does not crash.
+          seg game check > /tmp/game-check.txt || test $? -eq 1
+          grep -q 'max_map_count' /tmp/game-check.txt
+          seg game run --dry-run -- true
           test -x /usr/bin/seglinux-upgrade && test -L /usr/bin/seglinux-update
           test ! -e /usr/local/bin/seglinux-upgrade
           seglinux-shell --version

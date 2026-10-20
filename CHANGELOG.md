@@ -62,6 +62,9 @@ Measurements and the reasons behind each removal are in
   `gamemode` group may use `nice -10`.
 - Shader caches: Mesa 4 GB -> 10 GB; NVIDIA's shader cache set to 10 GB and
   no longer deleted when full (`/etc/profile.d`, so on every init).
+- `sudo seglinux-upgrade` (the from-source path) now also builds and
+  installs `segctl`, so an older install gets `seg`, `seg game`, the
+  services and the sudoers rule; CI checks this on an Artix container.
 - `makepkg` builds with every thread; the I/O scheduler rule skips partitions
   and covers virtual disks.
 
