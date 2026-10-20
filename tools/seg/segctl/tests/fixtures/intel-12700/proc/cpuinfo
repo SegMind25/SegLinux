@@ -1,0 +1,11 @@
+processor	: 0
+vendor_id	: GenuineIntel
+cpu family	: 25
+model		: 97
+model name	: 12th Gen Intel(R) Core(TM) i7-12700
+stepping	: 2
+cache size	: 1024 KB
+
+processor	: 1
+vendor_id	: GenuineIntel
+model name	: 12th Gen Intel(R) Core(TM) i7-12700

@@ -1,4 +1,4 @@
-//! `seg tune light|balanced|performance`: memory and writeback sysctls, the
+//! `seg tune light|balanced|gaming|performance`: memory and writeback sysctls, the
 //! CPU governor and the I/O scheduler of every disk, applied now and saved
 //! for the next boot (/etc/sysctl.d/99-seg.conf, /etc/seg/tune.conf, and the
 //! `seg-tune` init service that runs `seg tune apply`).
@@ -15,12 +15,14 @@ use crate::error::{Context, Error, Result};
 use crate::sys::{self, bold};
 
 pub const HELP: &str = "\
-Usage: seg tune [light|balanced|performance|apply|status] [--dry-run]
+Usage: seg tune [light|balanced|gaming|performance|apply|status] [--dry-run]
 
   light         save memory and battery: aggressive reclaim, small dirty
                 limits, the most frugal CPU governor
   balanced      kernel defaults for memory, a dynamic governor
-  performance   keep caches, short writeback bursts, governor `performance`
+  gaming        keep caches, short writeback bursts, low swappiness; the CPU
+                stays dynamic (seg game run raises it while a game runs)
+  performance   the same, and the governor `performance` all the time
   apply         apply the saved profile (the seg-tune service does this at boot)
   status        show the saved profile and the current values (default)
 
@@ -44,7 +46,12 @@ pub const SYSCTL_CONF: &str = "/etc/sysctl.d/99-seg.conf";
 pub enum Mode {
     Light,
     Balanced,
+    /// Everything fast, all the time: the CPU on `performance` too.
     Performance,
+    /// For playing: caches kept, writeback in small bursts, low swappiness
+    /// without zram. The CPU governor stays dynamic: `seg game run` raises it
+    /// only while a game runs.
+    Gaming,
 }
 
 impl Mode {
@@ -53,6 +60,7 @@ impl Mode {
             Mode::Light => "light",
             Mode::Balanced => "balanced",
             Mode::Performance => "performance",
+            Mode::Gaming => "gaming",
         }
     }
 }
@@ -71,8 +79,9 @@ impl FromStr for Mode {
             "light" => Ok(Mode::Light),
             "balanced" => Ok(Mode::Balanced),
             "performance" => Ok(Mode::Performance),
+            "gaming" => Ok(Mode::Gaming),
             other => Err(Error::Usage(format!(
-                "unknown profile `{other}` (light, balanced or performance)"
+                "unknown profile `{other}` (light, balanced, gaming or performance)"
             ))),
         }
     }
@@ -117,6 +126,14 @@ fn profile(mode: Mode) -> Profile {
             governors: &["performance"],
             epp: "performance",
         },
+        Mode::Gaming => Profile {
+            swappiness: 10,
+            vfs_cache_pressure: 50,
+            dirty_ratio: 15,
+            dirty_background_ratio: 5,
+            governors: &["schedutil", "ondemand", "powersave"],
+            epp: "balance_performance",
+        },
     }
 }
 
@@ -138,7 +155,7 @@ pub fn sysctl_values(mode: Mode, zram_active: bool) -> [(&'static str, u32); 4] 
 
 pub fn sysctl_conf(mode: Mode, zram_active: bool) -> String {
     let mut text = format!(
-        "# Written by `seg tune {mode}`; change it with `sudo seg tune <light|balanced|performance>`.\n"
+        "# Written by `seg tune {mode}`; change it with `sudo seg tune <light|balanced|gaming|performance>`.\n"
     );
     for (key, value) in sysctl_values(mode, zram_active) {
         text.push_str(&format!("{key} = {value}\n"));
@@ -223,6 +240,33 @@ impl Fs {
 
     fn p(&self, rel: &str) -> PathBuf {
         self.root.join(rel.trim_start_matches('/'))
+    }
+
+    /// Apply the `key = value` lines of a sysctl.d file now.
+    pub fn apply_sysctl_text(&self, text: &str) -> Result<Report> {
+        let mut report = Report::default();
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
+            let (key, value) = (key.trim().trim_start_matches('-'), value.trim());
+            // A key is dots and word characters, nothing that could leave /proc/sys.
+            if key.is_empty()
+                || !key
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+                || key.contains("..")
+            {
+                report.warnings.push(format!("{key}: not a sysctl name"));
+                continue;
+            }
+            self.set(key, &self.sysctl_path(key), value, false, &mut report)?;
+        }
+        Ok(report)
     }
 
     pub fn zram_active(&self) -> bool {
@@ -558,6 +602,7 @@ mod tests {
         for (text, mode) in [
             ("light", Mode::Light),
             ("balanced", Mode::Balanced),
+            ("gaming", Mode::Gaming),
             ("performance", Mode::Performance),
         ] {
             assert_eq!(text.parse::<Mode>().unwrap(), mode);
@@ -565,7 +610,10 @@ mod tests {
         }
         let e = "turbo".parse::<Mode>().unwrap_err();
         assert!(matches!(e, Error::Usage(_)));
-        assert!(e.to_string().contains("light, balanced or performance"));
+        assert!(
+            e.to_string()
+                .contains("light, balanced, gaming or performance")
+        );
     }
 
     #[test]
@@ -576,6 +624,85 @@ mod tests {
         let vfs = |m| sysctl_values(m, false)[1].1;
         assert!(
             vfs(Mode::Light) > vfs(Mode::Balanced) && vfs(Mode::Balanced) > vfs(Mode::Performance)
+        );
+    }
+
+    #[test]
+    fn gaming_keeps_the_cpu_dynamic_and_the_caches_warm() {
+        let g = profile(Mode::Gaming);
+        // Never the performance governor: that is for the length of a game.
+        assert!(!g.governors.contains(&"performance"));
+        assert_eq!(
+            pick_governor("performance schedutil powersave", g.governors),
+            Some("schedutil")
+        );
+        // intel_pstate offers only performance and powersave.
+        assert_eq!(
+            pick_governor("performance powersave", g.governors),
+            Some("powersave")
+        );
+        assert_eq!(pick_governor("performance", g.governors), None);
+        assert_eq!(
+            sysctl_values(Mode::Gaming, false),
+            [
+                ("vm.swappiness", 10),
+                ("vm.vfs_cache_pressure", 50),
+                ("vm.dirty_ratio", 15),
+                ("vm.dirty_background_ratio", 5),
+            ]
+        );
+        // With zram, swapping early is right even for gaming.
+        assert_eq!(
+            sysctl_values(Mode::Gaming, true)[0],
+            ("vm.swappiness", ZRAM_SWAPPINESS)
+        );
+    }
+
+    #[test]
+    fn gaming_saves_like_the_others_and_leaves_the_governor_dynamic() {
+        let t = fake_system();
+        Fs::new(t.path()).apply(Mode::Gaming, true, false).unwrap();
+        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "10");
+        assert_eq!(
+            read(&t, "sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+            "schedutil"
+        );
+        assert_eq!(
+            read(&t, "etc/seg/tune.conf").lines().last(),
+            Some("mode = gaming")
+        );
+        assert_eq!(Fs::new(t.path()).saved_mode(), Some(Mode::Gaming));
+    }
+
+    #[test]
+    fn a_sysctl_file_is_applied_line_by_line() {
+        let t = fake_system();
+        let report = Fs::new(t.path())
+            .apply_sysctl_text(
+                "# comment
+
+vm.swappiness = 33
+-vm.dirty_ratio=7
+not a line
+vm/../../etc.x = 1
+vm.nonexistent = 1
+",
+            )
+            .unwrap();
+        assert_eq!(read(&t, "proc/sys/vm/swappiness"), "33");
+        assert_eq!(read(&t, "proc/sys/vm/dirty_ratio"), "7");
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.contains("not a sysctl name")),
+            "{:?}",
+            report.warnings
+        );
+        assert!(
+            report.warnings.iter().any(|w| w.contains("vm.nonexistent")),
+            "{:?}",
+            report.warnings
         );
     }
 

@@ -24,6 +24,7 @@ macro_rules! outln {
 mod clean;
 mod doctor;
 mod error;
+mod game;
 mod info;
 mod init;
 mod svc;
@@ -46,9 +47,10 @@ Commands:
   svc list|enable|disable|start|stop [name]
                                services, on whichever init is running
   clean [--apply]              orphans, old cached packages, old logs (dry run by default)
-  tune light|balanced|performance|apply|status
+  tune light|balanced|gaming|performance|apply|status
                                memory, CPU and disk settings
   zram on|off|status           compressed swap in memory
+  game run|check|setup|...     play: boost while a game runs, readiness check, drivers
   doctor                       look for problems and print their fixes
 
 Options:
@@ -74,8 +76,8 @@ stop need root; list does not.
 
 fn main() -> ExitCode {
     match run() {
-        Ok(true) => ExitCode::SUCCESS,
-        Ok(false) => ExitCode::from(1),
+        Ok(0) => ExitCode::SUCCESS,
+        Ok(code) => ExitCode::from(code),
         Err(e) => {
             sys::emit_err(format_args!("seg: {e}"));
             ExitCode::from(e.exit_code())
@@ -83,22 +85,22 @@ fn main() -> ExitCode {
     }
 }
 
-/// Returns whether everything was fine (`doctor` reports problems this way).
-fn run() -> Result<bool> {
+/// The exit status: 0, 1 when `doctor` found problems, or the game's own.
+fn run() -> Result<u8> {
     use lexopt::prelude::*;
     let mut parser = lexopt::Parser::from_env();
     let command = match parser.next()? {
         None => {
             out!("{HELP}");
-            return Ok(true);
+            return Ok(0);
         }
         Some(Short('h') | Long("help")) => {
             out!("{HELP}");
-            return Ok(true);
+            return Ok(0);
         }
         Some(Short('V') | Long("version")) => {
             outln!("seg {}", env!("CARGO_PKG_VERSION"));
-            return Ok(true);
+            return Ok(0);
         }
         Some(Value(v)) => v.string()?,
         Some(other) => return Err(other.unexpected().into()),
@@ -112,15 +114,16 @@ fn run() -> Result<bool> {
         "clean" => clean::run(clean::parse_args(&mut parser)?)?,
         "tune" => tune::run(tune::parse_args(&mut parser)?)?,
         "zram" => zram::run(zram::parse_args(&mut parser)?)?,
+        "game" => return game::run(&mut parser),
         "doctor" => {
             no_more_args(&mut parser, "doctor")?;
-            return doctor::run();
+            return Ok(u8::from(!doctor::run()?));
         }
         other => {
             return Err(Error::Usage(format!("unknown command `{other}`")));
         }
     }
-    Ok(true)
+    Ok(0)
 }
 
 /// Commands without options of their own: `--help` or nothing.
