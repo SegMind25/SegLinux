@@ -80,6 +80,12 @@ rootfs:
     - discover                     # Microsoft Store
     - flatpak
 
+    # Command-line tools written in Rust (see docs/lean-audit.md)
+    - ripgrep                      # rg: searches folders far faster than grep -r
+    - fd                           # fd: find with sane defaults
+    - eza                          # ls with colors and git status (ll, la)
+    - zoxide                       # z: cd to the folders you use most
+
     # Accessories
     - dolphin                      # File Explorer
     - kitty                        # Terminal
