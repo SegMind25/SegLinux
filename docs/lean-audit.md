@@ -75,6 +75,62 @@ Protected, never touched: `base`, the kernel, `openrc` and the `-openrc` /
 `-runit` / `-dinit` service packages, `elogind`, `artix-keyring` (through
 `base`), `pacman`, `sudo`, NetworkManager, the firmware packages.
 
+## Rust command-line tools
+
+Only packages from the Artix repositories; none from the AUR. Sizes are not
+given because they could not be measured here (no repository access); the
+build report ("What takes the space") of the next ISO shows them.
+
+| Tool | Added | Replaces | Why |
+|---|---|---|---|
+| `ripgrep` (`rg`) | full edition | `grep -r` for searching folders | far faster on a tree, skips `.gitignore`d files and binaries |
+| `fd` | full edition | `find -name` | sane defaults, readable syntax |
+| `eza` | full edition | `ls -l` (as the new names `ll`, `la`; `ls` itself is untouched) | colors, git status, folders first |
+| `zoxide` | full edition | `cd` by typing paths (`z folder`) | learns the folders you use |
+| `bat`, `dust`, `bottom`, `procs`, `sd` | no | nothing installed | they would only add to the image |
+| `helix` | no | `nano` | it needs a runtime of grammars; nano is already there and small |
+| `alacritty` | no | `kitty`/`foot` | the terminal is the maintainers' call (see below) |
+| `zellij` | no | no multiplexer is wanted | |
+| `sudo-rs` | no | `sudo` | `sudo` is protected (the live user, Setup and `artools` use it) and its availability in the Artix repositories could not be checked |
+| `greetd` + `tuigreet` | no | | SegLinux already signs in through greetd with its own Rust greeter |
+
+They are installed in the full edition only (the Lite image stays as it
+was); Lite's Setup downloads them with the rest. `ll`, `la` and `z` come from
+`/etc/bash/bashrc.d/seglinux-rust-tools.bashrc`.
+
+## Bugs found
+
+File and line are those of the commit before this work (`4ca2f45`).
+
+| file:line | problem | fix |
+|---|---|---|
+| `data/system/udev-ioschedulers.rules:4-6` | the globs `nvme[0-9]*n[0-9]*` and `sd[a-z]*` also match partitions (`nvme0n1p1`, `sda1`), which have no `queue/scheduler`: udev logged an error for each. Virtual disks (`vda`) got no rule. | only whole disks (`DEVTYPE=="disk"`); `vd*`/`xvd*` get `none`; checked with `udevadm verify` |
+| `iso/iso-profiles/seglinux/profile.yaml:79-82,123` | `xorg-server`, `xorg-xwayland`, `xdg-user-dirs`, `xdg-utils` and `ttf-liberation` also in `common.yaml:55,77-79,82` | listed once; CI now fails on a repeat |
+| `crates/seglinux-setup/src/plan.rs:824` | the NVIDIA DKMS driver could only build because 325 MiB of kernel headers were on every image | Setup installs the running kernel's headers in that step |
+| `iso/scripts/build-in-container.sh:157-160` | the artools patch that reads the kernel version without headers applied to non-stock kernels only; the stock kernel relied on `linux-headers` | applies to every kernel |
+| `crates/seglinux-setup/src/disk.rs:273` | comment names `/etc/udev/rules.d/99-seglinux-zram.rules`, which does not exist (it is `/usr/lib/udev/rules.d/60-seglinux-zram.rules`) | corrected |
+| `.github/workflows/ci.yml:72-76` | `data/system/zram-setup` was not shellchecked; the udev rules were not checked at all | both are now; new job for `seg` |
+| `crates/seglinux-setup/src/plan.rs:1273` | the swap partition test asserted that the plan never contains the word `zram` | asserts there is no `/dev/zram0` fstab line, which is what it means |
+
+Checked and fine: `shellcheck` is clean on every shell script of the
+repository (also with the style level on); every file the PKGBUILD installs
+exists; the executable bits are right; the init-suffixed packages are in the
+list of their init; there is no systemd unit anywhere; the only hard-coded
+account is the live session's `seglinux` user (in `sudoers.d`, live only);
+pacman.conf lists the Artix repositories first and Chaotic-AUR last, with
+`SigLevel = Required DatabaseOptional`, `Color` and `ParallelDownloads = 5`.
+
+Found, not changed:
+
+* `PKGBUILD:14`: `license=('LicenseRef-SegLinux-unspecified')`: the project has
+  no license yet; that is the owner's decision.
+* `swap = "none"` in an answer file still gets zram: the module is loaded and
+  the udev rule starts it whatever the answer says.
+* The two greetd `config.toml` and `pacman.conf` copies in the root overlays
+  are identical to each other (and the first to `data/greeter/greetd.toml`).
+* `seglinux-upgrade` updates only the `seglinux` package, so a system
+  installed before this work does not get `segctl` that way yet.
+
 ## Decisions for the maintainers
 
 These are product choices, so they were measured and left alone:

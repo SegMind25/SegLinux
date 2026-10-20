@@ -3,7 +3,8 @@
 SegLinux is built with Artix Linux's own ISO tooling: `buildiso` from
 [artools](https://gitea.artixlinux.org/artix/artools) reads
 `iso/iso-profiles/seglinux/profile.yaml`. The Rust tools are packaged with
-`packaging/seglinux/PKGBUILD` and served to `buildiso` from a local pacman
+`packaging/seglinux/PKGBUILD` (and `seg`, the system tool, with
+`pkg/segctl/PKGBUILD`) and served to `buildiso` from a local pacman
 repository during the build.
 
 ## Quick start (any Linux host with docker or podman)
