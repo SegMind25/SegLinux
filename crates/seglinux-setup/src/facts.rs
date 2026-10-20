@@ -112,6 +112,8 @@ pub struct Facts {
     /// Package name of the running kernel (`linux-zen`): the new system gets
     /// the same one, and its headers when a driver has to be built.
     pub kernel: Option<String>,
+    /// `vendor_id` of the processor in /proc/cpuinfo (`AuthenticAMD`).
+    pub cpu_vendor: Option<String>,
     /// Known values for validation and pick lists; `None` = not checked.
     pub timezones: Option<BTreeSet<String>>,
     pub locales: Option<BTreeSet<String>>,
@@ -144,6 +146,9 @@ impl Facts {
             memory: memory_bytes().unwrap_or(0),
             gpus: list_gpus(Path::new("/sys/bus/pci/devices")),
             kernel: running_kernel(),
+            cpu_vendor: fs::read_to_string("/proc/cpuinfo")
+                .ok()
+                .and_then(|t| parse_cpu_vendor(&t)),
             timezones: Some(list_timezones(Path::new("/usr/share/zoneinfo")))
                 .filter(|s| !s.is_empty()),
             locales: fs::read_to_string("/usr/share/i18n/SUPPORTED")
@@ -302,6 +307,14 @@ pub fn running_kernel() -> Option<String> {
     let pkgbase =
         fs::read_to_string(format!("/usr/lib/modules/{}/pkgbase", release.trim())).ok()?;
     parse_pkgbase(&pkgbase)
+}
+
+/// `vendor_id : AuthenticAMD` of the first processor.
+pub fn parse_cpu_vendor(text: &str) -> Option<String> {
+    text.lines().find_map(|l| {
+        let (key, value) = l.split_once(':')?;
+        (key.trim() == "vendor_id").then(|| value.trim().to_string())
+    })
 }
 
 pub fn parse_pkgbase(text: &str) -> Option<String> {
@@ -507,6 +520,15 @@ mod tests {
             Some(8040412 * 1024)
         );
         assert_eq!(parse_meminfo_total("nope"), None);
+    }
+
+    #[test]
+    fn cpu_vendor_from_cpuinfo() {
+        assert_eq!(
+            parse_cpu_vendor("processor\t: 0\nvendor_id\t: AuthenticAMD\nmodel name\t: x\n"),
+            Some("AuthenticAMD".into())
+        );
+        assert_eq!(parse_cpu_vendor("model name : x\n"), None);
     }
 
     #[test]

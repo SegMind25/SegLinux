@@ -62,7 +62,8 @@ os_prober = true             # list Windows in the boot menu
 # Gaming and boot tuning.
 [performance]
 parallel_boot = true         # OpenRC: start services in parallel
-kernel_parameters = []       # added to: loglevel=3 quiet nowatchdog nmi_watchdog=0
+kernel_parameters = []       # added to: loglevel=3 quiet nowatchdog nmi_watchdog=0 transparent_hugepage=madvise
+fallback_kernel = true      # also install the other kernel (linux beside linux-zen), a boot menu entry to fall back on
 
 # GPU drivers. "auto" installs NVIDIA's driver for GeForce GTX 16/RTX cards
 # when the network is up; "never" keeps the open-source driver.
