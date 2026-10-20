@@ -39,7 +39,7 @@ jobs:
           SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
             ./iso/build.sh "${edition[@]}" -e docker -i openrc -k linux-zen
       - name: Inside the image
-        run: .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"
+        run: bash .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"
       - name: Boot it in QEMU (Lite)
         if: matrix.edition == 'lite'
         continue-on-error: true
