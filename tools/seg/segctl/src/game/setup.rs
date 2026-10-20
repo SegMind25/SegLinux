@@ -287,6 +287,42 @@ mod tests {
         )
     }
 
+    /// Every package `seg game setup` can ever pick, for the CI check that
+    /// they exist in the Artix repositories (check-packages.sh -x).
+    #[test]
+    fn every_package_setup_can_choose_is_in_the_ci_list() {
+        let mut all = BTreeSet::new();
+        for card in [
+            "gpu-amd",
+            "gpu-intel-arc",
+            "gpu-nvidia-ada",
+            "gpu-nvidia-pascal",
+            "gpu-hybrid-laptop",
+        ] {
+            let plan = plan(&gpus(&fixture(card)), &name, Some("linux-zen"), true, true);
+            all.extend(plan.packages);
+        }
+        let mut expected = String::from(
+            "# Every package `seg game setup` can choose, one per line. A test keeps this in step\n\
+             # with src/game/setup.rs; CI resolves them on Artix (check-packages.sh -x).\n",
+        );
+        for pkg in &all {
+            expected.push_str(pkg);
+            expected.push('\n');
+        }
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/setup-packages.txt");
+        if std::env::var_os("SEG_WRITE_FIXTURES").is_some() {
+            std::fs::write(&path, &expected).unwrap();
+        }
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap_or_default(),
+            expected,
+            "run the tests once with SEG_WRITE_FIXTURES=1 to rewrite {}",
+            path.display()
+        );
+    }
+
     #[test]
     fn amd_gets_mesa_and_radv_in_both_bitnesses() {
         let plan = p("gpu-amd");
