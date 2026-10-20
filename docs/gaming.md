@@ -226,7 +226,8 @@ a build container with no GPU and the stock kernel, to show the format:
   `--games` adds Steam, gamescope, MangoHud (64-bit only), Wine Staging and
   winetricks; `--lutris` adds Lutris. It also tells you when `[lib32]` is not
   enabled in `/etc/pacman.conf`.
-* `sudo seg game apply` applies the gaming sysctls and makes `/dev/ntsync`
+* `sudo seg game apply` applies the gaming sysctls, sets transparent
+  hugepages to `madvise` (from `always` only) and makes `/dev/ntsync`
   usable now; the `seg-game` service runs it at boot on every init.
 * `seg game audio on|off|status` lowers PipeWire's buffer to 256 samples at
   48 kHz (about 5 ms), for you only (`~/.config/pipewire/...conf.d`). **Off by
@@ -345,7 +346,7 @@ leave it off.
 | `nmi_watchdog=0`, `nowatchdog`, watchdog modules blacklisted | kernel command line (Setup), `/usr/lib/modprobe.d/seglinux-nowatchdog.conf` | Fewer periodic interrupts |
 | `vm.compaction_proactiveness = 0` | same | No background memory defragmentation while a game allocates (the default is 20); a program that needs a contiguous block still gets it by compacting on demand. What SteamOS sets. |
 | `fs.inotify.max_user_watches` | sysctl | Launchers watching many files |
-| `transparent_hugepage=madvise` | kernel command line (Setup) | Huge pages only for programs that ask (games, databases); `always` can stall on compaction |
+| `transparent_hugepage=madvise` | kernel command line (Setup), and `seg game apply` at boot | Huge pages only for programs that ask (games, databases); `always` can stall on compaction. linux-zen starts with `always`, so the live image and a system upgraded with `seglinux-upgrade` get `madvise` from the `seg-game` service (it changes `always` only; `never` is left alone). Found by booting the Lite image: the check said `[always]` before this. |
 | `amd_pstate=active` | kernel command line (Setup, AMD processors only) | The CPU picks its frequency itself, guided by the energy hint `seg game run` sets. Kernels or CPUs without it ignore it. |
 | I/O schedulers: NVMe none, SSD mq-deadline, HDD BFQ | `/usr/lib/udev/rules.d/60-seglinux-ioschedulers.rules` | Low latency while games stream assets |
 | NTSYNC | `/etc/modules-load.d/10-ntsync.conf`, udev rule | Windows synchronisation in the kernel, used by Wine 11 and Proton |

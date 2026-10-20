@@ -38,6 +38,9 @@ Measurements and the reasons behind each removal are in
 - Setup installs the **other kernel** (`linux` beside `linux-zen`, or the
   reverse) as a boot menu entry to fall back on when online
   (`[performance] fallback_kernel`); the installed kernel is never removed.
+- Transparent hugepages go from `always` to `madvise` at boot (`seg-game`
+  service), so the live image and upgraded systems get it too, not only
+  fresh installs.
 - Kernel command line: `transparent_hugepage=madvise` everywhere and
   `amd_pstate=active` on AMD processors (an answer file's parameter of the
   same name replaces the default).
