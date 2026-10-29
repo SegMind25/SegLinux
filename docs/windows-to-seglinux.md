@@ -61,7 +61,7 @@ prints it):
 | File Explorer, Notepad, Calculator, Snipping Tool, Photos, Task Manager, Disk Management | Dolphin, Kate, KCalc, the desktop's own screenshots (Print, Super+Shift+S), Gwenview, System Monitor, Partition Manager |
 | Microsoft Store | Discover with Flathub (Flatpak) |
 | Windows Update | `sudo seglinux-upgrade` (see [updating.md](updating.md)) or Discover |
-| Edge, Office, Media Player | Brave, LibreOffice, Haruna |
+| Edge, Office, Media Player | Brave, LibreOffice, mpv |
 | Network places and sharing (SMB) | Dolphin `smb://`, folder sharing via kdenetwork-filesharing |
 | Arial, Times New Roman, Courier New, Calibri | Metric-compatible Liberation and Carlito fonts |
 | Services (`services.msc`) | OpenRC or dinit services (chosen when the ISO is built) |

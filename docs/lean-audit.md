@@ -192,7 +192,7 @@ These are product choices, so they were measured and left alone:
    desktop services.
 3. **Drop Discover**, or the Store's account integration: 283 MiB of
    `qt6-webengine`.
-4. **Done (October 2026): Haruna instead of VLC**: removes Qt 5, about 100 MiB.
+4. **Done (October 2026): mpv instead of VLC**: removes Qt 5, about 100 MiB.
 5. **Brave from Chaotic-AUR**: the only AUR-origin package of the image.
 
 ## Verification limits

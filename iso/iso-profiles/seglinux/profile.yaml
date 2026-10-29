@@ -101,7 +101,7 @@ rootfs:
     - ffmpegthumbs
     - kdegraphics-thumbnailers
     - brave-bin                    # Edge: Brave, the default browser (Chaotic-AUR)
-    - haruna                       # Media Player (Qt 6 and mpv: no Qt 5)
+    - mpv                          # Media Player (no Qt 5, no Qt at all)
 
     # Sound
     - pipewire

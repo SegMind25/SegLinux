@@ -21,8 +21,8 @@ Measurements and the reasons behind each removal are in
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
   less on disk, no Python, and about 200 MB less memory with a terminal open
-  in the October measurement), and the media player is Haruna (Qt 6, mpv)
-  instead of VLC, which removes the whole Qt 5 library set (about 100 MiB).
+  in the October measurement), and the media player is mpv instead of VLC,
+  which removes the whole Qt 5 library set (about 100 MiB).
   Updated systems are offered foot once; kitty and VLC stay until removed
   (`sudo pacman -Rns kitty vlc`).
 
