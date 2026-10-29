@@ -23,7 +23,7 @@ optdepends=(
     'dosbox: 16-bit DOS programs'
     'kitty: terminal (seglinux-terminal)'
     'fastfetch: system information with the SegLinux logo when a terminal opens'
-    'brave-bin: the default browser (Chaotic-AUR)'
+    'brave-bin: the default browser (AUR)'
     'foot: terminal (seglinux-terminal), Lite edition'
     'squashfs-tools: seglinux-setup (applies the system image)'
     'grub: seglinux-setup (boot manager)'
