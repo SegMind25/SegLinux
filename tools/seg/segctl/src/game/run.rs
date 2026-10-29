@@ -104,6 +104,8 @@ pub struct Machine {
     pub vcache: Option<Vec<usize>>,
     pub mangohud: bool,
     pub gamescope: bool,
+    /// The dedicated GPU of a computer with two, for the game.
+    pub offload: Option<hw::Offload>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -187,6 +189,25 @@ pub fn plan(
             } else {
                 notes.push("gamescope is not installed; running without it".into());
             }
+        }
+    }
+    // On a laptop with two GPUs the game would run on the slow integrated
+    // one: send it to the dedicated card, unless the user chose already.
+    if !is_set("DRI_PRIME") && !is_set("__NV_PRIME_RENDER_OFFLOAD") {
+        match &machine.offload {
+            Some(hw::Offload::Nvidia) => {
+                for (name, value) in [
+                    ("__NV_PRIME_RENDER_OFFLOAD", "1"),
+                    ("__GLX_VENDOR_LIBRARY_NAME", "nvidia"),
+                    ("__VK_LAYER_NV_optimus", "NVIDIA_only"),
+                ] {
+                    if !is_set(name) {
+                        env.push((name.into(), value.into()));
+                    }
+                }
+            }
+            Some(hw::Offload::Mesa(card)) => env.push(("DRI_PRIME".into(), card.clone())),
+            None => {}
         }
     }
     // Shader caches: room for the compiled shaders of many games (the 1 GB
@@ -341,6 +362,7 @@ pub fn run(o: Options) -> Result<u8> {
         vcache: hw::vcache_group(&hw::l3_groups(std::path::Path::new("/"))).map(|g| g.cpus.clone()),
         mangohud: sys::which("mangohud").is_some(),
         gamescope: sys::which("gamescope").is_some(),
+        offload: hw::offload_target(&hw::gpus(std::path::Path::new("/"))),
     };
     let plan = plan(&o, found, &machine, &|name| {
         std::env::var_os(name).is_some()
@@ -423,7 +445,41 @@ mod tests {
             vcache: Some(vec![0, 1, 2, 3]),
             mangohud: true,
             gamescope: true,
+            offload: None,
         }
+    }
+
+    #[test]
+    fn a_hybrid_laptop_plays_on_its_dedicated_gpu() {
+        let nvidia = Machine {
+            offload: Some(hw::Offload::Nvidia),
+            ..machine()
+        };
+        let p = plan(&opts(&["g"]), None, &nvidia, &none_set);
+        assert!(
+            p.env
+                .contains(&("__NV_PRIME_RENDER_OFFLOAD".into(), "1".into()))
+        );
+        assert!(
+            p.env
+                .contains(&("__VK_LAYER_NV_optimus".into(), "NVIDIA_only".into()))
+        );
+        let amd = Machine {
+            offload: Some(hw::Offload::Mesa("pci-0000_03_00_0".into())),
+            ..machine()
+        };
+        let p = plan(&opts(&["g"]), None, &amd, &none_set);
+        assert!(
+            p.env
+                .contains(&("DRI_PRIME".into(), "pci-0000_03_00_0".into()))
+        );
+        // DRI_PRIME=0 from the user keeps the game on the integrated GPU.
+        let p = plan(&opts(&["g"]), None, &nvidia, &|n: &str| n == "DRI_PRIME");
+        assert!(
+            !p.env
+                .iter()
+                .any(|(k, _)| k.contains("PRIME") || k.contains("NV"))
+        );
     }
 
     fn none_set(_: &str) -> bool {

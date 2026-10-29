@@ -19,6 +19,15 @@ Measurements and the reasons behind each removal are in
 
 ### Added
 
+- **Laptops with two GPUs play on the dedicated one**: `seg game run` sends
+  the game to the NVIDIA (PRIME offload) or AMD/Intel card (`DRI_PRIME`)
+  when the screen starts on the integrated GPU; before, games ran on the
+  integrated GPU ([docs/gaming.md](docs/gaming.md#what-seg-game-run-does)).
+- **NVIDIA**: the driver uses the Page Attribute Table
+  (`NVreg_UsePageAttributeTable=1`); `seg game setup` tells GTX 750 to
+  GTX 1080 Ti owners that NVK runs them slowly and names NVIDIA's 580 driver
+  in the AUR.
+
 - **`seg game`**, a small gaming layer in the `seg` tool, the same on OpenRC,
   runit, dinit and s6 ([docs/gaming.md](docs/gaming.md#seg-game)):
   - `seg game run -- CMD` (Steam: `seg game run -- %command%`) raises the CPU
