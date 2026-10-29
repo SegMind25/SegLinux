@@ -9,7 +9,7 @@ export QT_QPA_PLATFORM=wayland
 # Electron applications (Vesktop, Discord, VS Code) run on Wayland rather
 # than through Xwayland: sharp text and working screen sharing.
 export ELECTRON_OZONE_PLATFORM_HINT=auto
-# Breeze cursors come with Plasma (full edition); Adwaita's with GTK (Lite).
+# Breeze cursors come with the breeze package (full edition); Adwaita's with GTK (Lite).
 if [ -d /usr/share/icons/breeze_cursors ]; then
     export XCURSOR_THEME=breeze_cursors
 else

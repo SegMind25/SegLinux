@@ -4,7 +4,8 @@ This is the first implementation of SegLinux's own desktop shell. The shell
 is Rust with GTK4 Rust bindings; it is not a rewrite of the entire desktop
 stack in Rust. GTK, labwc, greetd and the bundled applications retain their
 upstream implementations. labwc handles composition, decorations, snapping,
-Alt+Tab and workspaces. Plasma remains an alternative session.
+Alt+Tab and workspaces. Since October 2026 it is the only desktop: the
+Plasma session was removed (about 500 MiB).
 
 ## Implemented
 
@@ -91,7 +92,7 @@ Laid out like a Plasma desktop with a floating panel:
   fullscreen window (a game, a video) is in front; critical ones still show.
   At idle the shell wakes the processor about once every four seconds
   (it was 40 times a second before October 2026).
-- **Terminal** (Super+Enter, kitty): each new window or tab starts with
+- **Terminal** (Super+Enter, foot): each new window or tab starts with
   system information under SegLinux's logo (fastfetch); `fastfetch` shows it
   again. Shells started from a shell, scripts, and the terminal panels of
   Dolphin and Kate skip it. To turn it off:
@@ -123,7 +124,7 @@ that replaced SDDM. greetd starts it on the seventh console as its unprivileged
 - the people's accounts (several: a row to choose from; *Other user* for
   one not listed), and the password field, which warns when Caps Lock is
   on and says when the password is wrong;
-- the desktop to start, bottom left: **SegLinux**, Plasma (Wayland),
+- the desktop to start, bottom left: **SegLinux**,
   SegLinux Gaming Mode, ... (the sessions of `/usr/share/wayland-sessions`);
 - **Sleep**, **Restart** and **Shut down**, bottom right.
 
@@ -253,8 +254,7 @@ to keep your own version: Settings then leaves the file alone and says so.
 lists every setting with its default.
 
 The keyboard layout chosen during Setup is used until another one is set in
-Settings. These are settings of the SegLinux session; the Plasma session
-keeps its own.
+Settings.
 
 ## Resource use
 

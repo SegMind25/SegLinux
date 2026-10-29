@@ -87,9 +87,15 @@ jobs:
       - name: unsafe stays in one file
         run: |
           test "$(grep -rEl '\bunsafe[[:space:]]*(\{|fn|impl|extern)' segctl/src)" = "segctl/src/game/proc.rs"
+      # With Artix's sudo, which SegLinux ships: the runner's sudo-rs does
+      # not accept wildcards in command arguments.
       - name: sudoers rule is valid
         run: |
-          sudo visudo -cf dist/sudoers-seg-game
+          docker run --rm -v "$PWD/dist:/dist:ro" docker.io/artixlinux/artixlinux:base sh -ec '
+            pacman-key --init >/dev/null 2>&1
+            pacman-key --populate artix >/dev/null 2>&1
+            pacman -Sy --noconfirm --needed sudo >/dev/null
+            visudo -cf /dist/sudoers-seg-game'
       - name: Release binary size
         run: |
           cargo build --locked --release
@@ -121,7 +127,6 @@ jobs:
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
             iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
             iso/iso-profiles/seglinux-lite/common.yaml
-          python3 -m json.tool data/plasma/look-and-feel/org.seglinux.desktop/metadata.json > /dev/null
           # JSON with comment lines (fastfetch's .jsonc).
           sed '/^ *\/\//d' data/fastfetch/config.jsonc | python3 -m json.tool > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml \

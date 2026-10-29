@@ -78,8 +78,8 @@ published.
   (a text-mode one is in the menu too).
 * **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
   a floating dock with Start menu, one icon per application, tray and clock,
-  written in Rust (GTK 4) on the labwc Wayland compositor, and the default
-  session; KDE Plasma remains available as a fallback. Like Plasma it shows
+  written in Rust (GTK 4) on the labwc Wayland compositor: the only desktop,
+  with no second one in the background. Like Plasma it shows
   notifications (pop-ups, history, Do Not Disturb), other applications'
   tray icons and menus (Steam, Discord...) and a volume and brightness
   display. The sign-in screen
@@ -87,7 +87,7 @@ published.
   (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
   Familiar applications by default: Dolphin for files, Brave for the web,
-  kitty as the terminal (File Explorer → Dolphin, Store → Discover, ...).
+  foot as the terminal (File Explorer → Dolphin, Store → Flathub with `flatpak`, ...).
   The terminal opens with system information under the SegLinux logo
   (fastfetch).
 * **Built for gaming.** linux-zen kernel (with the stock kernel beside it to
@@ -170,7 +170,7 @@ crates/
   seglinux-setup/     the installer: answer files, planning, execution, text-mode wizard
   seglinux-installer/ the graphical Setup wizard (GTK 4), which runs seglinux-setup
 site/                 the website (deployed on Vercel)
-data/                 defaults installed by the seglinux package (Plasma layout,
+data/                 defaults installed by the seglinux package (desktop, labwc,
                       file associations, binfmt, NTSYNC, sysctl, branding)
 packaging/seglinux/   PKGBUILD for the seglinux package
 iso/

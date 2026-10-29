@@ -3,7 +3,7 @@
 # installed before it was a default; one removed on purpose is not offered
 # again. Names are packages: brave-bin comes from the AUR.
 brave-bin
-kitty
+foot
 dolphin
 fastfetch
 grim

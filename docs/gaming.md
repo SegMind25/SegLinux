@@ -47,7 +47,7 @@ Steam and Lutris keep their own settings for the games they start.
 |------|------------------|-----|
 | Init system | **OpenRC** with parallel start (`rc_parallel="YES"`); runit and dinit builds are available | OpenRC is Artix's most used init. It applies `binfmt.d`, `sysctl.d` and `modules-load.d` natively, which the tuning below relies on, and starting services in parallel keeps boot fast. runit boots about as fast but leaves some of those files to its own scripts. |
 | Kernel | **linux-zen**, with the stock `linux` kernel beside it as a boot menu entry | linux-zen is Arch's kernel variant tuned for desktop responsiveness and low latency (and has NTSYNC); `-k linux` builds with the stock kernel. Setup installs the other kernel too when online, so a bad update never leaves the machine without a kernel to boot (GRUB lists it under *Advanced options*). Neither is ever removed. |
-| Desktop | SegLinux Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games. Plasma stays available as a fallback session. |
+| Desktop | SegLinux Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games, and no second desktop. |
 | Swap | **zram** (compressed swap in RAM, up to 8 GiB) | Avoids stutter from swapping to disk when a game fills memory |
 
 ## Included software
@@ -135,6 +135,7 @@ While the game runs, and only then:
 | Game gets `nice -4` and best-effort I/O priority 0 | the game's own process (`nice -10` is allowed to the `gamemode` group by `limits.d`) | A little more CPU than a browser or a download in the background | dies with the game |
 | Screen saver and idle blanking held off | `org.freedesktop.ScreenSaver.Inhibit` on the session bus (a hand-written D-Bus call; no library) | The screen does not go dark in the middle of a cutscene or with a controller | when the game ends |
 | X3D CPUs with two chiplets: the game only uses the cores of the V-Cache chiplet | `--pin vcache` or `pin = "vcache"` in a profile; the chiplet is the one whose L3 cache is bigger (read from `/sys/devices/system/cpu/cpu*/cache`) | Games that like cache run on the cache; the other chiplet clocks higher but has less of it | dies with the game |
+| Laptops with two GPUs: the game runs on the dedicated one | `__NV_PRIME_RENDER_OFFLOAD=1` (NVIDIA's driver) or `DRI_PRIME=pci-…` (AMD, Intel, nouveau), when the screen starts on a slower GPU; set `DRI_PRIME=0` yourself to keep a game on the integrated one | Without it, games run on the integrated GPU, at a fraction of the frame rate | dies with the game |
 | `MESA_SHADER_CACHE_MAX_SIZE=10G`, `__GL_SHADER_DISK_CACHE_SIZE` | environment of the game | See [system tuning](#system-tuning) | dies with the game |
 
 Several games can run at once: the helper keeps a count (`/run/seg/game-boost`,
@@ -376,8 +377,12 @@ the open-source nouveau/NVK driver is used; install the packages later with
 `sudo pacman -Syu nvidia-open-dkms nvidia-utils lib32-nvidia-utils`, or
 `sudo seg game setup --yes`, which also adds the headers of the running kernel
 that DKMS needs. Older NVIDIA cards (before Turing) are not supported by
-NVIDIA's current driver and keep the open-source driver (NVK). The driver is
-loaded with `nvidia_drm modeset=1 fbdev=1`
+NVIDIA's current driver and keep the open-source driver (NVK). NVK cannot
+raise the clocks of GTX 750 to GTX 1080 Ti cards, so games run slowly there;
+`seg game setup` names NVIDIA's last driver for them, in the AUR
+(`yay -S nvidia-580xx-dkms nvidia-580xx-utils lib32-nvidia-580xx-utils`). The
+driver is loaded with `nvidia_drm modeset=1 fbdev=1` and
+`NVreg_UsePageAttributeTable=1` (faster CPU-to-GPU transfers)
 (`/usr/lib/modprobe.d/seglinux-nvidia.conf`).
 
 ## Intel graphics and low-end PCs

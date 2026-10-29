@@ -309,7 +309,7 @@ fn volume(services: &Services) -> gtk::Button {
 }
 
 /// Bluetooth's settings, when the computer has Bluetooth: Blueman's
-/// manager, else Plasma's page in System Settings.
+/// manager, else KDE's page in System Settings (older systems).
 fn bluetooth_tool() -> Option<(&'static str, Vec<&'static str>)> {
     let adapter = std::fs::read_dir("/sys/class/bluetooth")
         .ok()?

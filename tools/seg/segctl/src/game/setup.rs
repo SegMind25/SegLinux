@@ -88,6 +88,15 @@ pub fn packages_for(gpu: &Gpu, kernel: &str) -> (Vec<String>, Option<&'static st
             ],
             None,
         ),
+        // Maxwell, Pascal and Volta (GTX 750 to GTX 1080 Ti, Titan V): NVK
+        // cannot raise their clocks, so games crawl; NVIDIA's 580 driver
+        // series, the last for them, is in the AUR.
+        GpuVendor::Nvidia if gpu.device_id >= 0x1340 => (
+            strings(&["mesa", "lib32-mesa", "vulkan-nouveau"]),
+            Some(
+                "this NVIDIA card is older than Turing, which NVIDIA's current driver no longer supports; the open-source NVK driver is used, but it cannot raise this card's clocks, so games run slowly. For full speed, install NVIDIA's last driver for it from the AUR: yay -S nvidia-580xx-dkms nvidia-580xx-utils lib32-nvidia-580xx-utils",
+            ),
+        ),
         GpuVendor::Nvidia => (
             strings(&["mesa", "lib32-mesa", "vulkan-nouveau"]),
             Some(
@@ -381,6 +390,12 @@ mod tests {
         assert!(!plan.needs_nvidia_modprobe);
         assert!(
             plan.notes[0].contains("older than Turing"),
+            "{:?}",
+            plan.notes
+        );
+        // A Pascal card is told where its full-speed driver is.
+        assert!(
+            plan.notes[0].contains("nvidia-580xx-dkms"),
             "{:?}",
             plan.notes
         );
