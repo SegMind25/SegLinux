@@ -99,7 +99,7 @@ Each release's notes give its exact size:
 | | Full | Lite |
 |---|---|---|
 | Live desktop | SegLinux (Rust) on labwc, Plasma fallback, greetd with the SegLinux sign-in screen | SegLinux (Rust) on labwc, signed in on tty1 |
-| Terminal | kitty | foot |
+| Terminal | foot | foot |
 | Firmware | all (`linux-firmware`) | graphics and Wi-Fi/Ethernet of PCs: AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
 | Wine, Steam, Brave, Lutris, drivers... | on the image | **downloaded by Setup** |
 | Init systems | OpenRC, runit, dinit | OpenRC |

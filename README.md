@@ -87,7 +87,7 @@ published.
   (Super+I) customizes the theme and accent, wallpaper, dock, clock, windows,
   workspaces, keyboard, mouse, touchpad and games, applied instantly.
   Familiar applications by default: Dolphin for files, Brave for the web,
-  kitty as the terminal (File Explorer → Dolphin, Store → Discover, ...).
+  foot as the terminal (File Explorer → Dolphin, Store → Discover, ...).
   The terminal opens with system information under the SegLinux logo
   (fastfetch).
 * **Built for gaming.** linux-zen kernel (with the stock kernel beside it to

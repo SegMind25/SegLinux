@@ -1,8 +1,8 @@
 #!/bin/sh
 # Open the installed terminal emulator, optionally running a command:
 #   seglinux-terminal [command [arguments...]]
-# kitty is SegLinux's terminal; the Lite live session has foot.
-for terminal in kitty konsole foot alacritty xterm; do
+# foot is SegLinux's terminal; kitty (older SegLinux) and others after it.
+for terminal in foot kitty konsole alacritty xterm; do
     command -v "$terminal" >/dev/null 2>&1 || continue
     if [ $# -eq 0 ]; then
         exec "$terminal"

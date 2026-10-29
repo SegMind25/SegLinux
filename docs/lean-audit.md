@@ -185,14 +185,14 @@ Found, not changed:
 
 These are product choices, so they were measured and left alone:
 
-1. **kitty -> foot** for the full edition (Lite already uses foot): about
+1. **Done (October 2026): kitty -> foot** for the full edition (Lite already uses foot): about
    65 MiB on disk and, by the 15 October measurement, about 200 MB less RAM
    in a VM with software OpenGL.
 2. **Drop the Plasma fallback session**: roughly 250 MiB and a second set of
    desktop services.
 3. **Drop Discover**, or the Store's account integration: 283 MiB of
    `qt6-webengine`.
-4. **A Qt 6 media player instead of VLC**: removes Qt 5, about 100 MiB.
+4. **Done (October 2026): Haruna instead of VLC**: removes Qt 5, about 100 MiB.
 5. **Brave from Chaotic-AUR**: the only AUR-origin package of the image.
 
 ## Verification limits

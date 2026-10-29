@@ -88,7 +88,7 @@ rootfs:
 
     # Accessories
     - dolphin                      # File Explorer
-    - kitty                        # Terminal
+    - foot                         # Terminal (light: no Python, CPU drawing)
     - kate                         # Notepad
     - kcalc                        # Calculator
     - gwenview                     # Photos
@@ -101,7 +101,7 @@ rootfs:
     - ffmpegthumbs
     - kdegraphics-thumbnailers
     - brave-bin                    # Edge: Brave, the default browser (Chaotic-AUR)
-    - vlc                          # Media Player
+    - haruna                       # Media Player (Qt 6 and mpv: no Qt 5)
 
     # Sound
     - pipewire

@@ -91,7 +91,7 @@ Laid out like a Plasma desktop with a floating panel:
   fullscreen window (a game, a video) is in front; critical ones still show.
   At idle the shell wakes the processor about once every four seconds
   (it was 40 times a second before October 2026).
-- **Terminal** (Super+Enter, kitty): each new window or tab starts with
+- **Terminal** (Super+Enter, foot): each new window or tab starts with
   system information under SegLinux's logo (fastfetch); `fastfetch` shows it
   again. Shells started from a shell, scripts, and the terminal panels of
   Dolphin and Kate skip it. To turn it off:

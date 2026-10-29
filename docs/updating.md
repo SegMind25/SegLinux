@@ -26,7 +26,7 @@ It updates, in one go:
   minutes; it needs 4 GB free in `/var/tmp`, and only runs when SegLinux has
   a newer version;
 * **new default applications**: when a newer SegLinux installs an
-  application by default (such as Brave or kitty), it is offered once. One
+  application by default (such as Brave or foot), it is offered once. One
   you removed on purpose is not installed again;
 * **the new sign-in screen**, on systems installed when SegLinux still used
   SDDM: it asks once whether to switch (it appears at the next restart).
