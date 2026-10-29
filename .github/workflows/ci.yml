@@ -215,7 +215,7 @@ jobs:
         run: iso/scripts/online-packages.sh -i openrc -k linux-zen
 
   # `sudo seglinux-upgrade` on a real Artix system, as on a SegLinux
-  # installed from an older ISO (no Chaotic-AUR, a fresh pacman keyring).
+  # installed from an older ISO (Chaotic-AUR, which it removes; a fresh keyring).
   update-command:
     name: sudo seglinux-upgrade (Artix)
     runs-on: ubuntu-latest
@@ -226,9 +226,8 @@ jobs:
         run: |
           cp data/system/seglinux-upgrade /tmp/seglinux-upgrade
           bash /tmp/seglinux-upgrade --noconfirm
-          grep -A1 '^\[chaotic-aur\]' /etc/pacman.conf
-          pacman -Q chaotic-keyring chaotic-mirrorlist
-          pacman -Si brave-bin | grep -E '^(Name|Version|Repository)'
+          # Chaotic-AUR is gone (Brave comes from the AUR).
+          if grep -q '^\[chaotic-aur\]' /etc/pacman.conf; then exit 1; fi
           # The command stays: `sudo seglinux-upgrade` from then on.
           test "$(command -v seglinux-upgrade)" = /usr/local/bin/seglinux-upgrade
           test "$(readlink /usr/local/bin/seglinux-update)" = seglinux-upgrade
@@ -239,7 +238,7 @@ jobs:
           cp /etc/pacman.conf /tmp/pacman.conf.before
           seglinux-upgrade --noconfirm
           test "$(sha256sum < /tmp/pacman.conf.before)" = "$(sha256sum < /etc/pacman.conf)"
-          test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 1
+          test "$(grep -c '^\[chaotic-aur\]' /etc/pacman.conf)" = 0
       - name: SegLinux's own updates, once published
         run: |
           if grep -q '^\[seglinux\]' /etc/pacman.conf; then

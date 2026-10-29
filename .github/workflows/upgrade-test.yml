@@ -71,7 +71,7 @@ jobs:
           test -x "$ROOT/usr/bin/seglinux-upgrade" && test -L "$ROOT/usr/bin/seglinux-update"
           # The downloaded copy gave way to the package's command.
           test ! -e "$ROOT/usr/local/bin/seglinux-upgrade"
-          grep -q '^\[chaotic-aur\]' "$ROOT/etc/pacman.conf"
+          if grep -q '^\[chaotic-aur\]' "$ROOT/etc/pacman.conf"; then exit 1; fi
           test -f "$ROOT/etc/xdg/fastfetch/config.jsonc"
           in_root seglinux-shell --version
       - name: Asked, it switches from SDDM to SegLinux's sign-in screen

@@ -1,7 +1,7 @@
 # Applications SegLinux installs by default (the full edition, and the Lite
 # edition through Setup). seglinux-upgrade offers each one once to systems
 # installed before it was a default; one removed on purpose is not offered
-# again. Names are packages: brave-bin comes from Chaotic-AUR.
+# again. Names are packages: brave-bin comes from the AUR.
 brave-bin
 kitty
 dolphin
