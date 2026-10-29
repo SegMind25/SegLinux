@@ -1,0 +1,49 @@
+name: ISO check
+
+# Builds an image on a branch WITHOUT publishing anything, looks inside it
+# and boots the Lite one in QEMU. Runs on pushes to a throwaway branch that
+# is deleted after the check; it is never part of a pull request.
+on:
+  push:
+    branches: [seg/iso-check-gaming]
+
+permissions:
+  contents: read
+
+jobs:
+  iso:
+    name: Build and inspect (${{ matrix.edition }}, openrc, linux-zen)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [lite, full]
+    env:
+      EDITION: ${{ matrix.edition }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker system prune -af > /dev/null
+          df -h /
+      - name: Load the loop module
+        run: sudo modprobe loop
+      - name: Build
+        run: |
+          edition=()
+          [[ $EDITION == lite ]] && edition=(--lite)
+          SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
+            ./iso/build.sh "${edition[@]}" -e docker -i openrc -k linux-zen
+      - name: Inside the image
+        run: bash .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"
+      - name: Boot it in QEMU (Lite)
+        if: matrix.edition == 'lite'
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -qq qemu-system-x86 tesseract-ocr python3-pil >/dev/null
+          [[ -e /dev/kvm ]] && sudo chmod 666 /dev/kvm || true
+          python3 .github/iso-check/qemu_check.py "$(ls iso/out/seglinux-*.iso)" 150
