@@ -61,7 +61,6 @@ backup=(
     'etc/xdg/kdeglobals'
     'etc/xdg/mimeapps.list'
     'etc/xdg/fastfetch/config.jsonc'
-    'etc/xdg/foot/foot.ini'
     'etc/bash/bashrc.d/seglinux-fastfetch.bashrc'
     'etc/bash/bashrc.d/seglinux-rust-tools.bashrc'
 )
@@ -145,7 +144,8 @@ package() {
 
     install -Dm644 "$data/xdg/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
     install -Dm644 "$data/xdg/mimeapps.list" "$pkgdir/etc/xdg/mimeapps.list"
-    install -Dm644 "$data/xdg/foot/foot.ini" "$pkgdir/etc/xdg/foot/foot.ini"
+    # Not /etc/xdg/foot/foot.ini: the foot package owns that file.
+    install -Dm644 "$data/seglinux/foot.ini" "$pkgdir/usr/share/seglinux/foot.ini"
     install -Dm644 "$data/xdg/seglinux-pipewire.desktop" "$pkgdir/etc/xdg/autostart/seglinux-pipewire.desktop"
     install -Dm644 "$data/system/sddm-seglinux.conf" "$pkgdir/etc/sddm.conf.d/10-seglinux.conf"
     install -Dm644 -t "$pkgdir/usr/share/applications" "$data"/applications/*.desktop
