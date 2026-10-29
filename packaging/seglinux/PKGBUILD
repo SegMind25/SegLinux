@@ -59,7 +59,6 @@ backup=(
     'etc/modules-load.d/ddcutil.conf'
     'etc/sddm.conf.d/10-seglinux.conf'
     'etc/xdg/kdeglobals'
-    'etc/xdg/kwinrc'
     'etc/xdg/mimeapps.list'
     'etc/xdg/fastfetch/config.jsonc'
     'etc/xdg/foot/foot.ini'
@@ -144,14 +143,7 @@ package() {
     install -Dm644 -t "$pkgdir/$theme" "$data"/grub/seglinux/*.{txt,jpg,png,pf2}
     install -Dm644 -t "$pkgdir/$theme/icons" "$data"/grub/seglinux/icons/*.png
 
-    # Windows-style Plasma desktop
-    local lnf=usr/share/plasma/look-and-feel/org.seglinux.desktop
-    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/metadata.json" "$pkgdir/$lnf/metadata.json"
-    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/contents/defaults" "$pkgdir/$lnf/contents/defaults"
-    install -Dm644 "$data/plasma/look-and-feel/org.seglinux.desktop/contents/layouts/org.kde.plasma.desktop-layout.js" \
-        "$pkgdir/$lnf/contents/layouts/org.kde.plasma.desktop-layout.js"
     install -Dm644 "$data/xdg/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
-    install -Dm644 "$data/xdg/kwinrc" "$pkgdir/etc/xdg/kwinrc"
     install -Dm644 "$data/xdg/mimeapps.list" "$pkgdir/etc/xdg/mimeapps.list"
     install -Dm644 "$data/xdg/foot/foot.ini" "$pkgdir/etc/xdg/foot/foot.ini"
     install -Dm644 "$data/xdg/seglinux-pipewire.desktop" "$pkgdir/etc/xdg/autostart/seglinux-pipewire.desktop"

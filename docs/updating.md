@@ -97,7 +97,7 @@ packages are published `seg` still needs `--from-source` or the ISO.
 * **"no internet connection"** or a download error: connect (*Network* in
   the dock, or `nmtui`) and run the command again. If a mirror is mid-sync,
   a second try usually works.
-* **"pacman is busy"**: another update, or Discover, is running. Wait for it
+* **"pacman is busy"**: another update is running. Wait for it
   to finish. If nothing is running (the computer was switched off during an
   update), remove the stale lock: `sudo rm /var/lib/pacman/db.lck`.
 * **"signature ... is unknown trust" or "invalid or corrupted package"**
@@ -120,9 +120,10 @@ packages are published `seg` still needs `--from-source` or the ISO.
 * **A file conflict** (`exists in filesystem`): a file was added by hand
   where a package now installs one. Move it away and update again.
 
-Discover and plain `sudo pacman -Syu` work too once `seglinux-upgrade` has run
+Plain `sudo pacman -Syu` works too once `seglinux-upgrade` has run
 once, because the repositories are then set up. Only `seglinux-upgrade` also
-offers new default applications and the new sign-in screen.
+offers new default applications, the new sign-in screen and, once, the
+removal of the Plasma session and Discover that SegLinux no longer includes.
 
 ## For maintainers: publishing updates
 

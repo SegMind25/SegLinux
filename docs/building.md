@@ -89,7 +89,7 @@ needs.
 
 ## The Lite edition
 
-The full edition is a large image: the Plasma fallback, Steam, Wine,
+The full edition is a large image: Steam, Wine,
 Brave and every driver and firmware file are on it. The **Lite** edition
 (`iso/iso-profiles/seglinux-lite`) is the smallest image that still boots
 the SegLinux desktop and gets online: 736 MB, against 2.8 GB for the full
@@ -98,7 +98,7 @@ Each release's notes give its exact size:
 
 | | Full | Lite |
 |---|---|---|
-| Live desktop | SegLinux (Rust) on labwc, Plasma fallback, greetd with the SegLinux sign-in screen | SegLinux (Rust) on labwc, signed in on tty1 |
+| Live desktop | SegLinux (Rust) on labwc, greetd with the SegLinux sign-in screen | SegLinux (Rust) on labwc, signed in on tty1 |
 | Terminal | foot | foot |
 | Firmware | all (`linux-firmware`) | graphics and Wi-Fi/Ethernet of PCs: AMD, Intel, Radeon, Realtek, Atheros, MediaTek, Broadcom |
 | Wine, Steam, Brave, Lutris, drivers... | on the image | **downloaded by Setup** |
@@ -214,7 +214,7 @@ sudo pacman -Syu --needed artools-base artools-iso base-devel rust go-yq squashf
 The build must run with administrator privileges. Codex cannot enter your
 sudo password. If native tooling is missing, install the prerequisites above
 in your own terminal and then run the build command. Allow at least 25 GB free;
-the full Plasma fallback, Windows compatibility packages and build caches make
+Windows compatibility packages and build caches make
 this a large image.
 
 The live session uses **SegLinux (Rust)**: greetd signs the live user in at
@@ -222,8 +222,6 @@ once (`live-overlay/etc/greetd/config.toml`), and signing out shows the
 SegLinux sign-in screen (password `seglinux`). Installed systems get
 `root-overlay/etc/greetd/config.toml`, the same as
 `data/greeter/greetd.toml`; Setup adds automatic sign-in to it when chosen.
-Plasma remains selectable on the sign-in screen as a fallback while the Rust
-desktop matures.
 
 ## Changing what is on the ISO
 

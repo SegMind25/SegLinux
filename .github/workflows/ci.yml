@@ -127,7 +127,6 @@ jobs:
           python3 -c 'import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]' \
             iso/iso-profiles/common/common.yaml iso/iso-profiles/*/profile.yaml \
             iso/iso-profiles/seglinux-lite/common.yaml
-          python3 -m json.tool data/plasma/look-and-feel/org.seglinux.desktop/metadata.json > /dev/null
           # JSON with comment lines (fastfetch's .jsonc).
           sed '/^ *\/\//d' data/fastfetch/config.jsonc | python3 -m json.tool > /dev/null
           python3 -c 'import sys, xml.dom.minidom as m; [m.parse(f) for f in sys.argv[1:]]' data/desktop/labwc/rc.xml \

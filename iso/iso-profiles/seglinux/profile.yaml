@@ -15,8 +15,7 @@ live-session:
   user: seglinux
   password: seglinux
   autologin: true
-  # false selects packages-xorg from common.yaml (X11 + XWayland under
-  # Plasma's Wayland session).
+  # false selects packages-xorg from common.yaml (XWayland only).
   use-xlibre: false
   services:
     - acpid
@@ -61,24 +60,16 @@ rootfs:
     - grim                         # screenshots (Print, Win+Shift+S)
     - slurp
 
-    # Plasma remains available as a fallback session during shell development.
-    - plasma-desktop               # desktop, taskbar, Start menu
-    - plasma-nm                    # network flyout
-    - plasma-pa                    # volume flyout
+    # No second desktop (the Plasma session and Discover are gone since
+    # October 2026: about 500 MiB). The few KDE pieces kept are applications.
     - plasma-systemmonitor         # Task Manager
-    - powerdevil                   # power options
-    - bluedevil                    # Bluetooth settings
-    - kscreen                      # display settings
-    - kinfocenter                  # System Information
-    - kde-gtk-config
-    - breeze-gtk
+    - breeze                       # the dark Qt style and cursors of Dolphin, Kate, ...
     - kwallet-pam                  # Credential Manager
-    - xdg-desktop-portal-kde
+    - blueman                      # Bluetooth settings (the dock opens it)
+    - system-config-printer        # Devices and Printers (Settings opens it)
     - greetd                       # sign-in service; SegLinux's sign-in screen
                                    # (seglinux-greeter) runs in it
-    - print-manager                # Devices and Printers
-    - discover                     # Microsoft Store
-    - flatpak
+    - flatpak                      # Flathub applications: flatpak install flathub ...
 
     # Command-line tools written in Rust (see docs/lean-audit.md)
     - ripgrep                      # rg: searches folders far faster than grep -r
