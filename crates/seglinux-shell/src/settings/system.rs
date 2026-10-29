@@ -141,12 +141,6 @@ impl System {
                 vec![],
             ),
             (
-                "KDE system settings (Plasma session)",
-                "preferences-system-symbolic",
-                "systemsettings",
-                vec![],
-            ),
-            (
                 "Steam settings and library",
                 "applications-games-symbolic",
                 "steam",

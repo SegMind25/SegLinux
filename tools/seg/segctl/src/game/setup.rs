@@ -394,7 +394,11 @@ mod tests {
             plan.notes
         );
         // A Pascal card is told where its full-speed driver is.
-        assert!(plan.notes[0].contains("nvidia-580xx-dkms"), "{:?}", plan.notes);
+        assert!(
+            plan.notes[0].contains("nvidia-580xx-dkms"),
+            "{:?}",
+            plan.notes
+        );
     }
 
     #[test]

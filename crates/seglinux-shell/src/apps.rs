@@ -10,6 +10,7 @@ const ALIASES: &[(&str, &[&str])] = &[(
     &[
         "kitty",
         "foot",
+        "org.codeberg.dnkl.foot",
         "footclient",
         "org.kde.konsole",
         "konsole",

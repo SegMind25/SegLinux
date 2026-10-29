@@ -3,7 +3,7 @@
 #
 # The live system has the Rust desktop on labwc, the foot terminal and
 # SegLinux Setup. Setup downloads everything else the full edition ships
-# (Wine, Steam, Brave, kitty, Dolphin, drivers, ...) during installation, listed in
+# (Wine, Steam, Brave, Dolphin, drivers, ...) during installation, listed in
 # /usr/share/seglinux/online-packages, which the build generates from the
 # full profile. Installing therefore needs an internet connection.
 #

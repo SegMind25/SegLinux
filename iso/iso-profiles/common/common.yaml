@@ -52,7 +52,7 @@ packages-base:
 packages-apps:
   - fastfetch
 
-# Both sessions are Wayland (labwc, Plasma) and applications use XWayland,
+# The session is Wayland (labwc) and applications use XWayland,
 # so the X server and its drivers are left out, as in the Lite edition.
 packages-xorg:
   - xorg-xwayland

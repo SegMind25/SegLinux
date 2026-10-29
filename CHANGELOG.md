@@ -17,7 +17,22 @@ Measurements and the reasons behind each removal are in
   (comments out) a repository in `/etc/pacman.conf` whose server is gone, such
   as `net-merge`, instead of failing with "failed to synchronize all databases".
 
+### Removed
+
+- **The Plasma session and Discover** (about 500 MiB, and a second set of
+  desktop services): the SegLinux desktop is the only one. Blueman and the
+  printer settings (system-config-printer) take over Bluetooth and printers;
+  Flathub stays available through `flatpak`. `seglinux-upgrade` offers once
+  to remove them from installed systems.
+
 ### Added
+
+- **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
+  less on disk, no Python, and about 200 MB less memory with a terminal open
+  in the October measurement), and the media player is mpv instead of VLC,
+  which removes the whole Qt 5 library set (about 100 MiB).
+  Updated systems are offered foot once; kitty and VLC stay until removed
+  (`sudo pacman -Rns kitty vlc`).
 
 - **Laptops with two GPUs play on the dedicated one**: `seg game run` sends
   the game to the NVIDIA (PRIME offload) or AMD/Intel card (`DRI_PRIME`)

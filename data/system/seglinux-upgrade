@@ -411,6 +411,38 @@ offer_sign_in_screen() {
     say "The new sign-in screen appears at the next restart (to go back: docs/desktop.md)."
 }
 
+# SegLinux dropped its second desktop (the Plasma session) and Discover:
+# about 500 MiB and a second set of background services. A system installed
+# before is asked once, interactively; Blueman and the printer settings
+# take over Bluetooth and printers first.
+offer_plasma_removal() {
+    local answer name present=()
+    pacman -Q plasma-workspace >/dev/null 2>&1 || pacman -Q discover >/dev/null 2>&1 || return 0
+    grep -qxF remove-plasma "$offered" 2>/dev/null && return 0
+    [[ -t 0 && " $* " != *" --noconfirm "* ]] || return 0
+    # Not from inside the Plasma session it would remove.
+    [[ ${XDG_CURRENT_DESKTOP:-} == *KDE* ]] && return 0
+    say "SegLinux no longer includes the Plasma desktop session and Discover (about 500 MiB)"
+    read -r -p "Remove them? Your files, apps and the SegLinux desktop stay. [y/N] " answer || answer=n
+    mkdir -p "${offered%/*}"
+    echo remove-plasma >> "$offered"
+    if [[ $answer != [yY]* ]]; then
+        echo "They stay. To remove them later: sudo pacman -Rns plasma-desktop discover"
+        return 0
+    fi
+    pacman -S --needed --noconfirm blueman system-config-printer breeze ||
+        warn "Blueman or the printer settings could not be installed."
+    for name in plasma-desktop plasma-workspace discover kwin powerdevil kscreen plasma-nm \
+        plasma-pa bluedevil kinfocenter kde-gtk-config xdg-desktop-portal-kde print-manager \
+        breeze-gtk systemsettings; do
+        pacman -Q "$name" >/dev/null 2>&1 && present+=("$name")
+    done
+    ((${#present[@]})) || return 0
+    # -s: with what only they needed; -c not: nothing else is taken along.
+    pacman -Rs --noconfirm "${present[@]}" ||
+        warn "Plasma could not be removed (another package needs part of it). To see why: sudo pacman -Rs ${present[*]}"
+}
+
 main() {
     # --from-source is this command's; the rest is for pacman.
     local from_source=false arg args=()
@@ -433,7 +465,7 @@ main() {
 
     install_command
     if [[ -e /var/lib/pacman/db.lck ]]; then
-        die "pacman is busy: another update (or Discover) is running. Wait for it to finish and try again. If nothing is running, remove the stale lock with: sudo rm /var/lib/pacman/db.lck"
+        die "pacman is busy: another update is running. Wait for it to finish and try again. If nothing is running, remove the stale lock with: sudo rm /var/lib/pacman/db.lck"
     fi
     # Any answer at all means the network works (no -f).
     if ! curl -s --max-time 20 -o /dev/null https://github.com; then
@@ -456,6 +488,7 @@ main() {
     fi
     install_new_defaults "$@"
     offer_sign_in_screen "$@"
+    offer_plasma_removal "$@"
     retire_local_copy
     local after
     after=$(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')

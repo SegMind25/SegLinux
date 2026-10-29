@@ -47,7 +47,7 @@ Steam and Lutris keep their own settings for the games they start.
 |------|------------------|-----|
 | Init system | **OpenRC** with parallel start (`rc_parallel="YES"`); runit and dinit builds are available | OpenRC is Artix's most used init. It applies `binfmt.d`, `sysctl.d` and `modules-load.d` natively, which the tuning below relies on, and starting services in parallel keeps boot fast. runit boots about as fast but leaves some of those files to its own scripts. |
 | Kernel | **linux-zen**, with the stock `linux` kernel beside it as a boot menu entry | linux-zen is Arch's kernel variant tuned for desktop responsiveness and low latency (and has NTSYNC); `-k linux` builds with the stock kernel. Setup installs the other kernel too when online, so a bad update never leaves the machine without a kernel to boot (GRUB lists it under *Advanced options*). Neither is ever removed. |
-| Desktop | SegLinux Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games. Plasma stays available as a fallback session. |
+| Desktop | SegLinux Rust shell on **labwc** | A light Wayland compositor: little RAM and CPU left for games, and no second desktop. |
 | Swap | **zram** (compressed swap in RAM, up to 8 GiB) | Avoids stutter from swapping to disk when a game fills memory |
 
 ## Included software
