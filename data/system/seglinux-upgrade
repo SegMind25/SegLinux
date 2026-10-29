@@ -1,7 +1,7 @@
 #!/bin/bash
 # seglinux-upgrade: brings an installed SegLinux up to the newest SegLinux,
 # as a new ISO would: its desktop, design, settings, performance tuning and
-# applications, with Artix's packages and Brave (Chaotic-AUR). Every
+# applications, with Artix's packages and Brave (from the AUR). Every
 # package from a repository is signature-checked by pacman.
 #
 #   sudo seglinux-upgrade                 upgrade everything
@@ -17,8 +17,6 @@ set -euo pipefail
 
 updates=https://github.com/SegMind25/SegLinux/releases/download/packages
 conf=/etc/pacman.conf
-chaotic_key=3056513887B78AEB
-chaotic_cdn=https://cdn-mirror.chaotic.cx/chaotic-aur
 defaults=/usr/share/seglinux/default-apps
 offered=/var/lib/seglinux/offered-apps
 source_url=https://github.com/SegMind25/SegLinux
@@ -76,38 +74,90 @@ ensure_keyring() {
     fi
 }
 
-# Chaotic-AUR's key: from a key server, as Chaotic-AUR's instructions say
-# (https://aur.chaotic.cx), or over HTTPS where key server ports are
-# blocked. Only the key with this ID is then trusted (lsign).
-receive_chaotic_key() {
-    local server key
-    pacman-key --list-keys "$chaotic_key" >/dev/null 2>&1 && return 0
-    for server in hkps://keyserver.ubuntu.com hkp://keyserver.ubuntu.com:80; do
-        pacman-key --recv-key "$chaotic_key" --keyserver "$server" && return 0
-    done
-    key=$(mktemp)
-    if curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x$chaotic_key" -o "$key" &&
-        pacman-key --add "$key"; then
-        rm -f "$key"
-        return 0
-    fi
-    rm -f "$key"
-    return 1
+# A repository whose server is gone (one added by hand that its author took
+# down, say) stops every update: "failed to synchronize all databases". Such
+# a repository, with a Server line of its own, is turned off (commented out;
+# pacman.conf.before-seglinux-update keeps the previous file).
+disable_dead_repos() {
+    local arch repo url code
+    arch=$(uname -m)
+    while read -r repo url; do
+        url=${url//\$repo/$repo}
+        url=${url//\$arch/$arch}
+        code=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 20 "$url/$repo.db" || true)
+        [[ $code == 404 || $code == 410 || $code == 000 ]] || continue
+        warn "the repository [$repo] is gone ($url answers $code): turned off in $conf."
+        cp -p "$conf" "$conf.before-seglinux-update"
+        awk -v r="[$repo]" '/^\[/ {s = ($0 == r)} s && NF && !/^#/ {$0 = "#" $0} {print}' "$conf" > "$conf.new"
+        cat "$conf.new" > "$conf" && rm -f "$conf.new"
+    done < <(awk '/^\[/ {r = substr($0, 2, length($0) - 2)}
+        r != "options" && r != "seglinux" && !seen[r] && /^[ \t]*Server[ \t]*=/ {
+            seen[r] = 1; sub(/^[^=]*=[ \t]*/, ""); print r, $0 }' "$conf")
 }
 
-# Brave and its updates: Chaotic-AUR. SegLinux images bring it already.
-setup_chaotic() {
-    if ! pacman -Q chaotic-keyring chaotic-mirrorlist >/dev/null 2>&1; then
-        say "Setting up Chaotic-AUR, where Brave comes from"
-        receive_chaotic_key || return 1
-        pacman-key --lsign-key "$chaotic_key" || return 1
-        # Its keyring needs archlinux-keyring: the package lists must be
-        # there to find it (a system may never have downloaded them).
-        pacman -Sy || return 1
-        pacman -U --noconfirm --needed "$chaotic_cdn/chaotic-keyring.pkg.tar.zst" \
-            "$chaotic_cdn/chaotic-mirrorlist.pkg.tar.zst" || return 1
+# Chaotic-AUR served only Brave, but its package list (several MB) came down
+# on every update. Brave now comes from the AUR (aur_install); the
+# repository, its comments and its keyring and mirror list go.
+retire_chaotic() {
+    has_repo chaotic-aur || return 0
+    say "Removing Chaotic-AUR (a large download on every update, only for Brave)"
+    cp -p "$conf" "$conf.before-seglinux-update"
+    awk '/^#?\[/ {skip = ($0 == "[chaotic-aur]"); if (skip) {buf = ""; next}}
+        /^#/ && !/^#\[/ && !skip {buf = buf $0 "\n"; next}
+        {if (!skip) {printf "%s", buf; print}; buf = ""}
+        END {printf "%s", buf}' "$conf" > "$conf.new"
+    cat "$conf.new" > "$conf" && rm -f "$conf.new"
+    local name installed=()
+    for name in chaotic-keyring chaotic-mirrorlist; do
+        pacman -Q "$name" >/dev/null 2>&1 && installed+=("$name")
+    done
+    ((${#installed[@]} == 0)) || pacman -R --noconfirm "${installed[@]}" >/dev/null || true
+}
+
+# The AUR's version of package $1 (empty when the AUR cannot be reached).
+aur_version() {
+    curl -fsS --max-time 20 "https://aur.archlinux.org/rpc/v5/info?arg%5B%5D=$1" |
+        sed -n 's/.*"Version":"\([^"]*\)".*/\1/p'
+}
+
+# Installs or updates the AUR packages named, when the AUR has a newer
+# version, built with makepkg from the account that ran sudo. brave-bin
+# repackages Brave's own build: a download, no compiling.
+aur_install() {
+    local user=${SUDO_USER:-} home name version have work packages
+    if [[ -z $user || $user == root ]]; then
+        warn "$* comes from the AUR and is built from your account: run  sudo seglinux-upgrade  as yourself, not as root."
+        return 0
     fi
-    has_repo chaotic-aur || add_repo chaotic-aur "Include = /etc/pacman.d/chaotic-mirrorlist"
+    home=$(getent passwd "$user" | cut -d: -f6)
+    for name in "$@"; do
+        version=$(aur_version "$name" || true)
+        if [[ -z $version ]]; then
+            warn "$name: the AUR cannot be reached; not updated this time."
+            continue
+        fi
+        have=$(pacman -Q "$name" 2>/dev/null | awk '{print $2}' || true)
+        [[ -n $have ]] && (($(vercmp "$have" "$version") >= 0)) && continue
+        say "$name $version (AUR)"
+        work=$(mktemp -d /var/tmp/seglinux-aur.XXXXXX)
+        if ! curl -fsSL "https://aur.archlinux.org/cgit/aur.git/snapshot/$name.tar.gz" | tar -C "$work" -xz; then
+            rm -rf "$work"
+            warn "$name: its AUR recipe could not be downloaded; not updated this time."
+            continue
+        fi
+        chown -R "$user:" "$work"
+        # shellcheck disable=SC2046 # one package name per word
+        if pacman -S --needed --noconfirm --asdeps base-devel $(cd "$work/$name" &&
+            runuser -u "$user" -- env HOME="$home" makepkg --printsrcinfo |
+            sed -n 's/^\t\(make\)\{0,1\}depends = //p') &&
+            (cd "$work/$name" && runuser -u "$user" -- env HOME="$home" makepkg -f --noconfirm); then
+            packages=("$work/$name/$name"-[0-9]*.pkg.tar.zst)
+            pacman -U --noconfirm "${packages[0]}" || warn "$name $version was not installed."
+        else
+            warn "$name $version did not build; it stays as it is."
+        fi
+        rm -rf "$work"
+    done
 }
 
 # SegLinux's own repository. Its key comes with the seglinux package; a
@@ -290,7 +340,9 @@ install_new_defaults() {
     while read -r name; do
         [[ -z $name || $name == \#* ]] && continue
         grep -qxF "$name" "$offered" && continue
-        pacman -Q "$name" >/dev/null 2>&1 || wanted+=("$name")
+        pacman -Q "$name" >/dev/null 2>&1 && continue
+        # Not in a repository (brave-bin): from the AUR.
+        if pacman -Si "$name" >/dev/null 2>&1; then wanted+=("$name"); else aur_install "$name"; fi
     done < "$defaults"
     if ((${#wanted[@]})); then
         say "New default applications: ${wanted[*]}"
@@ -389,7 +441,8 @@ main() {
     fi
 
     ensure_keyring
-    setup_chaotic || warn "Chaotic-AUR could not be set up, so Brave is not updated this time; everything else is."
+    disable_dead_repos
+    retire_chaotic
     setup_seglinux
     local before
     before=$(pacman -Q seglinux 2>/dev/null || echo 'seglinux not installed')
@@ -397,6 +450,7 @@ main() {
     pacman -Sy
     retire_replaced
     pacman -Su "$@"
+    if pacman -Q brave-bin >/dev/null 2>&1; then aur_install brave-bin; fi
     if $from_source || ! seglinux_published; then
         build_seglinux "$@"
     fi

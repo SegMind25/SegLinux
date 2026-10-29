@@ -7,6 +7,16 @@ Measurements and the reasons behind each removal are in
 
 ## Unreleased
 
+### Changed
+
+- **`seglinux-upgrade` no longer uses Chaotic-AUR**: its package list (several
+  MB on every update) only served Brave. The update removes the repository and
+  its keyring and updates Brave from its AUR recipe instead, only when a new
+  version is out ([docs/updating.md](docs/updating.md)).
+- **A dead repository no longer stops updates**: `seglinux-upgrade` turns off
+  (comments out) a repository in `/etc/pacman.conf` whose server is gone, such
+  as `net-merge`, instead of failing with "failed to synchronize all databases".
+
 ### Added
 
 - **`seg game`**, a small gaming layer in the `seg` tool, the same on OpenRC,

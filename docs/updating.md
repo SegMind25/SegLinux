@@ -14,7 +14,8 @@ It updates, in one go:
 
 * **every package of the system** (`pacman -Syu`): the kernel, drivers,
   Mesa, Wine, Steam, KDE applications, ... from Artix's repositories;
-* **Brave**, the default browser, from [Chaotic-AUR](https://aur.chaotic.cx);
+* **Brave**, the default browser, from its [AUR recipe](https://aur.archlinux.org/packages/brave-bin)
+  (Brave's own build, downloaded only when a new version is out);
 * **SegLinux itself**: the desktop, Start menu, Settings, the sign-in screen,
   Setup, `segrun`, the design, themes, default settings and performance
   tuning: everything a new ISO would bring, without the ISO. It comes signed
@@ -50,8 +51,8 @@ October 2026). Get it once with this line (one line: copy all of it):
 curl -fsSL https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/system/seglinux-upgrade -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade
 ```
 
-It installs the command (in `/usr/local/bin`), sets up Chaotic-AUR and
-SegLinux's repository and updates everything. From then on
+It installs the command (in `/usr/local/bin`), sets up SegLinux's
+repository and updates everything. From then on
 `sudo seglinux-upgrade` is enough. When the update brings the newer `seglinux`
 package, its own `seglinux-upgrade` takes over and the downloaded copy is
 removed.
@@ -64,8 +65,8 @@ questions would read the rest of the script instead of your answers.
 
 pacman checks the signature of every package before installing it:
 
-* Artix's and Chaotic-AUR's packages are signed with their keys, as on any
-  Artix system;
+* Artix's packages are signed with their keys, as on any Artix system;
+  Brave's AUR recipe checks Brave's download against its checksums;
 * SegLinux's packages are signed with **SegLinux's key**, which comes with
   SegLinux: images include it, and the `seglinux` package carries it. Systems
   older than signed updates take it once from the same place as the updates,
@@ -110,8 +111,12 @@ packages are published `seg` still needs `--from-source` or the ISO.
 * **"SegLinux's own updates are not published yet"**: no SegLinux update has
   been published so far (see *For maintainers* below). Everything else was
   updated.
-* **"Chaotic-AUR could not be set up"**: its key server or mirror did not
-  answer. Everything else was updated; Brave is updated next time.
+* **"the repository [name] is gone"**: a repository in `/etc/pacman.conf`
+  (one you added, such as `net-merge`) no longer answers and stopped every
+  update with "failed to synchronize all databases". It is turned off
+  (commented out); the previous file is `/etc/pacman.conf.before-seglinux-update`.
+* **"Removing Chaotic-AUR"**: once, on systems that had it. It only served
+  Brave, but its package list was a large download on every update.
 * **A file conflict** (`exists in filesystem`): a file was added by hand
   where a package now installs one. Move it away and update again.
 
@@ -175,5 +180,5 @@ How it fits together:
 | Repository set up on install | Setup runs `seglinux-upgrade --setup` in the new system |
 | Building, signing and publishing | `.github/workflows/update.yml`: `iso/build.sh --package-only`, `iso/scripts/publish-update.sh` |
 | Creating the key | `packaging/make-signing-key.sh` |
-| Chaotic-AUR | `iso/scripts/chaotic-aur.sh` (images and CI), `seglinux-upgrade` (installed systems) |
+| Brave | built into images from Chaotic-AUR (`iso/scripts/chaotic-aur.sh`); installed systems: `seglinux-upgrade` drops Chaotic-AUR and updates it from the AUR |
 | Tests | the *sudo seglinux-upgrade (Artix)* job of `.github/workflows/ci.yml` |
