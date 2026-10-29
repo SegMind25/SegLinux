@@ -170,6 +170,9 @@ pub struct Gpu {
     pub driver: Option<String>,
     pub slot: Option<String>,
     pub boot_vga: bool,
+    /// Dedicated video memory in bytes (amdgpu's `mem_info_vram_total`): an
+    /// APU's is a small carve-out, a graphics card's is gigabytes.
+    pub vram: Option<u64>,
 }
 
 impl Gpu {
@@ -224,11 +227,57 @@ pub fn gpus(root: &Path) -> Vec<Gpu> {
                 driver,
                 slot,
                 boot_vga: sys::read_trimmed(dev.join("boot_vga")).as_deref() == Some("1"),
+                vram: sys::read_trimmed(dev.join("mem_info_vram_total"))
+                    .and_then(|v| v.parse().ok()),
             })
         })
         .collect();
     found.sort_by(|a, b| a.card.cmp(&b.card));
     found
+}
+
+/// How games reach the faster GPU of a computer with two (a laptop's
+/// integrated graphics, which the screen starts on, and a dedicated card).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Offload {
+    /// NVIDIA's driver: PRIME render offload.
+    Nvidia,
+    /// A Mesa driver (amdgpu, nouveau, i915, xe): `DRI_PRIME=<this>`.
+    Mesa(String),
+}
+
+/// NVIDIA above AMD above Intel; between two of a kind, more video memory.
+fn speed(gpu: &Gpu) -> (u8, u64) {
+    let vendor = match gpu.vendor {
+        GpuVendor::Nvidia => 3,
+        GpuVendor::Amd => 2,
+        GpuVendor::Intel => 1,
+        GpuVendor::Other => 0,
+    };
+    (vendor, gpu.vram.unwrap_or(0))
+}
+
+/// The dedicated GPU to run games on, when the screen starts on a slower
+/// one. None with one GPU, or when the screen is on the fastest already (a
+/// desktop with its monitor on the graphics card).
+pub fn offload_target(gpus: &[Gpu]) -> Option<Offload> {
+    let boot = gpus.iter().find(|g| g.boot_vga)?;
+    let best = gpus
+        .iter()
+        .filter(|g| !g.boot_vga && g.driver.is_some())
+        .max_by_key(|g| speed(g))?;
+    if speed(best) <= speed(boot) {
+        return None;
+    }
+    if best.driver.as_deref() == Some("nvidia") {
+        return Some(Offload::Nvidia);
+    }
+    // `pci-0000_01_00_0`: this card, also when there are more than two.
+    Some(Offload::Mesa(
+        best.slot.as_deref().map_or("1".into(), |s| {
+            format!("pci-{}", s.replace([':', '.'], "_"))
+        }),
+    ))
 }
 
 /// The device name `lspci -s SLOT -mm` gives: `1002 "Advanced Micro
@@ -313,6 +362,62 @@ pub fn fixture(name: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn games_go_to_a_laptops_dedicated_gpu() {
+        assert_eq!(
+            offload_target(&gpus(&fixture("gpu-hybrid-laptop"))),
+            Some(Offload::Nvidia)
+        );
+        for single in ["gpu-amd", "gpu-intel-arc", "gpu-nvidia-ada", "gpu-none"] {
+            assert_eq!(offload_target(&gpus(&fixture(single))), None, "{single}");
+        }
+        let card = |vendor, driver: &str, slot: &str, boot_vga, vram| Gpu {
+            card: "card0".into(),
+            vendor,
+            device_id: 0x1234,
+            driver: Some(driver.into()),
+            slot: Some(slot.into()),
+            boot_vga,
+            vram,
+        };
+        // An AMD APU with an AMD graphics card: the one with the memory.
+        let apu = card(
+            GpuVendor::Amd,
+            "amdgpu",
+            "0000:05:00.0",
+            true,
+            Some(512 << 20),
+        );
+        let dgpu = card(
+            GpuVendor::Amd,
+            "amdgpu",
+            "0000:03:00.0",
+            false,
+            Some(8 << 30),
+        );
+        assert_eq!(
+            offload_target(&[apu.clone(), dgpu.clone()]),
+            Some(Offload::Mesa("pci-0000_03_00_0".into()))
+        );
+        // A desktop whose monitor is on the graphics card: nothing to move.
+        let screen_on_card = Gpu {
+            boot_vga: true,
+            ..dgpu
+        };
+        let igpu = Gpu {
+            boot_vga: false,
+            ..apu
+        };
+        assert_eq!(offload_target(&[igpu, screen_on_card]), None);
+        // Intel with an older NVIDIA card on nouveau: Mesa's offload.
+        let intel = card(GpuVendor::Intel, "i915", "0000:00:02.0", true, None);
+        let nouveau = card(GpuVendor::Nvidia, "nouveau", "0000:01:00.0", false, None);
+        assert_eq!(
+            offload_target(&[intel, nouveau]),
+            Some(Offload::Mesa("pci-0000_01_00_0".into()))
+        );
+    }
 
     #[test]
     fn cpu_lists() {
