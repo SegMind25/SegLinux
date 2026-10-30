@@ -6,6 +6,11 @@ It is meant to replace labwc. Until it does everything labwc does, labwc
 stays the default and this is an extra choice on the sign-in screen:
 **SegLinux (new compositor, preview)**.
 
+![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
+
+*Tested in a window, with Waybar standing in for the SegLinux dock (the same
+two protocols: layer-shell and foreign-toplevel).*
+
 ## What works
 
 - Application windows (xdg-shell): placed in the middle of the screen,

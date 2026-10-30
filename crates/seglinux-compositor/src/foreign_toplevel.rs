@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use smithay::{
     desktop::Window,
+    output::Output,
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel,
         wayland_protocols_wlr::foreign_toplevel::v1::server::{
@@ -63,7 +64,24 @@ struct Entry {
     id: u64,
     window: Window,
     info: Info,
+    /// The screens it is on (kept while it is minimized).
+    outputs: Vec<Output>,
     handles: Vec<ZwlrForeignToplevelHandleV1>,
+}
+
+/// output_enter / output_leave for the screens a window came to or left.
+fn send_outputs(h: &ZwlrForeignToplevelHandleV1, old: &[Output], new: &[Output]) {
+    let Some(client) = h.client() else { return };
+    for o in old.iter().filter(|o| !new.contains(o)) {
+        for wl in o.client_outputs(&client) {
+            h.output_leave(&wl);
+        }
+    }
+    for o in new.iter().filter(|o| !old.contains(o)) {
+        for wl in o.client_outputs(&client) {
+            h.output_enter(&wl);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -135,6 +153,7 @@ fn new_handle(
         .create_resource::<ZwlrForeignToplevelHandleV1, u64, State>(dh, manager.version(), entry.id)
         .ok()?;
     manager.toplevel(&handle);
+    send_outputs(&handle, &[], &entry.outputs);
     send(&handle, None, &entry.info);
     Some(handle)
 }
@@ -168,9 +187,21 @@ impl State {
             alive
         });
         for (window, new) in current {
+            let outputs = if new.minimized {
+                None
+            } else {
+                Some(self.space.outputs_for_element(&window))
+            };
             match ft.entries.iter_mut().find(|e| e.window == window) {
                 Some(entry) => {
-                    if entry.info != new {
+                    let moved = outputs.filter(|o| *o != entry.outputs);
+                    if let Some(o) = &moved {
+                        for h in &entry.handles {
+                            send_outputs(h, &entry.outputs, o);
+                        }
+                        entry.outputs = o.clone();
+                    }
+                    if entry.info != new || moved.is_some() {
                         for h in &entry.handles {
                             send(h, Some(&entry.info), &new);
                         }
@@ -182,6 +213,7 @@ impl State {
                         id: window_id(&window),
                         window,
                         info: new,
+                        outputs: outputs.unwrap_or_default(),
                         handles: Vec::new(),
                     };
                     for m in &ft.managers {
