@@ -31,3 +31,7 @@ features = [
     "desktop",
     "wayland_frontend",
 ]
+
+[dev-dependencies]
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
