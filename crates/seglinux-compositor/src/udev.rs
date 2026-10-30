@@ -7,32 +7,33 @@ use std::{cell::RefCell, collections::HashMap, path::Path, rc::Rc, time::Duratio
 use smithay::{
     backend::{
         allocator::{
+            Fourcc,
             dmabuf::Dmabuf,
             format::FormatSet,
             gbm::{GbmAllocator, GbmBufferFlags, GbmDevice},
-            Fourcc,
         },
         drm::{
+            DrmDevice, DrmDeviceFd, DrmEvent, DrmNode,
             compositor::FrameFlags,
             exporter::gbm::GbmFramebufferExporter,
             output::{DrmOutput, DrmOutputManager, DrmOutputRenderElements},
-            DrmDevice, DrmDeviceFd, DrmEvent, DrmNode,
         },
         egl::{EGLContext, EGLDisplay},
         libinput::{LibinputInputBackend, LibinputSessionInterface},
         renderer::{
-            element::surface::WaylandSurfaceRenderElement, gles::GlesRenderer, ImportDma,
+            ImportDma, ImportMemWl, element::surface::WaylandSurfaceRenderElement,
+            gles::GlesRenderer,
         },
-        session::{libseat::LibSeatSession, Event as SessionEvent, Session},
-        udev::{primary_gpu, UdevBackend, UdevEvent},
+        session::{Event as SessionEvent, Session, libseat::LibSeatSession},
+        udev::{UdevBackend, UdevEvent, primary_gpu},
     },
     output::{Mode as WlMode, Output, PhysicalProperties, Subpixel},
     reexports::{
         calloop::{
-            timer::{TimeoutAction, Timer},
             EventLoop, LoopHandle,
+            timer::{TimeoutAction, Timer},
         },
-        drm::control::{connector, crtc, Device as ControlDevice, ModeTypeFlags},
+        drm::control::{Device as ControlDevice, ModeTypeFlags, connector, crtc},
         input::Libinput,
         rustix::fs::OFlags,
         wayland_server::backend::GlobalId,
@@ -42,17 +43,23 @@ use smithay::{
 };
 
 use crate::{
-    render::{output_elements, send_frames, OutputElement, PointerImage},
+    render::{OutputElement, PointerImage, output_elements, send_frames},
     state::{Backend, State},
 };
 
-type Manager = DrmOutputManager<GbmAllocator<DrmDeviceFd>, GbmFramebufferExporter<DrmDeviceFd>, (), DrmDeviceFd>;
+type Manager = DrmOutputManager<
+    GbmAllocator<DrmDeviceFd>,
+    GbmFramebufferExporter<DrmDeviceFd>,
+    (),
+    DrmDeviceFd,
+>;
 type Element = OutputElement<GlesRenderer, WaylandSurfaceRenderElement<GlesRenderer>>;
 
 struct Screen {
     output: Output,
     global: GlobalId,
-    drm_output: DrmOutput<GbmAllocator<DrmDeviceFd>, GbmFramebufferExporter<DrmDeviceFd>, (), DrmDeviceFd>,
+    drm_output:
+        DrmOutput<GbmAllocator<DrmDeviceFd>, GbmFramebufferExporter<DrmDeviceFd>, (), DrmDeviceFd>,
     /// A frame is on its way to the screen: wait for its vblank.
     queued: bool,
     /// Something changed: draw again at the next chance.
@@ -95,7 +102,11 @@ impl Backend for Handle {
     }
 
     fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
-        self.0.borrow_mut().renderer.import_dmabuf(dmabuf, None).is_ok()
+        self.0
+            .borrow_mut()
+            .renderer
+            .import_dmabuf(dmabuf, None)
+            .is_ok()
     }
 }
 
@@ -113,18 +124,23 @@ impl Handle {
         if !udev.active {
             return;
         }
-        let Some(screen) = udev.screens.get_mut(&crtc) else { return };
+        let Some(screen) = udev.screens.get_mut(&crtc) else {
+            return;
+        };
         if screen.queued || !screen.dirty {
             return;
         }
         screen.dirty = false;
         let output = screen.output.clone();
-        let elements: Vec<Element> = output_elements(state, &mut udev.renderer, &output, &mut udev.pointer);
+        let elements: Vec<Element> =
+            output_elements(state, &mut udev.renderer, &output, &mut udev.pointer);
         let screen = udev.screens.get_mut(&crtc).expect("screen");
-        match screen
-            .drm_output
-            .render_frame(&mut udev.renderer, &elements, state.config.background, FrameFlags::DEFAULT)
-        {
+        match screen.drm_output.render_frame(
+            &mut udev.renderer,
+            &elements,
+            state.config.background,
+            FrameFlags::DEFAULT,
+        ) {
             Ok(result) if !result.is_empty => match screen.drm_output.queue_frame(()) {
                 Ok(()) => screen.queued = true,
                 Err(e) => tracing::warn!("cannot show a frame: {e}"),
@@ -132,12 +148,18 @@ impl Handle {
             Ok(_) => {
                 // Nothing changed on this screen: let the applications
                 // draw again after about one refresh.
-                let refresh = output.current_mode().map(|m| m.refresh).unwrap_or(60_000).max(1);
+                let refresh = output
+                    .current_mode()
+                    .map(|m| m.refresh)
+                    .unwrap_or(60_000)
+                    .max(1);
                 let delay = Duration::from_micros(1_000_000_000 / refresh as u64);
-                let _ = self.1.insert_source(Timer::from_duration(delay), move |_, _, state| {
-                    send_frames(state, &output);
-                    TimeoutAction::Drop
-                });
+                let _ = self
+                    .1
+                    .insert_source(Timer::from_duration(delay), move |_, _, state| {
+                        send_frames(state, &output);
+                        TimeoutAction::Drop
+                    });
                 return;
             }
             Err(e) => tracing::warn!("cannot draw a frame: {e:?}"),
@@ -149,7 +171,9 @@ impl Handle {
     fn vblank(&self, state: &mut State, crtc: crtc::Handle) {
         {
             let mut udev = self.0.borrow_mut();
-            let Some(screen) = udev.screens.get_mut(&crtc) else { return };
+            let Some(screen) = udev.screens.get_mut(&crtc) else {
+                return;
+            };
             if let Err(e) = screen.drm_output.frame_submitted() {
                 tracing::warn!("frame not shown: {e}");
             }
@@ -163,11 +187,15 @@ impl Handle {
         let mut guard = self.0.borrow_mut();
         let udev = &mut *guard;
         let device = udev.manager.device();
-        let Ok(resources) = device.resource_handles() else { return };
+        let Ok(resources) = device.resource_handles() else {
+            return;
+        };
         let mut connected: Vec<(connector::Info, crtc::Handle)> = Vec::new();
         let mut taken: Vec<crtc::Handle> = udev.screens.keys().copied().collect();
         for handle in resources.connectors() {
-            let Ok(info) = device.get_connector(*handle, true) else { continue };
+            let Ok(info) = device.get_connector(*handle, true) else {
+                continue;
+            };
             if info.state() != connector::State::Connected || info.modes().is_empty() {
                 continue;
             }
@@ -256,7 +284,12 @@ impl Handle {
                     continue;
                 }
             };
-            tracing::info!("screen {} at {}x{}", output.name(), wl_mode.size.w, wl_mode.size.h);
+            tracing::info!(
+                "screen {} at {}x{}",
+                output.name(),
+                wl_mode.size.w,
+                wl_mode.size.h
+            );
             udev.screens.insert(
                 crtc,
                 Screen {
@@ -279,13 +312,15 @@ fn connector_name(info: &connector::Info) -> String {
     format!("{}-{}", info.interface().as_str(), info.interface_id())
 }
 
-pub fn init(event_loop: &mut EventLoop<'static, State>, state: &mut State) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init(
+    event_loop: &mut EventLoop<'static, State>,
+    state: &mut State,
+) -> Result<(), Box<dyn std::error::Error>> {
     let (mut session, notifier) = LibSeatSession::new()
         .map_err(|e| format!("no seat session (is seatd or elogind running?): {e}"))?;
     let seat_name = session.seat();
 
-    let gpu_path = primary_gpu(&seat_name)?
-        .ok_or("no graphics card found")?;
+    let gpu_path = primary_gpu(&seat_name)?.ok_or("no graphics card found")?;
     tracing::info!("graphics card: {}", gpu_path.display());
     let fd = session.open(
         &gpu_path,
@@ -301,7 +336,10 @@ pub fn init(event_loop: &mut EventLoop<'static, State>, state: &mut State) -> Re
     let render_formats: FormatSet = renderer.egl_context().dmabuf_render_formats().clone();
     let manager = DrmOutputManager::new(
         drm,
-        GbmAllocator::new(gbm.clone(), GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT),
+        GbmAllocator::new(
+            gbm.clone(),
+            GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT,
+        ),
         GbmFramebufferExporter::new(gbm.clone(), Some(node)),
         Some(gbm),
         [Fourcc::Abgr8888, Fourcc::Argb8888],
@@ -332,59 +370,65 @@ pub fn init(event_loop: &mut EventLoop<'static, State>, state: &mut State) -> Re
     state.backend = Box::new(handle.clone());
 
     let h = handle.clone();
-    event_loop.handle().insert_source(drm_notifier, move |event, _, state| match event {
-        DrmEvent::VBlank(crtc) => h.vblank(state, crtc),
-        DrmEvent::Error(e) => tracing::warn!("graphics card: {e}"),
-    })?;
+    event_loop
+        .handle()
+        .insert_source(drm_notifier, move |event, _, state| match event {
+            DrmEvent::VBlank(crtc) => h.vblank(state, crtc),
+            DrmEvent::Error(e) => tracing::warn!("graphics card: {e}"),
+        })?;
 
     // Keyboards, mice and touchpads.
-    let mut libinput = Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(session.clone().into());
+    let mut libinput =
+        Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(session.clone().into());
     libinput
         .udev_assign_seat(&seat_name)
         .map_err(|()| "cannot read the input devices")?;
-    event_loop
-        .handle()
-        .insert_source(LibinputInputBackend::new(libinput.clone()), |event, _, state| {
-            state.process_input_event(event)
-        })?;
+    event_loop.handle().insert_source(
+        LibinputInputBackend::new(libinput.clone()),
+        |event, _, state| state.process_input_event(event),
+    )?;
 
     // Switching to another terminal and back.
     let h = handle.clone();
-    event_loop.handle().insert_source(notifier, move |event, _, state| match event {
-        SessionEvent::PauseSession => {
-            libinput.suspend();
-            let mut udev = h.0.borrow_mut();
-            udev.active = false;
-            udev.manager.pause();
-        }
-        SessionEvent::ActivateSession => {
-            if libinput.resume().is_err() {
-                tracing::warn!("input devices did not come back");
-            }
-            {
+    event_loop
+        .handle()
+        .insert_source(notifier, move |event, _, state| match event {
+            SessionEvent::PauseSession => {
+                libinput.suspend();
                 let mut udev = h.0.borrow_mut();
-                udev.active = true;
-                if let Err(e) = udev.manager.activate(false) {
-                    tracing::warn!("screens did not come back: {e}");
-                }
-                for screen in udev.screens.values_mut() {
-                    screen.queued = false;
-                }
+                udev.active = false;
+                udev.manager.pause();
             }
-            h.scan(state);
-        }
-    })?;
+            SessionEvent::ActivateSession => {
+                if libinput.resume().is_err() {
+                    tracing::warn!("input devices did not come back");
+                }
+                {
+                    let mut udev = h.0.borrow_mut();
+                    udev.active = true;
+                    if let Err(e) = udev.manager.activate(false) {
+                        tracing::warn!("screens did not come back: {e}");
+                    }
+                    for screen in udev.screens.values_mut() {
+                        screen.queued = false;
+                    }
+                }
+                h.scan(state);
+            }
+        })?;
 
     // Screens plugged in or out.
     let udev_backend = UdevBackend::new(&seat_name)?;
     let h = handle.clone();
-    event_loop.handle().insert_source(udev_backend, move |event, _, state| {
-        if let UdevEvent::Changed { device_id } = event {
-            if device_id == node.dev_id() {
+    event_loop
+        .handle()
+        .insert_source(udev_backend, move |event, _, state| {
+            if let UdevEvent::Changed { device_id } = event
+                && device_id == node.dev_id()
+            {
                 h.scan(state);
             }
-        }
-    })?;
+        })?;
 
     handle.scan(state);
     let _ = Path::new("");

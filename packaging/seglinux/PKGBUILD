@@ -14,7 +14,8 @@ url="https://github.com/SegMind25/SegLinux"
 license=('LicenseRef-SegLinux-unspecified')
 # Wine is optional so that the Lite edition's image stays small; its Setup
 # downloads Wine with the rest of the full edition.
-depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
+depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc'
+         'libinput' 'seatd' 'mesa' 'libxkbcommon')
 makedepends=('cargo' 'pkgconf')
 optdepends=(
     'wine: run Windows programs (segrun)'
@@ -129,6 +130,9 @@ package() {
     install -Dm644 "$data/greeter/greeter.toml" "$pkgdir/etc/seglinux/greeter.toml"
     install -Dm644 "$data/desktop/seglinux.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux.desktop"
     install -Dm755 "$data/desktop/seglinux-gaming-session" "$pkgdir/usr/bin/seglinux-gaming-session"
+    install -Dm755 target/release/seglinux-compositor "$pkgdir/usr/bin/seglinux-compositor"
+    install -Dm755 "$data/desktop/seglinux-compositor-session" "$pkgdir/usr/bin/seglinux-compositor-session"
+    install -Dm644 "$data/desktop/seglinux-compositor.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-compositor.desktop"
     install -Dm644 "$data/desktop/seglinux-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-gaming.desktop"
     install -Dm644 "$data/desktop/shell.toml" "$pkgdir/usr/share/seglinux/shell.example.toml"
     install -Dm644 "$data/desktop/seglinux-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/seglinux-portals.conf"

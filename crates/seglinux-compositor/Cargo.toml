@@ -9,6 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+bitflags = "2"
 serde.workspace = true
 toml.workspace = true
 tracing = "0.1"

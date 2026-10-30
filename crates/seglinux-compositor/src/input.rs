@@ -7,14 +7,14 @@ use smithay::{
         KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
     },
     input::{
-        keyboard::{keysyms, FilterResult, Keysym, ModifiersState},
+        keyboard::{FilterResult, Keysym, ModifiersState, xkb},
         pointer::{AxisFrame, ButtonEvent, Focus, MotionEvent, RelativeMotionEvent},
     },
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
 use crate::{
-    config::{normalize_key, Action, Combo, Mods},
+    config::{Action, Combo, Mods, normalize_key},
     grabs::MoveSurfaceGrab,
     state::State,
 };
@@ -29,7 +29,7 @@ fn combo(mods: &ModifiersState, sym: Keysym) -> Combo {
             shift: mods.shift,
             logo: mods.logo,
         },
-        key: normalize_key(&keysyms::keysym_get_name(sym)),
+        key: normalize_key(&xkb::keysym_get_name(sym)),
     }
 }
 
@@ -40,8 +40,10 @@ impl State {
                 let serial = SERIAL_COUNTER.next_serial();
                 let time = Event::time_msec(&event);
                 let pressed = event.state() == KeyState::Pressed;
-                let Some(keyboard) = self.seat.get_keyboard() else { return };
-                let binds = &self.config.binds;
+                let Some(keyboard) = self.seat.get_keyboard() else {
+                    return;
+                };
+                let binds = self.config.binds.clone();
                 let action = keyboard.input::<Action, _>(
                     self,
                     event.key_code(),
@@ -54,9 +56,12 @@ impl State {
                         }
                         // The key as printed without Shift (Super+Shift+S is `s`),
                         // and the key as typed (XF86Switch_VT_1 from Ctrl+Alt+F1).
-                        for sym in [handle.raw_latin_sym_or_raw_current_sym(), Some(handle.modified_sym())]
-                            .into_iter()
-                            .flatten()
+                        for sym in [
+                            handle.raw_latin_sym_or_raw_current_sym(),
+                            Some(handle.modified_sym()),
+                        ]
+                        .into_iter()
+                        .flatten()
                         {
                             if let Some(action) = binds.get(&combo(mods, sym)) {
                                 return FilterResult::Intercept(action.clone());
@@ -70,7 +75,9 @@ impl State {
                 }
             }
             InputEvent::PointerMotion { event } => {
-                let Some(pointer) = self.seat.get_pointer() else { return };
+                let Some(pointer) = self.seat.get_pointer() else {
+                    return;
+                };
                 let pos = self.clamp(pointer.current_location() + event.delta());
                 let under = self.surface_under(pos);
                 pointer.motion(
@@ -95,10 +102,16 @@ impl State {
                 self.after_motion(pos);
             }
             InputEvent::PointerMotionAbsolute { event } => {
-                let Some(output) = self.space.outputs().next() else { return };
-                let Some(geo) = self.space.output_geometry(output) else { return };
+                let Some(output) = self.space.outputs().next() else {
+                    return;
+                };
+                let Some(geo) = self.space.output_geometry(output) else {
+                    return;
+                };
                 let pos = event.position_transformed(geo.size) + geo.loc.to_f64();
-                let Some(pointer) = self.seat.get_pointer() else { return };
+                let Some(pointer) = self.seat.get_pointer() else {
+                    return;
+                };
                 let under = self.surface_under(pos);
                 pointer.motion(
                     self,
@@ -113,7 +126,9 @@ impl State {
                 self.after_motion(pos);
             }
             InputEvent::PointerButton { event } => {
-                let Some(pointer) = self.seat.get_pointer() else { return };
+                let Some(pointer) = self.seat.get_pointer() else {
+                    return;
+                };
                 let serial = SERIAL_COUNTER.next_serial();
                 let button = event.button_code();
                 let state = event.state();
@@ -181,7 +196,9 @@ impl State {
                         frame = frame.stop(axis);
                     }
                 }
-                let Some(pointer) = self.seat.get_pointer() else { return };
+                let Some(pointer) = self.seat.get_pointer() else {
+                    return;
+                };
                 pointer.axis(self, frame);
                 pointer.frame(self);
             }
@@ -202,8 +219,12 @@ impl State {
         else {
             return pos;
         };
-        let x = pos.x.clamp(geo.loc.x as f64, (geo.loc.x + geo.size.w - 1) as f64);
-        let y = pos.y.clamp(geo.loc.y as f64, (geo.loc.y + geo.size.h - 1) as f64);
+        let x = pos
+            .x
+            .clamp(geo.loc.x as f64, (geo.loc.x + geo.size.w - 1) as f64);
+        let y = pos
+            .y
+            .clamp(geo.loc.y as f64, (geo.loc.y + geo.size.h - 1) as f64);
         (x, y).into()
     }
 

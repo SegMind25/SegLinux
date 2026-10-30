@@ -4,7 +4,8 @@ This is the first implementation of SegLinux's own desktop shell. The shell
 is Rust with GTK4 Rust bindings; it is not a rewrite of the entire desktop
 stack in Rust. GTK, labwc, greetd and the bundled applications retain their
 upstream implementations. labwc handles composition, decorations, snapping,
-Alt+Tab and workspaces. Since October 2026 it is the only desktop: the
+Alt+Tab and workspaces ([SegLinux's own compositor](compositor.md) is in
+preview to replace it). Since October 2026 it is the only desktop: the
 Plasma session was removed (about 500 MiB).
 
 ## Implemented

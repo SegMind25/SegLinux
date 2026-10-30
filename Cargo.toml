@@ -8,6 +8,7 @@ members = [
     "crates/seglinux-shell",
     "crates/seglinux-installer",
     "crates/seglinux-greeter",
+    "crates/seglinux-compositor",
 ]
 # seg has its own workspace and release profile (tools/seg/Cargo.toml).
 exclude = ["tools/seg"]
