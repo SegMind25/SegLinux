@@ -33,9 +33,10 @@ impl Dispatch<wl_registry::WlRegistry, ()> for App {
             interface,
             version,
         } = e
-            && interface == "zwlr_foreign_toplevel_manager_v1" {
-                r.bind::<manager::ZwlrForeignToplevelManagerV1, _, _>(name, version.min(3), qh, ());
-            }
+            && interface == "zwlr_foreign_toplevel_manager_v1"
+        {
+            r.bind::<manager::ZwlrForeignToplevelManagerV1, _, _>(name, version.min(3), qh, ());
+        }
     }
 }
 
