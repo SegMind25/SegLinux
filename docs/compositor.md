@@ -32,7 +32,10 @@ two protocols: layer-shell and foreign-toplevel).*
   programs): their windows are placed, focused, maximized and listed like
   any other, with a SegLinux title bar when they do not draw their own;
   their menus and tooltips appear where they ask. The desktop starts once
-  XWayland is ready, so everything opened from it finds `$DISPLAY`.
+  XWayland is ready, so everything opened from it finds `$DISPLAY`. X11
+  windows can be resized from the borders they draw (Steam's).
+- Copy and paste between all applications, X11 and Wayland, and for
+  clipboard managers and `wl-copy` / `wl-paste` (wlr-data-control).
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).
@@ -40,8 +43,7 @@ two protocols: layer-shell and foreign-toplevel).*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: resizing X11 windows from their edges, copy and paste between X11
-and Wayland applications, workspaces, screen
+Not yet: workspaces, screen
 sharing and screenshots (wlr-screencopy), per-screen scaling and refresh
 choice, tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
