@@ -301,6 +301,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43b32313e937c8721c9d17ee9bf60699a6402b4b7c2cb6ac1bee0ffcaa4b4e5e"
 dependencies = [
  "bitflags 2.13.2",
+ "nix 0.31.3",
  "polling",
  "rustix 1.1.5",
  "tracing",
@@ -2745,7 +2746,9 @@ name = "seglinux-compositor"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.13.2",
+ "calloop 0.14.5",
  "fontdue",
+ "libc",
  "serde",
  "smithay",
  "toml",

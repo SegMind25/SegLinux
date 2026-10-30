@@ -9,6 +9,7 @@ mod capture;
 mod config;
 mod cursor;
 mod deco;
+mod desktop;
 mod focus;
 mod foreign_toplevel;
 mod grabs;
@@ -90,6 +91,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_var("WAYLAND_DISPLAY", &state.socket_name);
     }
     tracing::info!("listening on {}", state.socket_name.to_string_lossy());
+    // The Settings app (seglinux-shell) asks for a reload with SIGHUP to
+    // this process when its settings are saved.
+    unsafe {
+        std::env::set_var("SEGLINUX_COMPOSITOR_PID", std::process::id().to_string());
+    }
+    let hup = calloop::signals::Signals::new(&[calloop::signals::Signal::SIGHUP])?;
+    event_loop
+        .handle()
+        .insert_source(hup, |_, _, state| state.reload_config())?;
+
     // X11 applications; the autostart follows when XWayland is ready.
     state.start_xwayland();
 

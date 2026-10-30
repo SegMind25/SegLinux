@@ -34,7 +34,8 @@ Measurements and the reasons behind each removal are in
   GPU buffers for games, several screens, the dock's list of open
   windows, title bars with minimize, maximize and close, panels that take
   the keyboard (Start menu search), X11 applications through XWayland, copy and paste
-  between X11 and Wayland, screenshots and the lock screen ([docs/compositor.md](docs/compositor.md)).
+  between X11 and Wayland, screenshots, the lock screen, workspaces, and
+  the Settings app's keyboard, mouse and touchpad choices ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
   less on disk, no Python, and about 200 MB less memory with a terminal open

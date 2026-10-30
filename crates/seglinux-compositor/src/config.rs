@@ -43,6 +43,12 @@ pub enum Action {
     Quit,
     /// Switch to virtual terminal N (Ctrl+Alt+F1..F12).
     SwitchVt(i32),
+    /// The workspace to the left / right (wrapping).
+    WorkspacePrev,
+    WorkspaceNext,
+    /// The focused window to the workspace to the left / right.
+    SendPrev,
+    SendNext,
 }
 
 impl Action {
@@ -76,6 +82,10 @@ impl Action {
                 .filter(|n| (1..=12).contains(n))
                 .map(Action::SwitchVt)
                 .ok_or_else(|| "`switch-vt` needs a number from 1 to 12".into()),
+            "workspace-prev" => simple(Action::WorkspacePrev),
+            "workspace-next" => simple(Action::WorkspaceNext),
+            "send-prev" => simple(Action::SendPrev),
+            "send-next" => simple(Action::SendNext),
             other => Err(format!("unknown action `{other}`")),
         }
     }
@@ -185,6 +195,10 @@ pub fn default_binds() -> Vec<(&'static str, String)> {
         ("Alt+F4", "close".into()),
         ("Alt+Tab", "cycle-windows".into()),
         ("Super+F11", "fullscreen".into()),
+        ("Ctrl+Super+Left", "workspace-prev".into()),
+        ("Ctrl+Super+Right", "workspace-next".into()),
+        ("Ctrl+Shift+Super+Left", "send-prev".into()),
+        ("Ctrl+Shift+Super+Right", "send-next".into()),
         ("Super+Shift+r", "reload-config".into()),
         ("Ctrl+Alt+BackSpace", "quit".into()),
         ("Print", shell("screenshot \"'screen'\"")),

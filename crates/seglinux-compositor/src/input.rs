@@ -299,7 +299,7 @@ impl State {
     }
 
     fn after_motion(&mut self, pos: Point<f64, Logical>) {
-        if self.config.focus_follows_mouse {
+        if self.focus_follows_mouse() {
             let window = self.space.element_under(pos).map(|(w, _)| w.clone());
             if window.is_some() && window != self.focused_window() {
                 self.focus(window);
@@ -342,6 +342,18 @@ impl State {
             Action::ReloadConfig => self.reload_config(),
             Action::Quit => self.loop_signal.stop(),
             Action::SwitchVt(vt) => self.backend.change_vt(vt),
+            Action::WorkspacePrev | Action::WorkspaceNext | Action::SendPrev | Action::SendNext => {
+                let n = self.workspace_count();
+                let target = match action {
+                    Action::WorkspacePrev | Action::SendPrev => (self.workspace + n - 1) % n,
+                    _ => (self.workspace + 1) % n,
+                };
+                if matches!(action, Action::SendPrev | Action::SendNext) {
+                    self.send_to_workspace(target);
+                } else {
+                    self.switch_workspace(target);
+                }
+            }
         }
         self.backend.schedule_render();
     }

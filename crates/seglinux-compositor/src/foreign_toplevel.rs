@@ -183,6 +183,12 @@ impl State {
                 .iter()
                 .map(|w| (w.clone(), info(w, false, true))),
         );
+        // Windows on other workspaces stay in the dock.
+        current.extend(
+            self.hidden
+                .iter()
+                .map(|(w, _, _)| (w.clone(), info(w, false, false))),
+        );
         let dh = self.display_handle.clone();
         let ft = &mut self.foreign_toplevel;
 
@@ -197,7 +203,7 @@ impl State {
             alive
         });
         for (window, new) in current {
-            let outputs = if new.minimized {
+            let outputs = if new.minimized || self.hidden.iter().any(|(h, _, _)| *h == window) {
                 None
             } else {
                 Some(self.space.outputs_for_element(&window))
@@ -298,6 +304,7 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, u64> for State {
         let fullscreen = State::is_state(&window, xdg_toplevel::State::Fullscreen);
         match request {
             handle::Request::Activate { .. } => {
+                state.show_hidden(&window);
                 state.unminimize(&window);
                 state.focus(Some(window));
             }

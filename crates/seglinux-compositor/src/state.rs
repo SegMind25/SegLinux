@@ -77,6 +77,8 @@ pub trait Backend {
     fn change_vt(&mut self, _vt: i32) {}
     /// Something changed on screen: draw a new frame soon.
     fn schedule_render(&mut self) {}
+    /// Apply the mouse and touchpad settings to the input devices.
+    fn configure_input(&mut self, _input: &crate::desktop::Input) {}
     /// Hand a client's GPU buffer to the renderer.
     fn import_dmabuf(&mut self, _dmabuf: &smithay::backend::allocator::dmabuf::Dmabuf) -> bool {
         false
@@ -126,6 +128,11 @@ pub struct State {
     pub capture: crate::capture::CaptureState,
 
     pub config: Config,
+    /// The Settings app's choices (shell.toml).
+    pub desktop: crate::desktop::Desktop,
+    /// The workspace shown, and the windows of the others with their place.
+    pub workspace: usize,
+    pub hidden: Vec<(Window, Point<i32, Logical>, usize)>,
     pub config_path: Option<std::path::PathBuf>,
 }
 
@@ -148,19 +155,16 @@ impl State {
 
         let mut seat_state = SeatState::new();
         let mut seat: Seat<State> = seat_state.new_wl_seat(&dh, seat_name);
-        let keyboard = &config.keyboard;
+        let desktop = crate::desktop::Desktop::load();
+        let (layout, options, delay, rate) = keyboard_settings(&config, &desktop);
         let xkb = XkbConfig {
-            layout: &keyboard.layout,
-            variant: &keyboard.variant,
-            options: keyboard.options.clone(),
+            layout: &layout,
+            variant: &config.keyboard.variant,
+            options,
             ..Default::default()
         };
-        let (delay, rate) = (
-            keyboard.repeat_delay.unwrap_or(300),
-            keyboard.repeat_rate.unwrap_or(30),
-        );
         if seat.add_keyboard(xkb, delay, rate).is_err() {
-            tracing::warn!("keyboard layout `{}` not found; using us", keyboard.layout);
+            tracing::warn!("keyboard layout `{layout}` not found; using us");
             seat.add_keyboard(XkbConfig::default(), delay, rate)
                 .expect("the default keyboard layout");
         }
@@ -237,6 +241,9 @@ impl State {
             minimized: Vec::new(),
             cursor_status: CursorImageStatus::default_named(),
             config,
+            desktop,
+            workspace: 0,
+            hidden: Vec::new(),
             config_path,
         }
     }
@@ -249,11 +256,23 @@ impl State {
     }
 
     pub fn spawn(&self, command: &str) {
-        let result = std::process::Command::new("/bin/sh")
-            .arg("-c")
+        use std::os::unix::process::CommandExt;
+        let mut cmd = std::process::Command::new("/bin/sh");
+        cmd.arg("-c")
             .arg(command)
-            .env("WAYLAND_DISPLAY", &self.socket_name)
-            .spawn();
+            .env("WAYLAND_DISPLAY", &self.socket_name);
+        // The compositor blocks SIGHUP to read it from a signalfd; programs
+        // must not inherit that (terminals rely on SIGHUP).
+        // Safety: only async-signal-safe calls between fork and exec.
+        unsafe {
+            cmd.pre_exec(|| {
+                let mut empty: libc::sigset_t = std::mem::zeroed();
+                libc::sigemptyset(&mut empty);
+                libc::pthread_sigmask(libc::SIG_SETMASK, &empty, std::ptr::null_mut());
+                Ok(())
+            });
+        }
+        let result = cmd.spawn();
         match result {
             // Reap it in a thread, so no zombie stays behind.
             Ok(mut child) => {
@@ -263,13 +282,101 @@ impl State {
         }
     }
 
+    /// Read compositor.toml and the Settings app's shell.toml again
+    /// (Super+Shift+R, or SIGHUP from Settings) and apply them.
     pub fn reload_config(&mut self) {
         let (config, problems) = Config::load(self.config_path.as_deref());
         for p in problems {
             tracing::warn!("{p}");
         }
         self.config = config;
+        self.desktop = crate::desktop::Desktop::load();
+        let (layout, options, delay, rate) = keyboard_settings(&self.config, &self.desktop);
+        let variant = self.config.keyboard.variant.clone();
+        if let Some(k) = self.seat.get_keyboard() {
+            let xkb = XkbConfig {
+                layout: &layout,
+                variant: &variant,
+                options,
+                ..Default::default()
+            };
+            if k.set_xkb_config(self, xkb).is_err() {
+                tracing::warn!("keyboard layout `{layout}` not found; kept the previous one");
+            }
+            k.change_repeat_info(rate, delay);
+        }
+        let input = self.desktop.input.clone();
+        self.backend.configure_input(&input);
+        let count = self.workspace_count();
+        if self.workspace >= count {
+            self.switch_workspace(count - 1);
+        }
         tracing::info!("settings reloaded");
+    }
+
+    pub fn focus_follows_mouse(&self) -> bool {
+        self.config.focus_follows_mouse || self.desktop.windows.focus_follows_mouse
+    }
+
+    pub fn workspace_count(&self) -> usize {
+        self.desktop.windows.workspaces.clamp(1, 16) as usize
+    }
+
+    /// Show workspace `n`: the windows of the current one are put aside.
+    pub fn switch_workspace(&mut self, n: usize) {
+        if n == self.workspace {
+            return;
+        }
+        let shown: Vec<Window> = self
+            .space
+            .elements()
+            .filter(|w| !w.x11_surface().is_some_and(|x| x.is_override_redirect()))
+            .cloned()
+            .collect();
+        for w in shown {
+            if let Some(loc) = self.space.element_location(&w) {
+                self.space.unmap_elem(&w);
+                self.hidden.push((w, loc, self.workspace));
+            }
+        }
+        let (now, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut self.hidden)
+            .into_iter()
+            .partition(|(_, _, ws)| *ws == n);
+        self.hidden = rest;
+        for (w, loc, _) in now {
+            self.space.map_element(w, loc, false);
+        }
+        self.workspace = n;
+        let top = self.space.elements().last().cloned();
+        self.focus(top);
+    }
+
+    /// The focused window to workspace `n`.
+    pub fn send_to_workspace(&mut self, n: usize) {
+        let Some(w) = self.focused_window() else {
+            return;
+        };
+        if n == self.workspace {
+            return;
+        }
+        if let Some(loc) = self.space.element_location(&w) {
+            self.space.unmap_elem(&w);
+            self.hidden.push((w, loc, n));
+        }
+        let top = self.space.elements().last().cloned();
+        self.focus(top);
+    }
+
+    /// Show the workspace a hidden window is on (the dock activated it).
+    pub fn show_hidden(&mut self, window: &Window) {
+        if let Some(ws) = self
+            .hidden
+            .iter()
+            .find(|(w, _, _)| w == window)
+            .map(|(_, _, ws)| *ws)
+        {
+            self.switch_workspace(ws);
+        }
     }
 
     /// The window and the position of the surface under a point, layers
@@ -701,6 +808,24 @@ impl State {
             layer_map_for_output(output).arrange();
         }
     }
+}
+
+/// Layout, options, repeat delay and rate: compositor.toml where it says
+/// something, else the Settings app's choices.
+fn keyboard_settings(
+    config: &Config,
+    desktop: &crate::desktop::Desktop,
+) -> (String, Option<String>, i32, i32) {
+    let k = &config.keyboard;
+    let layout = if k.layout.is_empty() {
+        desktop.input.keyboard_layout.clone()
+    } else {
+        k.layout.clone()
+    };
+    let options = k.options.clone().or_else(|| desktop.input.xkb_options());
+    let delay = k.repeat_delay.unwrap_or(desktop.input.repeat_delay);
+    let rate = k.repeat_rate.unwrap_or(desktop.input.repeat_rate);
+    (layout, options, delay, rate)
 }
 
 #[derive(Default)]
