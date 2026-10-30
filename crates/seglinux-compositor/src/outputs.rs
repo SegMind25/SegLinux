@@ -71,9 +71,12 @@ pub struct HeadWish {
     scale: Option<f64>,
 }
 
+/// Each screen a configuration names: on or off, and what it asks.
+type Wishes = Vec<(Output, bool, std::sync::Arc<Mutex<HeadWish>>)>;
+
 pub struct ConfigData {
     serial: u32,
-    heads: Mutex<Vec<(Output, bool, std::sync::Arc<Mutex<HeadWish>>)>>,
+    heads: Mutex<Wishes>,
 }
 
 fn snapshot(state: &State) -> Vec<Snapshot> {
