@@ -35,7 +35,8 @@ Ctrl+Alt+Backspace quit. RUST_LOG=debug for details.
 ";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut nested = std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var_os("DISPLAY").is_some();
+    let mut nested =
+        std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var_os("DISPLAY").is_some();
     let mut config_path = state_config_default();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {

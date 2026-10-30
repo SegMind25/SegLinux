@@ -2,18 +2,17 @@
 
 use smithay::{
     backend::renderer::{
+        ImportAll, ImportMem, Renderer, Texture,
         element::{
+            AsRenderElements, Kind,
             memory::{MemoryRenderBuffer, MemoryRenderBufferRenderElement},
             surface::WaylandSurfaceRenderElement,
-            AsRenderElements, Kind,
         },
-        Color32F, ImportAll, ImportMem, Renderer, Texture,
     },
     input::pointer::CursorImageStatus,
     render_elements,
     utils::{Physical, Point, Scale},
 };
-
 
 pub struct PointerElement {
     buffer: Option<MemoryRenderBuffer>,
@@ -75,19 +74,21 @@ where
             // Always render `Default` for a named shape.
             CursorImageStatus::Named(_) => {
                 if let Some(buffer) = self.buffer.as_ref() {
-                    vec![PointerRenderElement::<R>::from(
-                        MemoryRenderBufferRenderElement::from_buffer(
-                            renderer,
-                            location.to_f64(),
-                            buffer,
-                            None,
-                            None,
-                            None,
-                            Kind::Cursor,
+                    vec![
+                        PointerRenderElement::<R>::from(
+                            MemoryRenderBufferRenderElement::from_buffer(
+                                renderer,
+                                location.to_f64(),
+                                buffer,
+                                None,
+                                None,
+                                None,
+                                Kind::Cursor,
+                            )
+                            .expect("Lost system pointer buffer"),
                         )
-                        .expect("Lost system pointer buffer"),
-                    )
-                    .into()]
+                        .into(),
+                    ]
                 } else {
                     vec![]
                 }
@@ -107,4 +108,3 @@ where
         }
     }
 }
-

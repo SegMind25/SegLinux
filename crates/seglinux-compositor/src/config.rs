@@ -4,7 +4,7 @@
 //! match the SegLinux session on labwc (data/desktop/labwc/rc.xml).
 //!
 //! ```toml
-//! autostart = ["seglinux-shell"]
+//! autostart = ["sh /usr/share/seglinux/labwc/autostart", "nm-applet"]
 //! background = "#0b1220"
 //! focus_follows_mouse = false
 //!
@@ -216,7 +216,9 @@ impl Default for Config {
             );
         }
         Config {
-            autostart: Vec::new(),
+            // The same start-up as the labwc session: environment for D-Bus
+            // services, sound, the password prompt agent and the desktop.
+            autostart: vec!["sh /usr/share/seglinux/labwc/autostart".into()],
             background: [0.043, 0.071, 0.125, 1.0],
             focus_follows_mouse: false,
             keyboard: Keyboard::default(),
@@ -421,7 +423,10 @@ options = "grp:alt_shift_toggle"
         let (c, problems) = Config::parse("unknown_key = 1");
         assert_eq!(c, Config::default());
         assert_eq!(problems.len(), 1);
-        assert_eq!(parse_color("#ff000080"), Some([1.0, 0.0, 0.0, 128.0 / 255.0]));
+        assert_eq!(
+            parse_color("#ff000080"),
+            Some([1.0, 0.0, 0.0, 128.0 / 255.0])
+        );
         assert_eq!(parse_color("red"), None);
         assert_eq!(parse_color("#ééé"), None);
     }

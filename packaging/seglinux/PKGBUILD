@@ -14,7 +14,8 @@ url="https://github.com/SegMind25/SegLinux"
 license=('LicenseRef-SegLinux-unspecified')
 # Wine is optional so that the Lite edition's image stays small; its Setup
 # downloads Wine with the rest of the full edition.
-depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc')
+depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc'
+         'libinput' 'seatd' 'mesa' 'libxkbcommon')
 makedepends=('cargo' 'pkgconf')
 optdepends=(
     'wine: run Windows programs (segrun)'
@@ -61,7 +62,6 @@ backup=(
     'etc/xdg/kdeglobals'
     'etc/xdg/mimeapps.list'
     'etc/xdg/fastfetch/config.jsonc'
-    'etc/xdg/foot/foot.ini'
     'etc/bash/bashrc.d/seglinux-fastfetch.bashrc'
     'etc/bash/bashrc.d/seglinux-rust-tools.bashrc'
 )
@@ -129,6 +129,9 @@ package() {
     install -Dm644 "$data/greeter/greeter.toml" "$pkgdir/etc/seglinux/greeter.toml"
     install -Dm644 "$data/desktop/seglinux.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux.desktop"
     install -Dm755 "$data/desktop/seglinux-gaming-session" "$pkgdir/usr/bin/seglinux-gaming-session"
+    install -Dm755 target/release/seglinux-compositor "$pkgdir/usr/bin/seglinux-compositor"
+    install -Dm755 "$data/desktop/seglinux-compositor-session" "$pkgdir/usr/bin/seglinux-compositor-session"
+    install -Dm644 "$data/desktop/seglinux-compositor.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-compositor.desktop"
     install -Dm644 "$data/desktop/seglinux-gaming.desktop" "$pkgdir/usr/share/wayland-sessions/seglinux-gaming.desktop"
     install -Dm644 "$data/desktop/shell.toml" "$pkgdir/usr/share/seglinux/shell.example.toml"
     install -Dm644 "$data/desktop/seglinux-portals.conf" "$pkgdir/usr/share/xdg-desktop-portal/seglinux-portals.conf"
@@ -145,7 +148,8 @@ package() {
 
     install -Dm644 "$data/xdg/kdeglobals" "$pkgdir/etc/xdg/kdeglobals"
     install -Dm644 "$data/xdg/mimeapps.list" "$pkgdir/etc/xdg/mimeapps.list"
-    install -Dm644 "$data/xdg/foot/foot.ini" "$pkgdir/etc/xdg/foot/foot.ini"
+    # Not /etc/xdg/foot/foot.ini: the foot package owns that file.
+    install -Dm644 "$data/seglinux/foot.ini" "$pkgdir/usr/share/seglinux/foot.ini"
     install -Dm644 "$data/xdg/seglinux-pipewire.desktop" "$pkgdir/etc/xdg/autostart/seglinux-pipewire.desktop"
     install -Dm644 "$data/system/sddm-seglinux.conf" "$pkgdir/etc/sddm.conf.d/10-seglinux.conf"
     install -Dm644 -t "$pkgdir/usr/share/applications" "$data"/applications/*.desktop

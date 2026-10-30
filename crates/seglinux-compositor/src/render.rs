@@ -1,20 +1,23 @@
 //! What is drawn on an output: panels, windows and the pointer.
 
 use smithay::{
+    backend::allocator::Fourcc,
     backend::renderer::{
-        element::{memory::MemoryRenderBuffer, AsRenderElements, Kind},
         ImportAll, ImportMem, Renderer, Texture,
+        element::{AsRenderElements, Kind, memory::MemoryRenderBuffer},
     },
     desktop::space::SpaceRenderElements,
     input::pointer::CursorImageStatus,
     output::Output,
-    reexports::wayland_server::Resource,
     render_elements,
-    utils::{Scale, Transform},
-    backend::allocator::Fourcc,
+    utils::{IsAlive, Scale, Transform},
 };
 
-use crate::{cursor::Cursor, pointer::{PointerElement, PointerRenderElement}, state::State};
+use crate::{
+    cursor::Cursor,
+    pointer::{PointerElement, PointerRenderElement},
+    state::State,
+};
 
 render_elements! {
     pub OutputElement<R, E> where R: ImportAll + ImportMem;
@@ -45,7 +48,9 @@ pub fn output_elements<R>(
     renderer: &mut R,
     output: &Output,
     pointer: &mut PointerImage,
-) -> Vec<OutputElement<R, smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement<R>>>
+) -> Vec<
+    OutputElement<R, smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement<R>>,
+>
 where
     R: Renderer + ImportAll + ImportMem,
     R::TextureId: Texture + Clone + Send + 'static,
@@ -61,10 +66,10 @@ where
         .map(|p| p.current_location())
         .unwrap_or_default();
     if geo.to_f64().contains(location) {
-        if let CursorImageStatus::Surface(surface) = &state.cursor_status {
-            if !surface.alive() {
-                state.cursor_status = CursorImageStatus::default_named();
-            }
+        if let CursorImageStatus::Surface(surface) = &state.cursor_status
+            && !surface.alive()
+        {
+            state.cursor_status = CursorImageStatus::default_named();
         }
         let hotspot = match &state.cursor_status {
             CursorImageStatus::Surface(surface) => crate::state::cursor_hotspot(surface),
@@ -108,10 +113,14 @@ where
 pub fn send_frames(state: &State, output: &Output) {
     let time = state.start_time.elapsed();
     for window in state.space.elements_for_output(output) {
-        window.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| Some(output.clone()));
+        window.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
     }
     let map = smithay::desktop::layer_map_for_output(output);
     for layer in map.layers() {
-        layer.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| Some(output.clone()));
+        layer.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
     }
 }

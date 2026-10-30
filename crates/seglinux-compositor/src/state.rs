@@ -6,48 +6,48 @@ use std::{ffi::OsString, sync::Arc, time::Instant};
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
     delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_layer_shell,
-    delegate_output, delegate_primary_selection, delegate_seat, delegate_shm,
-    delegate_viewporter, delegate_xdg_decoration, delegate_xdg_shell,
+    delegate_output, delegate_primary_selection, delegate_seat, delegate_shm, delegate_viewporter,
+    delegate_xdg_decoration, delegate_xdg_shell,
     desktop::{
-        find_popup_root_surface, get_popup_toplevel_coords, layer_map_for_output, LayerSurface,
-        PopupKind, PopupManager, Space, Window, WindowSurfaceType,
+        LayerSurface, PopupKind, PopupManager, Space, Window, WindowSurfaceType,
+        find_popup_root_surface, get_popup_toplevel_coords, layer_map_for_output,
     },
     input::{
+        Seat, SeatHandler, SeatState,
         keyboard::XkbConfig,
         pointer::{CursorImageStatus, CursorImageSurfaceData, Focus},
-        Seat, SeatHandler, SeatState,
     },
     output::Output,
     reexports::{
-        calloop::{generic::Generic, Interest, LoopHandle, LoopSignal, Mode, PostAction},
+        calloop::{Interest, LoopHandle, LoopSignal, Mode, PostAction, generic::Generic},
         wayland_protocols::xdg::{
             decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode,
             shell::server::xdg_toplevel,
         },
         wayland_server::{
+            Client, Display, DisplayHandle, Resource,
             backend::{ClientData, ClientId, DisconnectReason},
             protocol::{wl_buffer, wl_output, wl_seat, wl_surface::WlSurface},
-            Client, Display, DisplayHandle, Resource,
         },
     },
-    utils::{Logical, Point, Rectangle, Serial, SERIAL_COUNTER},
+    utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Serial},
     wayland::{
         buffer::BufferHandler,
         compositor::{
-            get_parent, is_sync_subsurface, with_states, CompositorClientState, CompositorHandler,
-            CompositorState,
+            CompositorClientState, CompositorHandler, CompositorState, get_parent,
+            is_sync_subsurface, with_states,
         },
         dmabuf::{DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier},
         output::{OutputHandler, OutputManagerState},
         selection::{
+            SelectionHandler,
             data_device::{
-                set_data_device_focus, ClientDndGrabHandler, DataDeviceHandler, DataDeviceState,
-                ServerDndGrabHandler,
+                ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
+                set_data_device_focus,
             },
             primary_selection::{
-                set_primary_focus, PrimarySelectionHandler, PrimarySelectionState,
+                PrimarySelectionHandler, PrimarySelectionState, set_primary_focus,
             },
-            SelectionHandler,
         },
         shell::{
             wlr_layer::{
@@ -55,9 +55,9 @@ use smithay::{
                 WlrLayerShellState,
             },
             xdg::{
-                decoration::{XdgDecorationHandler, XdgDecorationState},
                 PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
                 XdgToplevelSurfaceData,
+                decoration::{XdgDecorationHandler, XdgDecorationState},
             },
         },
         shm::{ShmHandler, ShmState},
@@ -68,7 +68,7 @@ use smithay::{
 
 use crate::{
     config::Config,
-    grabs::{resize_grab, MoveSurfaceGrab, ResizeSurfaceGrab},
+    grabs::{MoveSurfaceGrab, ResizeSurfaceGrab, resize_grab},
 };
 
 /// What the backend in use offers the rest of the compositor.
@@ -86,6 +86,7 @@ pub trait Backend {
 /// A window's place before it was maximized, snapped or made fullscreen.
 struct Restore(std::sync::Mutex<Option<Rectangle<i32, Logical>>>);
 
+#[allow(dead_code)] // protocol states are kept alive here
 pub struct State {
     pub start_time: Instant,
     pub socket_name: OsString,
@@ -243,16 +244,21 @@ impl State {
 
     /// The window and the position of the surface under a point, layers
     /// (the dock, menus) first as they are drawn above windows.
-    pub fn surface_under(&self, pos: Point<f64, Logical>) -> Option<(WlSurface, Point<f64, Logical>)> {
+    pub fn surface_under(
+        &self,
+        pos: Point<f64, Logical>,
+    ) -> Option<(WlSurface, Point<f64, Logical>)> {
         let output = self.space.output_under(pos).next()?;
         let output_geo = self.space.output_geometry(output)?;
         let layers = layer_map_for_output(output);
         let layer_hit = |layer: Layer| {
-            layers.layer_under(layer, pos - output_geo.loc.to_f64()).and_then(|l| {
-                let loc = layers.layer_geometry(l)?.loc + output_geo.loc;
-                l.surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
-                    .map(|(s, p)| (s, (p + loc).to_f64()))
-            })
+            layers
+                .layer_under(layer, pos - output_geo.loc.to_f64())
+                .and_then(|l| {
+                    let loc = layers.layer_geometry(l)?.loc + output_geo.loc;
+                    l.surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
+                        .map(|(s, p)| (s, (p + loc).to_f64()))
+                })
         };
         layer_hit(Layer::Overlay)
             .or_else(|| layer_hit(Layer::Top))
@@ -332,8 +338,15 @@ impl State {
     }
 
     /// Put a window into `rect`, remembering where it was.
-    pub fn place(&mut self, window: &Window, rect: Rectangle<i32, Logical>, state: Option<xdg_toplevel::State>) {
-        let Some(toplevel) = window.toplevel() else { return };
+    pub fn place(
+        &mut self,
+        window: &Window,
+        rect: Rectangle<i32, Logical>,
+        state: Option<xdg_toplevel::State>,
+    ) {
+        let Some(toplevel) = window.toplevel() else {
+            return;
+        };
         if let Some(loc) = self.space.element_location(window) {
             Self::remember(window, Rectangle::new(loc, window.geometry().size));
         }
@@ -351,7 +364,9 @@ impl State {
 
     /// Back to the size and place before maximize, snap or fullscreen.
     pub fn restore(&mut self, window: &Window) {
-        let Some(toplevel) = window.toplevel() else { return };
+        let Some(toplevel) = window.toplevel() else {
+            return;
+        };
         let rect = Self::take_restore(window);
         toplevel.with_pending_state(|s| {
             s.states.unset(xdg_toplevel::State::Maximized);
@@ -383,8 +398,17 @@ impl State {
             self.restore(window);
             return;
         }
-        let pointer = self.seat.get_pointer().map(|p| p.current_location()).unwrap_or_default();
-        let output = self.space.output_under(pointer).next().or_else(|| self.space.outputs().next()).cloned();
+        let pointer = self
+            .seat
+            .get_pointer()
+            .map(|p| p.current_location())
+            .unwrap_or_default();
+        let output = self
+            .space
+            .output_under(pointer)
+            .next()
+            .or_else(|| self.space.outputs().next())
+            .cloned();
         if let Some(geo) = output.and_then(|o| self.space.output_geometry(&o)) {
             self.place(window, geo, Some(xdg_toplevel::State::Fullscreen));
         }
@@ -393,8 +417,16 @@ impl State {
     pub fn snap(&mut self, window: &Window, left: bool) {
         if let Some(area) = self.work_area() {
             let half = area.size.w / 2;
-            let loc = if left { area.loc } else { (area.loc.x + half, area.loc.y).into() };
-            self.place(window, Rectangle::new(loc, (half, area.size.h).into()), None);
+            let loc = if left {
+                area.loc
+            } else {
+                (area.loc.x + half, area.loc.y).into()
+            };
+            self.place(
+                window,
+                Rectangle::new(loc, (half, area.size.h).into()),
+                None,
+            );
         }
     }
 
@@ -407,7 +439,9 @@ impl State {
 
     pub fn unminimize_all(&mut self) {
         for window in std::mem::take(&mut self.minimized) {
-            let loc = Self::take_restore(&window).map(|r| r.loc).unwrap_or_default();
+            let loc = Self::take_restore(&window)
+                .map(|r| r.loc)
+                .unwrap_or_default();
             self.space.map_element(window, loc, false);
         }
     }
@@ -440,14 +474,25 @@ impl State {
     /// A new window: centred in the work area, a little lower and to the
     /// right of the previous one so they do not cover each other exactly.
     fn place_new(&mut self, window: Window) {
-        let area = self.work_area().unwrap_or_else(|| Rectangle::from_size((1280, 720).into()));
+        let area = self
+            .work_area()
+            .unwrap_or_else(|| Rectangle::from_size((1280, 720).into()));
         let count = self.space.elements().count() as i32;
         let offset = (count % 8) * 32;
         let size = window.geometry().size;
-        let w = if size.w > 0 { size.w } else { area.size.w * 2 / 3 };
-        let h = if size.h > 0 { size.h } else { area.size.h * 2 / 3 };
+        let w = if size.w > 0 {
+            size.w
+        } else {
+            area.size.w * 2 / 3
+        };
+        let h = if size.h > 0 {
+            size.h
+        } else {
+            area.size.h * 2 / 3
+        };
         let x = area.loc.x + ((area.size.w - w) / 2).max(0) + offset;
         let y = area.loc.y + ((area.size.h - h) / 2).max(0) + offset;
+        tracing::info!(x, y, w, h, "window shown");
         self.space.map_element(window.clone(), (x, y), true);
         self.focus(Some(window));
     }
@@ -472,15 +517,28 @@ impl State {
             else {
                 return;
             };
-            let mut target = Rectangle::from_size(output.current_mode().map(|m| m.size.to_logical(1)).unwrap_or_default());
+            let mut target = Rectangle::from_size(
+                output
+                    .current_mode()
+                    .map(|m| m.size.to_logical(1))
+                    .unwrap_or_default(),
+            );
             target.loc -= layer_geo.loc;
             target.loc -= get_popup_toplevel_coords(&PopupKind::Xdg(popup.clone()));
-            popup.with_pending_state(|s| s.geometry = s.positioner.get_unconstrained_geometry(target));
+            popup.with_pending_state(|s| {
+                s.geometry = s.positioner.get_unconstrained_geometry(target)
+            });
             return;
         };
-        let Some(window_geo) = self.space.element_geometry(&window) else { return };
-        let Some(output) = self.space.outputs_for_element(&window).into_iter().next() else { return };
-        let Some(mut target) = self.space.output_geometry(&output) else { return };
+        let Some(window_geo) = self.space.element_geometry(&window) else {
+            return;
+        };
+        let Some(output) = self.space.outputs_for_element(&window).into_iter().next() else {
+            return;
+        };
+        let Some(mut target) = self.space.output_geometry(&output) else {
+            return;
+        };
         target.loc -= get_popup_toplevel_coords(&PopupKind::Xdg(popup.clone()));
         target.loc -= window_geo.loc;
         popup.with_pending_state(|s| s.geometry = s.positioner.get_unconstrained_geometry(target));
@@ -531,35 +589,39 @@ impl CompositorHandler for State {
             .space
             .elements()
             .any(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface));
-        if !mapped {
-            if let Some(index) = PENDING.with(|p| p.borrow().iter().position(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))) {
-                let window = PENDING.with(|p| p.borrow()[index].clone());
-                let initial_sent = with_states(surface, |states| {
-                    states
-                        .data_map
-                        .get::<XdgToplevelSurfaceData>()
-                        .map(|d| d.lock().unwrap().initial_configure_sent)
-                        .unwrap_or(true)
-                });
-                if !initial_sent {
-                    if let Some(t) = window.toplevel() {
-                        t.send_configure();
-                    }
-                } else {
-                    window.on_commit();
-                    if window.bbox().size.w > 0 {
-                        PENDING.with(|p| p.borrow_mut().remove(index));
-                        self.place_new(window);
-                    }
+        if !mapped
+            && let Some(index) = PENDING.with(|p| {
+                p.borrow()
+                    .iter()
+                    .position(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))
+            })
+        {
+            let window = PENDING.with(|p| p.borrow()[index].clone());
+            let initial_sent = with_states(surface, |states| {
+                states
+                    .data_map
+                    .get::<XdgToplevelSurfaceData>()
+                    .map(|d| d.lock().unwrap().initial_configure_sent)
+                    .unwrap_or(true)
+            });
+            if !initial_sent {
+                if let Some(t) = window.toplevel() {
+                    t.send_configure();
+                }
+            } else {
+                window.on_commit();
+                if window.bbox().size.w > 0 {
+                    PENDING.with(|p| p.borrow_mut().remove(index));
+                    self.place_new(window);
                 }
             }
         }
 
         self.popups.commit(surface);
-        if let Some(PopupKind::Xdg(xdg)) = self.popups.find_popup(surface) {
-            if !xdg.is_initial_configure_sent() {
-                let _ = xdg.send_configure();
-            }
+        if let Some(PopupKind::Xdg(xdg)) = self.popups.find_popup(surface)
+            && !xdg.is_initial_configure_sent()
+        {
+            let _ = xdg.send_configure();
         }
 
         if let Some(output) = self
@@ -581,10 +643,10 @@ impl CompositorHandler for State {
             });
             let mut map = layer_map_for_output(&output);
             map.arrange();
-            if !initial_sent {
-                if let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL) {
-                    layer.layer_surface().send_configure();
-                }
+            if !initial_sent
+                && let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
+            {
+                layer.layer_surface().send_configure();
             }
         }
 
@@ -707,7 +769,12 @@ impl XdgShellHandler for State {
         let _ = self.popups.track_popup(PopupKind::Xdg(surface));
     }
 
-    fn reposition_request(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
+    fn reposition_request(
+        &mut self,
+        surface: PopupSurface,
+        positioner: PositionerState,
+        token: u32,
+    ) {
         surface.with_pending_state(|state| {
             state.geometry = positioner.get_geometry();
             state.positioner = positioner;
@@ -717,13 +784,21 @@ impl XdgShellHandler for State {
     }
 
     fn move_request(&mut self, surface: ToplevelSurface, seat: wl_seat::WlSeat, serial: Serial) {
-        let Some(seat) = Seat::<State>::from_resource(&seat) else { return };
-        let Some(window) = self.window_for_surface(surface.wl_surface()) else { return };
-        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else { return };
+        let Some(seat) = Seat::<State>::from_resource(&seat) else {
+            return;
+        };
+        let Some(window) = self.window_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
+            return;
+        };
         if Self::is_state(&window, xdg_toplevel::State::Maximized) {
             self.restore(&window);
         }
-        let Some(initial_window_location) = self.space.element_location(&window) else { return };
+        let Some(initial_window_location) = self.space.element_location(&window) else {
+            return;
+        };
         let grab = MoveSurfaceGrab {
             start_data,
             window,
@@ -741,14 +816,23 @@ impl XdgShellHandler for State {
         serial: Serial,
         edges: xdg_toplevel::ResizeEdge,
     ) {
-        let Some(seat) = Seat::<State>::from_resource(&seat) else { return };
-        let Some(window) = self.window_for_surface(surface.wl_surface()) else { return };
-        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else { return };
-        let Some(loc) = self.space.element_location(&window) else { return };
+        let Some(seat) = Seat::<State>::from_resource(&seat) else {
+            return;
+        };
+        let Some(window) = self.window_for_surface(surface.wl_surface()) else {
+            return;
+        };
+        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
+            return;
+        };
+        let Some(loc) = self.space.element_location(&window) else {
+            return;
+        };
         let size = window.geometry().size;
         surface.with_pending_state(|state| state.states.set(xdg_toplevel::State::Resizing));
         surface.send_pending_configure();
-        let grab = ResizeSurfaceGrab::start(start_data, window, edges.into(), Rectangle::new(loc, size));
+        let grab =
+            ResizeSurfaceGrab::start(start_data, window, edges.into(), Rectangle::new(loc, size));
         if let Some(pointer) = seat.get_pointer() {
             pointer.set_grab(self, grab, serial, Focus::Clear);
         }
@@ -773,33 +857,37 @@ impl XdgShellHandler for State {
     }
 
     fn unmaximize_request(&mut self, surface: ToplevelSurface) {
-        if let Some(window) = self.window_for_surface(surface.wl_surface()) {
-            if Self::is_state(&window, xdg_toplevel::State::Maximized) {
-                self.restore(&window);
-            }
+        if let Some(window) = self.window_for_surface(surface.wl_surface())
+            && Self::is_state(&window, xdg_toplevel::State::Maximized)
+        {
+            self.restore(&window);
         }
     }
 
-    fn fullscreen_request(&mut self, surface: ToplevelSurface, _output: Option<wl_output::WlOutput>) {
+    fn fullscreen_request(
+        &mut self,
+        surface: ToplevelSurface,
+        _output: Option<wl_output::WlOutput>,
+    ) {
         if let Some(window) = self.window_for_surface(surface.wl_surface()) {
             if !Self::is_state(&window, xdg_toplevel::State::Fullscreen) {
                 self.toggle_fullscreen(&window);
             }
-        } else if let Some(output) = self.space.outputs().next().cloned() {
-            if let Some(geo) = self.space.output_geometry(&output) {
-                surface.with_pending_state(|s| {
-                    s.states.set(xdg_toplevel::State::Fullscreen);
-                    s.size = Some(geo.size);
-                });
-            }
+        } else if let Some(output) = self.space.outputs().next().cloned()
+            && let Some(geo) = self.space.output_geometry(&output)
+        {
+            surface.with_pending_state(|s| {
+                s.states.set(xdg_toplevel::State::Fullscreen);
+                s.size = Some(geo.size);
+            });
         }
     }
 
     fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
-        if let Some(window) = self.window_for_surface(surface.wl_surface()) {
-            if Self::is_state(&window, xdg_toplevel::State::Fullscreen) {
-                self.restore(&window);
-            }
+        if let Some(window) = self.window_for_surface(surface.wl_surface())
+            && Self::is_state(&window, xdg_toplevel::State::Fullscreen)
+        {
+            self.restore(&window);
         }
     }
 
@@ -876,7 +964,10 @@ impl WlrLayerShellHandler for State {
     fn layer_destroyed(&mut self, surface: WlrLayerSurface) {
         let found = self.space.outputs().find_map(|o| {
             let map = layer_map_for_output(o);
-            let layer = map.layers().find(|l| l.layer_surface() == &surface).cloned();
+            let layer = map
+                .layers()
+                .find(|l| l.layer_surface() == &surface)
+                .cloned();
             layer.map(|l| (o.clone(), l))
         });
         if let Some((output, layer)) = found {

@@ -27,6 +27,12 @@ Measurements and the reasons behind each removal are in
 
 ### Added
 
+- **SegLinux's own compositor (preview)**: `seglinux-compositor`, written in
+  Rust on Smithay, as an extra choice on the sign-in screen beside the labwc
+  session, which stays the default. Windows, the dock and its menus, the
+  same keys as on labwc, a settings file for keys, start-up and keyboard,
+  GPU buffers for games, several screens ([docs/compositor.md](docs/compositor.md)).
+
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
   less on disk, no Python, and about 200 MB less memory with a terminal open
   in the October measurement), and the media player is mpv instead of VLC,

@@ -2,13 +2,22 @@
 # Open the installed terminal emulator, optionally running a command:
 #   seglinux-terminal [command [arguments...]]
 # foot is SegLinux's terminal; kitty (older SegLinux) and others after it.
+# foot gets SegLinux's defaults unless the user has their own foot.ini.
+foot_config=/usr/share/seglinux/foot.ini
+user_config=${XDG_CONFIG_HOME:-$HOME/.config}/foot/foot.ini
+if [ -f "$foot_config" ] && [ ! -f "$user_config" ]; then
+    foot_args="--config=$foot_config"
+fi
 for terminal in foot kitty konsole alacritty xterm; do
     command -v "$terminal" >/dev/null 2>&1 || continue
+    case $terminal in
+        foot) exec foot ${foot_args:+"$foot_args"} "$@" ;;
+        kitty) exec kitty "$@" ;;
+    esac
     if [ $# -eq 0 ]; then
         exec "$terminal"
     fi
     case $terminal in
-        kitty | foot) exec "$terminal" "$@" ;;
         *) exec "$terminal" -e "$@" ;;
     esac
 done
