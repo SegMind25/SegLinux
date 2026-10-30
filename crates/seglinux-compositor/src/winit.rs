@@ -104,7 +104,11 @@ pub fn init(
             WinitEvent::Redraw => {
                 let mut backend = backend.borrow_mut();
                 let size = backend.window_size();
-                let background = state.config.background;
+                let background = if state.lock.locked {
+                    [0.0, 0.0, 0.0, 1.0]
+                } else {
+                    state.config.background
+                };
                 let rendered = {
                     let Ok((renderer, mut framebuffer)) = backend.bind() else {
                         return;
@@ -118,6 +122,7 @@ pub fn init(
                 if rendered {
                     let _ = backend.submit(Some(&[Rectangle::from_size(size)]));
                 }
+                crate::capture::fulfill(state, backend.renderer(), &output, &mut pointer);
                 send_frames(state, &output);
                 let _ = Duration::ZERO;
             }

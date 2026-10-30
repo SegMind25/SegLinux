@@ -8,8 +8,9 @@ stays the default and this is an extra choice on the sign-in screen:
 
 ![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
 
-*Tested in a window, with Waybar standing in for the SegLinux dock (the same
-two protocols: layer-shell and foreign-toplevel).*
+*Taken by the compositor itself (grim), running in a window, with Waybar
+standing in for the SegLinux dock (the same two protocols: layer-shell and
+foreign-toplevel); the terminal with the white page is an X11 application.*
 
 ## What works
 
@@ -32,7 +33,14 @@ two protocols: layer-shell and foreign-toplevel).*
   programs): their windows are placed, focused, maximized and listed like
   any other, with a SegLinux title bar when they do not draw their own;
   their menus and tooltips appear where they ask. The desktop starts once
-  XWayland is ready, so everything opened from it finds `$DISPLAY`.
+  XWayland is ready, so everything opened from it finds `$DISPLAY`. X11
+  windows can be resized from the borders they draw (Steam's).
+- Screenshots (wlr-screencopy: grim, the Print key, Super+Shift+S for an
+  area) and the lock screen (ext-session-lock: swaylock, Super+L); while
+  locked only the lock screen is shown and no key combination works except
+  switching terminals.
+- Copy and paste between all applications, X11 and Wayland, and for
+  clipboard managers and `wl-copy` / `wl-paste` (wlr-data-control).
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).
@@ -40,9 +48,8 @@ two protocols: layer-shell and foreign-toplevel).*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: resizing X11 windows from their edges, copy and paste between X11
-and Wayland applications, workspaces, screen
-sharing and screenshots (wlr-screencopy), per-screen scaling and refresh
+Not yet: workspaces, screen
+sharing, per-screen scaling and refresh
 choice, tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
 

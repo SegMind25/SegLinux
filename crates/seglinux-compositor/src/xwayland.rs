@@ -17,6 +17,20 @@ use smithay::{
     },
 };
 
+use std::os::fd::OwnedFd;
+
+use smithay::wayland::selection::{
+    SelectionTarget,
+    data_device::{
+        clear_data_device_selection, current_data_device_selection_userdata,
+        request_data_device_client_selection, set_data_device_selection,
+    },
+    primary_selection::{
+        clear_primary_selection, current_primary_selection_userdata,
+        request_primary_client_selection, set_primary_selection,
+    },
+};
+
 use crate::state::State;
 
 impl State {
@@ -227,13 +241,26 @@ impl XwmHandler for State {
         }
     }
 
-    fn resize_request(
-        &mut self,
-        _xwm: XwmId,
-        _surface: X11Surface,
-        _button: u32,
-        _edge: ResizeEdge,
-    ) {
+    /// Resizing from a border the application draws itself.
+    fn resize_request(&mut self, _xwm: XwmId, surface: X11Surface, button: u32, edge: ResizeEdge) {
+        let Some(window) = self.x11_window(&surface) else {
+            return;
+        };
+        let Some(pointer) = self.seat.get_pointer() else {
+            return;
+        };
+        let Some(loc) = self.space.element_location(&window) else {
+            return;
+        };
+        let start_data = smithay::input::pointer::GrabStartData {
+            focus: None,
+            button,
+            location: pointer.current_location(),
+        };
+        let rect = Rectangle::new(loc, surface.geometry().size);
+        let grab = crate::grabs::ResizeSurfaceGrab::start(start_data, window, edge.into(), rect);
+        let serial = smithay::utils::SERIAL_COUNTER.next_serial();
+        pointer.set_grab(self, grab, serial, smithay::input::pointer::Focus::Clear);
     }
 
     /// Dragging a window by a title bar the application draws itself
@@ -259,5 +286,62 @@ impl XwmHandler for State {
         };
         let serial = smithay::utils::SERIAL_COUNTER.next_serial();
         pointer.set_grab(self, grab, serial, smithay::input::pointer::Focus::Clear);
+    }
+
+    /// X11 applications may read the clipboard while one of them is in front.
+    fn allow_selection_access(&mut self, xwm: XwmId, _selection: SelectionTarget) -> bool {
+        self.seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(
+                |f| matches!(f, crate::focus::KeyboardFocus::X11(x) if x.xwm_id() == Some(xwm)),
+            )
+    }
+
+    fn send_selection(
+        &mut self,
+        _xwm: XwmId,
+        selection: SelectionTarget,
+        mime_type: String,
+        fd: OwnedFd,
+    ) {
+        let failed = match selection {
+            SelectionTarget::Clipboard => {
+                request_data_device_client_selection(&self.seat, mime_type, fd).is_err()
+            }
+            SelectionTarget::Primary => {
+                request_primary_client_selection(&self.seat, mime_type, fd).is_err()
+            }
+        };
+        if failed {
+            tracing::warn!("the clipboard could not be handed to an X11 application");
+        }
+    }
+
+    /// An X11 application copied something: Wayland applications can paste it.
+    fn new_selection(&mut self, _xwm: XwmId, selection: SelectionTarget, mime_types: Vec<String>) {
+        match selection {
+            SelectionTarget::Clipboard => {
+                set_data_device_selection(&self.display_handle, &self.seat, mime_types, ())
+            }
+            SelectionTarget::Primary => {
+                set_primary_selection(&self.display_handle, &self.seat, mime_types, ())
+            }
+        }
+    }
+
+    fn cleared_selection(&mut self, _xwm: XwmId, selection: SelectionTarget) {
+        match selection {
+            SelectionTarget::Clipboard => {
+                if current_data_device_selection_userdata(&self.seat).is_some() {
+                    clear_data_device_selection(&self.display_handle, &self.seat)
+                }
+            }
+            SelectionTarget::Primary => {
+                if current_primary_selection_userdata(&self.seat).is_some() {
+                    clear_primary_selection(&self.display_handle, &self.seat)
+                }
+            }
+        }
     }
 }

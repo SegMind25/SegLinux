@@ -115,11 +115,15 @@ pub struct State {
     pub seat_state: SeatState<State>,
     pub data_device_state: DataDeviceState,
     pub primary_selection_state: PrimarySelectionState,
+    pub data_control_state: smithay::wayland::selection::wlr_data_control::DataControlState,
     pub viewporter_state: ViewporterState,
     pub seat: Seat<State>,
     pub foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState,
     pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
     pub xwm: Option<smithay::xwayland::X11Wm>,
+    pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
+    pub lock: crate::lock::Lock,
+    pub capture: crate::capture::CaptureState,
 
     pub config: Config,
     pub config_path: Option<std::path::PathBuf>,
@@ -188,6 +192,14 @@ impl State {
             )
             .expect("the display source");
 
+        let primary_selection_state = PrimarySelectionState::new::<Self>(&dh);
+        // Clipboard managers and wl-copy / wl-paste.
+        let data_control_state =
+            smithay::wayland::selection::wlr_data_control::DataControlState::new::<Self, _>(
+                &dh,
+                Some(&primary_selection_state),
+                |_| true,
+            );
         State {
             start_time: Instant::now(),
             socket_name,
@@ -200,13 +212,20 @@ impl State {
             dmabuf_global: None,
             output_manager_state: OutputManagerState::new_with_xdg_output::<Self>(&dh),
             data_device_state: DataDeviceState::new::<Self>(&dh),
-            primary_selection_state: PrimarySelectionState::new::<Self>(&dh),
+            primary_selection_state,
+            data_control_state,
             viewporter_state: ViewporterState::new::<Self>(&dh),
             foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState::new(&dh),
             xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState::new::<Self>(
                 &dh,
             ),
             xwm: None,
+            session_lock_state: smithay::wayland::session_lock::SessionLockManagerState::new::<
+                Self,
+                _,
+            >(&dh, |_| true),
+            lock: crate::lock::Lock::default(),
+            capture: crate::capture::CaptureState::new(&dh),
             seat_state,
             seat,
             display_handle: dh,
@@ -261,6 +280,10 @@ impl State {
     ) -> Option<(WlSurface, Point<f64, Logical>)> {
         let output = self.space.output_under(pos).next()?;
         let output_geo = self.space.output_geometry(output)?;
+        if self.lock.locked {
+            let lock = self.lock_surface(output)?;
+            return Some((lock.wl_surface().clone(), output_geo.loc.to_f64()));
+        }
         let layers = layer_map_for_output(output);
         let layer_hit = |layer: Layer| {
             layers
@@ -889,6 +912,36 @@ impl SeatHandler for State {
 
 impl SelectionHandler for State {
     type SelectionUserData = ();
+
+    /// A Wayland application copied something: X11 applications can paste it.
+    fn new_selection(
+        &mut self,
+        ty: smithay::wayland::selection::SelectionTarget,
+        source: Option<smithay::wayland::selection::SelectionSource>,
+        _seat: Seat<Self>,
+    ) {
+        if let Some(xwm) = self.xwm.as_mut()
+            && let Err(e) = xwm.new_selection(ty, source.map(|s| s.mime_types()))
+        {
+            tracing::warn!("clipboard to X11: {e}");
+        }
+    }
+
+    /// A Wayland application pastes what an X11 application copied.
+    fn send_selection(
+        &mut self,
+        ty: smithay::wayland::selection::SelectionTarget,
+        mime_type: String,
+        fd: std::os::fd::OwnedFd,
+        _seat: Seat<Self>,
+        _user_data: &(),
+    ) {
+        if let Some(xwm) = self.xwm.as_mut()
+            && let Err(e) = xwm.send_selection(ty, mime_type, fd, self.loop_handle.clone())
+        {
+            tracing::warn!("clipboard from X11: {e}");
+        }
+    }
 }
 
 impl DataDeviceHandler for State {
@@ -1164,6 +1217,15 @@ delegate_dmabuf!(State);
 delegate_seat!(State);
 delegate_data_device!(State);
 delegate_primary_selection!(State);
+smithay::delegate_data_control!(State);
+
+impl smithay::wayland::selection::wlr_data_control::DataControlHandler for State {
+    fn data_control_state(
+        &self,
+    ) -> &smithay::wayland::selection::wlr_data_control::DataControlState {
+        &self.data_control_state
+    }
+}
 delegate_output!(State);
 delegate_xdg_shell!(State);
 delegate_xdg_decoration!(State);

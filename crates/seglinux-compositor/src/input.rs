@@ -47,6 +47,7 @@ impl State {
                     return;
                 };
                 let binds = self.config.binds.clone();
+                let locked = self.lock.locked;
                 let action = keyboard.input::<Action, _>(
                     self,
                     event.key_code(),
@@ -67,6 +68,10 @@ impl State {
                         .flatten()
                         {
                             if let Some(action) = binds.get(&combo(mods, sym)) {
+                                // Locked: only switching terminals.
+                                if locked && !matches!(action, Action::SwitchVt(_)) {
+                                    continue;
+                                }
                                 return FilterResult::Intercept(action.clone());
                             }
                         }
@@ -135,7 +140,7 @@ impl State {
                 let serial = SERIAL_COUNTER.next_serial();
                 let button = event.button_code();
                 let state = event.state();
-                if state == ButtonState::Pressed && !pointer.is_grabbed() {
+                if state == ButtonState::Pressed && !pointer.is_grabbed() && !self.lock.locked {
                     let pos = pointer.current_location();
                     // A title bar: its buttons, or dragging it moves the window.
                     if button == BTN_LEFT
