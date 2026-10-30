@@ -121,6 +121,9 @@ pub struct State {
     pub foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState,
     pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
     pub xwm: Option<smithay::xwayland::X11Wm>,
+    pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
+    pub lock: crate::lock::Lock,
+    pub capture: crate::capture::CaptureState,
 
     pub config: Config,
     pub config_path: Option<std::path::PathBuf>,
@@ -217,6 +220,12 @@ impl State {
                 &dh,
             ),
             xwm: None,
+            session_lock_state: smithay::wayland::session_lock::SessionLockManagerState::new::<
+                Self,
+                _,
+            >(&dh, |_| true),
+            lock: crate::lock::Lock::default(),
+            capture: crate::capture::CaptureState::new(&dh),
             seat_state,
             seat,
             display_handle: dh,
@@ -271,6 +280,10 @@ impl State {
     ) -> Option<(WlSurface, Point<f64, Logical>)> {
         let output = self.space.output_under(pos).next()?;
         let output_geo = self.space.output_geometry(output)?;
+        if self.lock.locked {
+            let lock = self.lock_surface(output)?;
+            return Some((lock.wl_surface().clone(), output_geo.loc.to_f64()));
+        }
         let layers = layer_map_for_output(output);
         let layer_hit = |layer: Layer| {
             layers

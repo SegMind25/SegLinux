@@ -129,13 +129,18 @@ impl Handle {
         }
         screen.dirty = false;
         let output = screen.output.clone();
+        crate::capture::fulfill(state, &mut udev.renderer, &output, &mut udev.pointer);
         let elements: Vec<Element> =
             output_elements(state, &mut udev.renderer, &output, &mut udev.pointer);
         let screen = udev.screens.get_mut(&crtc).expect("screen");
         match screen.drm_output.render_frame(
             &mut udev.renderer,
             &elements,
-            state.config.background,
+            if state.lock.locked {
+                [0.0, 0.0, 0.0, 1.0]
+            } else {
+                state.config.background
+            },
             FrameFlags::DEFAULT,
         ) {
             Ok(result) if !result.is_empty => match screen.drm_output.queue_frame(()) {

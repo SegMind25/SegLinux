@@ -5,6 +5,7 @@
 //! Based on Smithay's smallvil and anvil examples (MIT licence, Copyright
 //! (c) 2017 Victor Berger and Smithay contributors).
 
+mod capture;
 mod config;
 mod cursor;
 mod deco;
@@ -12,6 +13,7 @@ mod focus;
 mod foreign_toplevel;
 mod grabs;
 mod input;
+mod lock;
 mod pointer;
 mod render;
 mod state;

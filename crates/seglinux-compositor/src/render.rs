@@ -111,6 +111,24 @@ where
                 .render_elements::<OutputElement<R>>(renderer, pos, scale, 1.0),
         );
     }
+    // Locked: the lock screen alone (black where it has not drawn yet).
+    if state.lock.locked {
+        if let Some(lock) = state.lock_surface(output) {
+            elements.extend(
+                smithay::backend::renderer::element::surface::render_elements_from_surface_tree(
+                    renderer,
+                    lock.wl_surface(),
+                    (0, 0),
+                    scale,
+                    1.0,
+                    Kind::Unspecified,
+                )
+                .into_iter()
+                .map(OutputElement::Surface),
+            );
+        }
+        return elements;
+    }
     // Front to back: overlay and top panels, windows with their title
     // bars, then bottom panels and the wallpaper.
     let layers = layer_map_for_output(output);
@@ -187,6 +205,15 @@ where
 /// Frame callbacks: the windows and panels on `output` may draw again.
 pub fn send_frames(state: &State, output: &Output) {
     let time = state.start_time.elapsed();
+    if let Some(lock) = state.lock_surface(output) {
+        smithay::desktop::utils::send_frames_surface_tree(
+            lock.wl_surface(),
+            output,
+            time,
+            Some(std::time::Duration::ZERO),
+            |_, _| Some(output.clone()),
+        );
+    }
     for window in state.space.elements_for_output(output) {
         window.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| {
             Some(output.clone())
