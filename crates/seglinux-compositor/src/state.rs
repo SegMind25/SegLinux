@@ -265,17 +265,46 @@ impl State {
                         .map(|(s, p)| (s, (p + loc).to_f64()))
                 })
         };
-        layer_hit(Layer::Overlay)
-            .or_else(|| layer_hit(Layer::Top))
-            .or_else(|| {
-                self.space.element_under(pos).and_then(|(window, loc)| {
-                    window
-                        .surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
-                        .map(|(s, p)| (s, (p + loc).to_f64()))
-                })
+        if let Some(hit) = layer_hit(Layer::Overlay).or_else(|| layer_hit(Layer::Top)) {
+            return Some(hit);
+        }
+        if self.deco_under(pos).is_some() {
+            return None;
+        }
+        None.or_else(|| {
+            self.space.element_under(pos).and_then(|(window, loc)| {
+                window
+                    .surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
+                    .map(|(s, p)| (s, (p + loc).to_f64()))
             })
-            .or_else(|| layer_hit(Layer::Bottom))
-            .or_else(|| layer_hit(Layer::Background))
+        })
+        .or_else(|| layer_hit(Layer::Bottom))
+        .or_else(|| layer_hit(Layer::Background))
+    }
+
+    /// The title bar at `pos`, if one is in front there: its window and
+    /// which part (title, minimize, maximize, close).
+    pub fn deco_under(&self, pos: Point<f64, Logical>) -> Option<(Window, crate::deco::Hit)> {
+        let p = pos.to_i32_floor();
+        for window in self.space.elements().rev() {
+            let Some(loc) = self.space.element_location(window) else {
+                continue;
+            };
+            let size = window.geometry().size;
+            if crate::deco::has_bar(window) {
+                let bar = Rectangle::new(
+                    (loc.x, loc.y - crate::deco::BAR).into(),
+                    (size.w, crate::deco::BAR).into(),
+                );
+                if bar.contains(p) {
+                    return Some((window.clone(), crate::deco::hit(size.w, p.x - loc.x)));
+                }
+            }
+            if Rectangle::new(loc, size).contains(p) {
+                return None;
+            }
+        }
+        None
     }
 
     pub fn window_for_surface(&self, surface: &WlSurface) -> Option<Window> {
@@ -354,6 +383,15 @@ impl State {
         };
         if let Some(loc) = self.space.element_location(window) {
             Self::remember(window, Rectangle::new(loc, window.geometry().size));
+        }
+        // Our title bar goes above the window, inside the rectangle.
+        let mut rect = rect;
+        let bar = toplevel
+            .with_pending_state(|s| s.decoration_mode == Some(DecorationMode::ServerSide))
+            && state != Some(xdg_toplevel::State::Fullscreen);
+        if bar {
+            rect.loc.y += crate::deco::BAR;
+            rect.size.h -= crate::deco::BAR;
         }
         toplevel.with_pending_state(|s| {
             s.size = Some(rect.size);
@@ -517,8 +555,13 @@ impl State {
         } else {
             area.size.h * 2 / 3
         };
+        let bar = if crate::deco::has_bar(&window) {
+            crate::deco::BAR
+        } else {
+            0
+        };
         let x = area.loc.x + ((area.size.w - w) / 2).max(0) + offset;
-        let y = area.loc.y + ((area.size.h - h) / 2).max(0) + offset;
+        let y = area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar;
         tracing::info!(x, y, w, h, "window shown");
         self.space.map_element(window.clone(), (x, y), true);
         self.focus(Some(window));
@@ -943,18 +986,19 @@ fn check_grab(
 }
 
 impl XdgDecorationHandler for State {
+    /// Applications that can draw their own title bar or use ours get ours,
+    /// unless they ask otherwise.
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ClientSide));
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ServerSide));
     }
-    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: DecorationMode) {
-        // No title bars of our own yet: applications draw theirs.
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ClientSide));
+    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: DecorationMode) {
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
     }
     fn unset_mode(&mut self, toplevel: ToplevelSurface) {
-        self.request_mode(toplevel, DecorationMode::ClientSide);
+        self.request_mode(toplevel, DecorationMode::ServerSide);
     }
 }
 

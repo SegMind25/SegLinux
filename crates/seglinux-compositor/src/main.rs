@@ -7,6 +7,7 @@
 
 mod config;
 mod cursor;
+mod deco;
 mod foreign_toplevel;
 mod grabs;
 mod input;

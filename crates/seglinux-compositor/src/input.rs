@@ -13,8 +13,11 @@ use smithay::{
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
+use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
+
 use crate::{
     config::{Action, Combo, Mods, normalize_key},
+    deco::Hit,
     grabs::MoveSurfaceGrab,
     state::State,
 };
@@ -134,6 +137,40 @@ impl State {
                 let state = event.state();
                 if state == ButtonState::Pressed && !pointer.is_grabbed() {
                     let pos = pointer.current_location();
+                    // A title bar: its buttons, or dragging it moves the window.
+                    if button == BTN_LEFT
+                        && let Some((window, hit)) = self.deco_under(pos)
+                    {
+                        self.focus(Some(window.clone()));
+                        match hit {
+                            Hit::Close => {
+                                if let Some(t) = window.toplevel() {
+                                    t.send_close();
+                                }
+                            }
+                            Hit::Maximize => self.toggle_maximize(&window),
+                            Hit::Minimize => self.minimize(&window),
+                            Hit::Bar => {
+                                if State::is_state(&window, xdg_toplevel::State::Maximized) {
+                                    self.restore(&window);
+                                }
+                                if let Some(loc) = self.space.element_location(&window) {
+                                    let grab = MoveSurfaceGrab {
+                                        start_data: smithay::input::pointer::GrabStartData {
+                                            focus: None,
+                                            button,
+                                            location: pos,
+                                        },
+                                        window,
+                                        initial_window_location: loc,
+                                    };
+                                    pointer.set_grab(self, grab, serial, Focus::Clear);
+                                }
+                            }
+                        }
+                        self.backend.schedule_render();
+                        return;
+                    }
                     let window = self.space.element_under(pos).map(|(w, _)| w.clone());
                     let logo = self
                         .seat

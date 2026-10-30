@@ -21,6 +21,10 @@ two protocols: layer-shell and foreign-toplevel).*
   windows kept out of the dock's space; the dock's open windows
   (wlr-foreign-toplevel): click to switch, minimize or restore, close, and
   show the desktop.
+- Title bars for applications that ask for them (Qt and KDE applications,
+  foot): the title, then minimize, maximize and close on the right; drag the
+  bar to move the window (a maximized one comes back to its size). GTK
+  applications draw their own.
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).
@@ -28,8 +32,7 @@ two protocols: layer-shell and foreign-toplevel).*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: title bars
-for applications that do not draw their own, XWayland (older X11
+Not yet: XWayland (older X11
 applications and many games through Wine/Proton), workspaces, screen
 sharing and screenshots (wlr-screencopy), per-screen scaling and refresh
 choice, tearing for games, touch. These come in the next steps; labwc

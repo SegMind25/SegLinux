@@ -4,25 +4,37 @@ use smithay::{
     backend::allocator::Fourcc,
     backend::renderer::{
         ImportAll, ImportMem, Renderer, Texture,
-        element::{AsRenderElements, Kind, memory::MemoryRenderBuffer},
+        element::{
+            AsRenderElements, Kind,
+            memory::{MemoryRenderBuffer, MemoryRenderBufferRenderElement},
+            solid::SolidColorRenderElement,
+            surface::WaylandSurfaceRenderElement,
+        },
     },
-    desktop::space::SpaceRenderElements,
+    desktop::{Window, layer_map_for_output},
     input::pointer::CursorImageStatus,
     output::Output,
     render_elements,
-    utils::{IsAlive, Scale, Transform},
+    utils::{IsAlive, Logical, Point, Scale, Transform},
+    wayland::{
+        compositor::with_states,
+        shell::{wlr_layer::Layer, xdg::XdgToplevelSurfaceData},
+    },
 };
 
 use crate::{
     cursor::Cursor,
+    deco,
     pointer::{PointerElement, PointerRenderElement},
     state::State,
 };
 
 render_elements! {
-    pub OutputElement<R, E> where R: ImportAll + ImportMem;
+    pub OutputElement<R> where R: ImportAll + ImportMem;
     Pointer=PointerRenderElement<R>,
-    Space=SpaceRenderElements<R, E>,
+    Surface=WaylandSurfaceRenderElement<R>,
+    Solid=SolidColorRenderElement,
+    Memory=MemoryRenderBufferRenderElement<R>,
 }
 
 /// The XCursor theme's default image, uploaded once.
@@ -48,9 +60,7 @@ pub fn output_elements<R>(
     renderer: &mut R,
     output: &Output,
     pointer: &mut PointerImage,
-) -> Vec<
-    OutputElement<R, smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement<R>>,
->
+) -> Vec<OutputElement<R>>
 where
     R: Renderer + ImportAll + ImportMem,
     R::TextureId: Texture + Clone + Send + 'static,
@@ -98,14 +108,79 @@ where
         elements.extend(
             pointer
                 .element
-                .render_elements::<OutputElement<R, _>>(renderer, pos, scale, 1.0),
+                .render_elements::<OutputElement<R>>(renderer, pos, scale, 1.0),
         );
     }
-    let _ = Kind::Cursor;
-    match smithay::desktop::space::space_render_elements(renderer, [&state.space], output, 1.0) {
-        Ok(space) => elements.extend(space.into_iter().map(OutputElement::Space)),
-        Err(e) => tracing::warn!("nothing to draw on {}: {e:?}", output.name()),
+    // Front to back: overlay and top panels, windows with their title
+    // bars, then bottom panels and the wallpaper.
+    let layers = layer_map_for_output(output);
+    let layer = |l: Layer, elements: &mut Vec<OutputElement<R>>, renderer: &mut R| {
+        for surface in layers.layers_on(l).rev() {
+            let Some(geo) = layers.layer_geometry(surface) else {
+                continue;
+            };
+            elements.extend(
+                surface
+                    .render_elements::<WaylandSurfaceRenderElement<R>>(
+                        renderer,
+                        geo.loc.to_physical_precise_round(scale),
+                        scale,
+                        1.0,
+                    )
+                    .into_iter()
+                    .map(OutputElement::Surface),
+            );
+        }
+    };
+    layer(Layer::Overlay, &mut elements, renderer);
+    layer(Layer::Top, &mut elements, renderer);
+    let focused = state.focused_window();
+    for window in state.space.elements_for_output(output).rev() {
+        let Some(loc) = state.space.element_location(window) else {
+            continue;
+        };
+        let loc = loc - geo.loc;
+        let render_loc = (loc - window.geometry().loc).to_physical_precise_round(scale);
+        elements.extend(
+            window
+                .render_elements::<WaylandSurfaceRenderElement<R>>(renderer, render_loc, scale, 1.0)
+                .into_iter()
+                .map(OutputElement::Surface),
+        );
+        if deco::has_bar(window) {
+            let width = window.geometry().size.w;
+            let title = window_title(window);
+            let bar: Point<i32, Logical> = (loc.x, loc.y - deco::BAR).into();
+            deco::with_deco(window, |d| {
+                d.update(width, Some(window) == focused.as_ref(), &title);
+                if let Some((at, buffer)) = &d.title
+                    && let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
+                        renderer,
+                        (bar + *at).to_f64().to_physical(scale),
+                        buffer,
+                        None,
+                        None,
+                        None,
+                        Kind::Unspecified,
+                    )
+                {
+                    elements.push(OutputElement::Memory(e));
+                }
+                // Glyphs before the bar they sit on.
+                for (at, buffer) in d.rects.iter().rev() {
+                    elements.push(OutputElement::Solid(SolidColorRenderElement::from_buffer(
+                        buffer,
+                        (bar + *at).to_physical_precise_round(scale),
+                        scale,
+                        1.0,
+                        Kind::Unspecified,
+                    )));
+                }
+            });
+        }
     }
+    layer(Layer::Bottom, &mut elements, renderer);
+    layer(Layer::Background, &mut elements, renderer);
     elements
 }
 
@@ -123,4 +198,20 @@ pub fn send_frames(state: &State, output: &Output) {
             Some(output.clone())
         });
     }
+}
+
+/// The window's title, for its title bar.
+pub fn window_title(window: &Window) -> String {
+    window
+        .toplevel()
+        .map(|t| {
+            with_states(t.wl_surface(), |states| {
+                states
+                    .data_map
+                    .get::<XdgToplevelSurfaceData>()
+                    .and_then(|d| d.lock().unwrap().title.clone())
+                    .unwrap_or_default()
+            })
+        })
+        .unwrap_or_default()
 }
