@@ -57,6 +57,10 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
 
 - Always use `timeout` on screenshooter and the example; a hang means Weston
   stopped repainting: restart Weston.
+- Screen sharing: `wf-recorder -f rec.mp4` (copy_with_damage, as
+  xdg-desktop-portal-wlr): a still screen gives one frame. Its video is upside
+  down under `--winit` only (that output reports Flipped180); real screens
+  are Normal.
 - Waybar needs a D-Bus session (`dbus-run-session`), as the real session has.
 - `pkill -x seglinux-compos` (process names are cut to 15 characters);
   never `pkill -f seglinux-compositor`, it kills your own shell.
