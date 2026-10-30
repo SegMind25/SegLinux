@@ -86,6 +86,9 @@ pub trait Backend {
 /// A window's place before it was maximized, snapped or made fullscreen.
 struct Restore(std::sync::Mutex<Option<Rectangle<i32, Logical>>>);
 
+/// Where a window was when it was minimized.
+struct MinimizedAt(std::sync::Mutex<Point<i32, Logical>>);
+
 #[allow(dead_code)] // protocol states are kept alive here
 pub struct State {
     pub start_time: Instant,
@@ -114,6 +117,7 @@ pub struct State {
     pub primary_selection_state: PrimarySelectionState,
     pub viewporter_state: ViewporterState,
     pub seat: Seat<State>,
+    pub foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState,
 
     pub config: Config,
     pub config_path: Option<std::path::PathBuf>,
@@ -196,6 +200,7 @@ impl State {
             data_device_state: DataDeviceState::new::<Self>(&dh),
             primary_selection_state: PrimarySelectionState::new::<Self>(&dh),
             viewporter_state: ViewporterState::new::<Self>(&dh),
+            foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState::new(&dh),
             seat_state,
             seat,
             display_handle: dh,
@@ -431,17 +436,39 @@ impl State {
     }
 
     pub fn minimize(&mut self, window: &Window) {
+        if let Some(loc) = self.space.element_location(window) {
+            Self::minimized_at(window, Some(loc));
+        }
         self.space.unmap_elem(window);
         self.minimized.push(window.clone());
         let next = self.space.elements().last().cloned();
         self.focus(next);
     }
 
+    /// Back from the dock: where it was before it was minimized.
+    pub fn unminimize(&mut self, window: &Window) {
+        if let Some(i) = self.minimized.iter().position(|w| w == window) {
+            let window = self.minimized.remove(i);
+            let loc = Self::minimized_at(&window, None);
+            self.space.map_element(window, loc, false);
+        }
+    }
+
+    /// Store (Some) or read (None) where a window was minimized.
+    fn minimized_at(window: &Window, set: Option<Point<i32, Logical>>) -> Point<i32, Logical> {
+        let slot = window
+            .user_data()
+            .get_or_insert(|| MinimizedAt(std::sync::Mutex::new(Point::default())));
+        let mut slot = slot.0.lock().unwrap();
+        if let Some(loc) = set {
+            *slot = loc;
+        }
+        *slot
+    }
+
     pub fn unminimize_all(&mut self) {
         for window in std::mem::take(&mut self.minimized) {
-            let loc = Self::take_restore(&window)
-                .map(|r| r.loc)
-                .unwrap_or_default();
+            let loc = Self::minimized_at(&window, None);
             self.space.map_element(window, loc, false);
         }
     }
@@ -455,7 +482,7 @@ impl State {
         let windows: Vec<Window> = self.space.elements().cloned().collect();
         for w in windows {
             if let Some(loc) = self.space.element_location(&w) {
-                Self::remember(&w, Rectangle::new(loc, w.geometry().size));
+                Self::minimized_at(&w, Some(loc));
             }
             self.space.unmap_elem(&w);
             self.minimized.push(w);

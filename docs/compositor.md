@@ -6,6 +6,11 @@ It is meant to replace labwc. Until it does everything labwc does, labwc
 stays the default and this is an extra choice on the sign-in screen:
 **SegLinux (new compositor, preview)**.
 
+![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
+
+*Tested in a window, with Waybar standing in for the SegLinux dock (the same
+two protocols: layer-shell and foreign-toplevel).*
+
 ## What works
 
 - Application windows (xdg-shell): placed in the middle of the screen,
@@ -13,7 +18,9 @@ stays the default and this is an extra choice on the sign-in screen:
   window from anywhere in it; maximize, fullscreen, minimize, snap to the
   left or right half.
 - The SegLinux desktop's wallpaper, dock and menus (wlr-layer-shell), with
-  windows kept out of the dock's space.
+  windows kept out of the dock's space; the dock's open windows
+  (wlr-foreign-toplevel): click to switch, minimize or restore, close, and
+  show the desktop.
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).
@@ -21,7 +28,7 @@ stays the default and this is an extra choice on the sign-in screen:
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: the dock's list of open windows (wlr-foreign-toplevel), title bars
+Not yet: title bars
 for applications that do not draw their own, XWayland (older X11
 applications and many games through Wine/Proton), workspaces, screen
 sharing and screenshots (wlr-screencopy), per-screen scaling and refresh
