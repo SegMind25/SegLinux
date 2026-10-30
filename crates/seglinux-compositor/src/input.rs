@@ -13,8 +13,11 @@ use smithay::{
     utils::{Logical, Point, SERIAL_COUNTER},
 };
 
+use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
+
 use crate::{
     config::{Action, Combo, Mods, normalize_key},
+    deco::Hit,
     grabs::MoveSurfaceGrab,
     state::State,
 };
@@ -134,6 +137,38 @@ impl State {
                 let state = event.state();
                 if state == ButtonState::Pressed && !pointer.is_grabbed() {
                     let pos = pointer.current_location();
+                    // A title bar: its buttons, or dragging it moves the window.
+                    if button == BTN_LEFT
+                        && let Some((window, hit)) = self.deco_under(pos)
+                    {
+                        self.focus(Some(window.clone()));
+                        match hit {
+                            Hit::Close => {
+                                State::close(&window);
+                            }
+                            Hit::Maximize => self.toggle_maximize(&window),
+                            Hit::Minimize => self.minimize(&window),
+                            Hit::Bar => {
+                                if State::is_state(&window, xdg_toplevel::State::Maximized) {
+                                    self.restore(&window);
+                                }
+                                if let Some(loc) = self.space.element_location(&window) {
+                                    let grab = MoveSurfaceGrab {
+                                        start_data: smithay::input::pointer::GrabStartData {
+                                            focus: None,
+                                            button,
+                                            location: pos,
+                                        },
+                                        window,
+                                        initial_window_location: loc,
+                                    };
+                                    pointer.set_grab(self, grab, serial, Focus::Clear);
+                                }
+                            }
+                        }
+                        self.backend.schedule_render();
+                        return;
+                    }
                     let window = self.space.element_under(pos).map(|(w, _)| w.clone());
                     let logo = self
                         .seat
@@ -160,8 +195,8 @@ impl State {
                         }
                         Some(window) => self.focus(Some(window)),
                         // A click on a panel (the dock) leaves the focus alone,
-                        // unless the panel wants the keyboard itself.
-                        None => {}
+                        // unless the panel takes the keyboard (a search field).
+                        None => self.focus_layer_at(pos),
                     }
                 }
                 pointer.button(
@@ -206,6 +241,36 @@ impl State {
         }
     }
 
+    /// Give the keyboard to the panel under `pos` if it accepts it.
+    fn focus_layer_at(&mut self, pos: Point<f64, Logical>) {
+        use smithay::desktop::{WindowSurfaceType, layer_map_for_output};
+        use smithay::wayland::shell::wlr_layer::KeyboardInteractivity;
+        let Some(output) = self.space.output_under(pos).next().cloned() else {
+            return;
+        };
+        let Some(geo) = self.space.output_geometry(&output) else {
+            return;
+        };
+        let surface = {
+            let map = layer_map_for_output(&output);
+            let local = pos - geo.loc.to_f64();
+            [
+                smithay::wayland::shell::wlr_layer::Layer::Overlay,
+                smithay::wayland::shell::wlr_layer::Layer::Top,
+                smithay::wayland::shell::wlr_layer::Layer::Bottom,
+                smithay::wayland::shell::wlr_layer::Layer::Background,
+            ]
+            .into_iter()
+            .find_map(|l| map.layer_under(l, local))
+            .filter(|l| l.cached_state().keyboard_interactivity != KeyboardInteractivity::None)
+            .map(|l| l.wl_surface().clone())
+        };
+        let _ = WindowSurfaceType::TOPLEVEL;
+        if let (Some(surface), Some(k)) = (surface, self.seat.get_keyboard()) {
+            k.set_focus(self, Some(surface.into()), SERIAL_COUNTER.next_serial());
+        }
+    }
+
     /// Keep the pointer on the screens.
     fn clamp(&self, pos: Point<f64, Logical>) -> Point<f64, Logical> {
         if self.space.output_under(pos).next().is_some() {
@@ -243,8 +308,8 @@ impl State {
         match action {
             Action::Spawn(command) => self.spawn(&command),
             Action::Close => {
-                if let Some(t) = focused.as_ref().and_then(|w| w.toplevel()) {
-                    t.send_close();
+                if let Some(w) = &focused {
+                    State::close(w);
                 }
             }
             Action::Maximize => {

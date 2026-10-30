@@ -15,7 +15,7 @@ license=('LicenseRef-SegLinux-unspecified')
 # Wine is optional so that the Lite edition's image stays small; its Setup
 # downloads Wine with the rest of the full edition.
 depends=('gcc-libs' 'glibc' 'procps-ng' 'gtk4' 'gtk4-layer-shell' 'labwc'
-         'libinput' 'seatd' 'mesa' 'libxkbcommon')
+         'libinput' 'seatd' 'mesa' 'libxkbcommon' 'xorg-xwayland')
 makedepends=('cargo' 'pkgconf')
 optdepends=(
     'wine: run Windows programs (segrun)'

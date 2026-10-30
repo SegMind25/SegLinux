@@ -7,6 +7,8 @@
 
 mod config;
 mod cursor;
+mod deco;
+mod focus;
 mod foreign_toplevel;
 mod grabs;
 mod input;
@@ -15,6 +17,7 @@ mod render;
 mod state;
 mod udev;
 mod winit;
+mod xwayland;
 
 use std::path::PathBuf;
 
@@ -85,7 +88,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_var("WAYLAND_DISPLAY", &state.socket_name);
     }
     tracing::info!("listening on {}", state.socket_name.to_string_lossy());
-    state.autostart();
+    // X11 applications; the autostart follows when XWayland is ready.
+    state.start_xwayland();
 
     event_loop.run(None, &mut state, |state| {
         state.space.refresh();

@@ -112,6 +112,7 @@ pub fn init(
                     let elements = output_elements(state, renderer, &output, &mut pointer);
                     damage_tracker
                         .render_output(renderer, &mut framebuffer, 0, &elements, background)
+                        .inspect_err(|e| tracing::warn!("cannot draw a frame: {e:?}"))
                         .is_ok()
                 };
                 if rendered {

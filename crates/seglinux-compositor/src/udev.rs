@@ -20,10 +20,7 @@ use smithay::{
         },
         egl::{EGLContext, EGLDisplay},
         libinput::{LibinputInputBackend, LibinputSessionInterface},
-        renderer::{
-            ImportDma, ImportMemWl, element::surface::WaylandSurfaceRenderElement,
-            gles::GlesRenderer,
-        },
+        renderer::{ImportDma, ImportMemWl, gles::GlesRenderer},
         session::{Event as SessionEvent, Session, libseat::LibSeatSession},
         udev::{UdevBackend, UdevEvent, primary_gpu},
     },
@@ -53,7 +50,7 @@ type Manager = DrmOutputManager<
     (),
     DrmDeviceFd,
 >;
-type Element = OutputElement<GlesRenderer, WaylandSurfaceRenderElement<GlesRenderer>>;
+type Element = OutputElement<GlesRenderer>;
 
 struct Screen {
     output: Output,

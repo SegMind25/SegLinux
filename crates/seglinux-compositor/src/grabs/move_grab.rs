@@ -30,8 +30,16 @@ impl PointerGrab<State> for MoveSurfaceGrab {
 
         let delta = event.location - self.start_data.location;
         let new_location = self.initial_window_location.to_f64() + delta;
+        let new_location = new_location.to_i32_round();
+        if let Some(x) = self.window.x11_surface() {
+            // X11 applications place their menus from their own position.
+            let _ = x.configure(smithay::utils::Rectangle::new(
+                new_location,
+                x.geometry().size,
+            ));
+        }
         data.space
-            .map_element(self.window.clone(), new_location.to_i32_round(), true);
+            .map_element(self.window.clone(), new_location, true);
     }
 
     fn relative_motion(

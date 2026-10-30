@@ -118,6 +118,8 @@ pub struct State {
     pub viewporter_state: ViewporterState,
     pub seat: Seat<State>,
     pub foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState,
+    pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
+    pub xwm: Option<smithay::xwayland::X11Wm>,
 
     pub config: Config,
     pub config_path: Option<std::path::PathBuf>,
@@ -201,6 +203,10 @@ impl State {
             primary_selection_state: PrimarySelectionState::new::<Self>(&dh),
             viewporter_state: ViewporterState::new::<Self>(&dh),
             foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState::new(&dh),
+            xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState::new::<Self>(
+                &dh,
+            ),
+            xwm: None,
             seat_state,
             seat,
             display_handle: dh,
@@ -265,29 +271,70 @@ impl State {
                         .map(|(s, p)| (s, (p + loc).to_f64()))
                 })
         };
-        layer_hit(Layer::Overlay)
-            .or_else(|| layer_hit(Layer::Top))
-            .or_else(|| {
-                self.space.element_under(pos).and_then(|(window, loc)| {
-                    window
-                        .surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
-                        .map(|(s, p)| (s, (p + loc).to_f64()))
-                })
+        if let Some(hit) = layer_hit(Layer::Overlay).or_else(|| layer_hit(Layer::Top)) {
+            return Some(hit);
+        }
+        if self.deco_under(pos).is_some() {
+            return None;
+        }
+        None.or_else(|| {
+            self.space.element_under(pos).and_then(|(window, loc)| {
+                window
+                    .surface_under(pos - loc.to_f64(), WindowSurfaceType::ALL)
+                    .map(|(s, p)| (s, (p + loc).to_f64()))
             })
-            .or_else(|| layer_hit(Layer::Bottom))
-            .or_else(|| layer_hit(Layer::Background))
+        })
+        .or_else(|| layer_hit(Layer::Bottom))
+        .or_else(|| layer_hit(Layer::Background))
+    }
+
+    /// The title bar at `pos`, if one is in front there: its window and
+    /// which part (title, minimize, maximize, close).
+    pub fn deco_under(&self, pos: Point<f64, Logical>) -> Option<(Window, crate::deco::Hit)> {
+        let p = pos.to_i32_floor();
+        for window in self.space.elements().rev() {
+            let Some(loc) = self.space.element_location(window) else {
+                continue;
+            };
+            let size = window.geometry().size;
+            if crate::deco::has_bar(window) {
+                let bar = Rectangle::new(
+                    (loc.x, loc.y - crate::deco::BAR).into(),
+                    (size.w, crate::deco::BAR).into(),
+                );
+                if bar.contains(p) {
+                    return Some((window.clone(), crate::deco::hit(size.w, p.x - loc.x)));
+                }
+            }
+            if Rectangle::new(loc, size).contains(p) {
+                return None;
+            }
+        }
+        None
     }
 
     pub fn window_for_surface(&self, surface: &WlSurface) -> Option<Window> {
+        use smithay::wayland::seat::WaylandFocus;
         self.space
             .elements()
-            .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))
+            .find(|w| w.wl_surface().is_some_and(|s| *s == *surface))
             .cloned()
     }
 
+    /// Ask a window to close (Wayland or X11).
+    pub fn close(window: &Window) {
+        if let Some(t) = window.toplevel() {
+            t.send_close();
+        } else if let Some(x) = window.x11_surface() {
+            let _ = x.close();
+        }
+    }
+
     pub fn focused_window(&self) -> Option<Window> {
+        use smithay::wayland::seat::WaylandFocus;
         let focus = self.seat.get_keyboard()?.current_focus()?;
-        self.window_for_surface(&focus)
+        let surface = focus.wl_surface()?;
+        self.window_for_surface(&surface)
     }
 
     /// Raise and focus a window (None: focus nothing).
@@ -304,7 +351,16 @@ impl State {
                 t.send_pending_configure();
             }
         }
-        let surface = window.and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()));
+        if let (Some(x), Some(xwm)) = (
+            window.as_ref().and_then(|w| w.x11_surface()),
+            self.xwm.as_mut(),
+        ) {
+            let _ = xwm.raise_window(x);
+        }
+        let surface = window.and_then(|w| match w.x11_surface() {
+            Some(x) => Some(crate::focus::KeyboardFocus::X11(x.clone())),
+            None => w.toplevel().map(|t| t.wl_surface().clone().into()),
+        });
         if let Some(keyboard) = self.seat.get_keyboard() {
             keyboard.set_focus(self, surface, serial);
         }
@@ -349,11 +405,35 @@ impl State {
         rect: Rectangle<i32, Logical>,
         state: Option<xdg_toplevel::State>,
     ) {
+        if let Some(x) = window.x11_surface() {
+            if let Some(loc) = self.space.element_location(window) {
+                Self::remember(window, Rectangle::new(loc, window.geometry().size));
+            }
+            let mut rect = rect;
+            if !x.is_decorated() && state != Some(xdg_toplevel::State::Fullscreen) {
+                rect.loc.y += crate::deco::BAR;
+                rect.size.h -= crate::deco::BAR;
+            }
+            let _ = x.set_maximized(state == Some(xdg_toplevel::State::Maximized));
+            let _ = x.set_fullscreen(state == Some(xdg_toplevel::State::Fullscreen));
+            let _ = x.configure(rect);
+            self.space.map_element(window.clone(), rect.loc, true);
+            return;
+        }
         let Some(toplevel) = window.toplevel() else {
             return;
         };
         if let Some(loc) = self.space.element_location(window) {
             Self::remember(window, Rectangle::new(loc, window.geometry().size));
+        }
+        // Our title bar goes above the window, inside the rectangle.
+        let mut rect = rect;
+        let bar = toplevel
+            .with_pending_state(|s| s.decoration_mode == Some(DecorationMode::ServerSide))
+            && state != Some(xdg_toplevel::State::Fullscreen);
+        if bar {
+            rect.loc.y += crate::deco::BAR;
+            rect.size.h -= crate::deco::BAR;
         }
         toplevel.with_pending_state(|s| {
             s.size = Some(rect.size);
@@ -369,6 +449,15 @@ impl State {
 
     /// Back to the size and place before maximize, snap or fullscreen.
     pub fn restore(&mut self, window: &Window) {
+        if let Some(x) = window.x11_surface() {
+            let _ = x.set_maximized(false);
+            let _ = x.set_fullscreen(false);
+            if let Some(rect) = Self::take_restore(window) {
+                let _ = x.configure(rect);
+                self.space.map_element(window.clone(), rect.loc, true);
+            }
+            return;
+        }
         let Some(toplevel) = window.toplevel() else {
             return;
         };
@@ -385,6 +474,13 @@ impl State {
     }
 
     pub fn is_state(window: &Window, state: xdg_toplevel::State) -> bool {
+        if let Some(x) = window.x11_surface() {
+            return match state {
+                xdg_toplevel::State::Maximized => x.is_maximized(),
+                xdg_toplevel::State::Fullscreen => x.is_fullscreen(),
+                _ => false,
+            };
+        }
         window
             .toplevel()
             .is_some_and(|t| t.with_pending_state(|s| s.states.contains(state)))
@@ -500,7 +596,7 @@ impl State {
 
     /// A new window: centred in the work area, a little lower and to the
     /// right of the previous one so they do not cover each other exactly.
-    fn place_new(&mut self, window: Window) {
+    pub fn place_new(&mut self, window: Window) {
         let area = self
             .work_area()
             .unwrap_or_else(|| Rectangle::from_size((1280, 720).into()));
@@ -517,8 +613,13 @@ impl State {
         } else {
             area.size.h * 2 / 3
         };
+        let bar = if crate::deco::has_bar(&window) {
+            crate::deco::BAR
+        } else {
+            0
+        };
         let x = area.loc.x + ((area.size.w - w) / 2).max(0) + offset;
-        let y = area.loc.y + ((area.size.h - h) / 2).max(0) + offset;
+        let y = area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar;
         tracing::info!(x, y, w, h, "window shown");
         self.space.map_element(window.clone(), (x, y), true);
         self.focus(Some(window));
@@ -595,7 +696,13 @@ impl CompositorHandler for State {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        if let Some(x) = client.get_data::<smithay::xwayland::XWaylandClientData>() {
+            return &x.compositor_state;
+        }
+        &client
+            .get_data::<ClientState>()
+            .expect("every client has its data")
+            .compositor_state
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -651,7 +758,7 @@ impl CompositorHandler for State {
             let _ = xdg.send_configure();
         }
 
-        if let Some(output) = self
+        let layer_output = self
             .space
             .outputs()
             .find(|o| {
@@ -659,8 +766,8 @@ impl CompositorHandler for State {
                     .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
                     .is_some()
             })
-            .cloned()
-        {
+            .cloned();
+        if let Some(output) = layer_output {
             let initial_sent = with_states(surface, |states| {
                 states
                     .data_map
@@ -670,10 +777,42 @@ impl CompositorHandler for State {
             });
             let mut map = layer_map_for_output(&output);
             map.arrange();
+            // A panel that wants the keyboard for itself (a menu with a
+            // search field) gets it when it appears.
+            let exclusive = map
+                .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
+                .is_some_and(|l| {
+                    l.cached_state().keyboard_interactivity
+                        == smithay::wayland::shell::wlr_layer::KeyboardInteractivity::Exclusive
+                        && matches!(l.layer(), Layer::Top | Layer::Overlay)
+                });
             if !initial_sent
                 && let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
             {
                 layer.layer_surface().send_configure();
+            }
+            drop(map);
+            let shown =
+                smithay::backend::renderer::utils::with_renderer_surface_state(surface, |s| {
+                    s.buffer().is_some()
+                })
+                .unwrap_or(false);
+            let keyboard = self.seat.get_keyboard();
+            let has_focus = keyboard.as_ref().is_some_and(|k| {
+                k.current_focus() == Some(crate::focus::KeyboardFocus::Wayland(surface.clone()))
+            });
+            if exclusive && shown && !has_focus {
+                if let Some(k) = keyboard {
+                    k.set_focus(
+                        self,
+                        Some(surface.clone().into()),
+                        SERIAL_COUNTER.next_serial(),
+                    );
+                }
+            } else if has_focus && !shown {
+                // The menu closed: back to the window in front.
+                let top = self.space.elements().last().cloned();
+                self.focus(top);
             }
         }
 
@@ -718,7 +857,7 @@ impl DmabufHandler for State {
 }
 
 impl SeatHandler for State {
-    type KeyboardFocus = WlSurface;
+    type KeyboardFocus = crate::focus::KeyboardFocus;
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
@@ -731,7 +870,10 @@ impl SeatHandler for State {
         self.backend.schedule_render();
     }
 
-    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
+    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&crate::focus::KeyboardFocus>) {
+        use smithay::wayland::seat::WaylandFocus;
+        let focused = focused.and_then(|f| f.wl_surface()).map(|s| s.into_owned());
+        let focused = focused.as_ref();
         let dh = &self.display_handle;
         let client = focused.and_then(|s| dh.get_client(s.id()).ok());
         set_data_device_focus(dh, seat, client.clone());
@@ -943,18 +1085,19 @@ fn check_grab(
 }
 
 impl XdgDecorationHandler for State {
+    /// Applications that can draw their own title bar or use ours get ours,
+    /// unless they ask otherwise.
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ClientSide));
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ServerSide));
     }
-    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: DecorationMode) {
-        // No title bars of our own yet: applications draw theirs.
-        toplevel.with_pending_state(|s| s.decoration_mode = Some(DecorationMode::ClientSide));
+    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: DecorationMode) {
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
     }
     fn unset_mode(&mut self, toplevel: ToplevelSurface) {
-        self.request_mode(toplevel, DecorationMode::ClientSide);
+        self.request_mode(toplevel, DecorationMode::ServerSide);
     }
 }
 
@@ -999,6 +1142,17 @@ impl WlrLayerShellHandler for State {
         });
         if let Some((output, layer)) = found {
             layer_map_for_output(&output).unmap_layer(&layer);
+        }
+        let focused = self
+            .seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(|f| {
+                f == crate::focus::KeyboardFocus::Wayland(surface.wl_surface().clone())
+            });
+        if focused {
+            let top = self.space.elements().last().cloned();
+            self.focus(top);
         }
         self.backend.schedule_render();
     }
