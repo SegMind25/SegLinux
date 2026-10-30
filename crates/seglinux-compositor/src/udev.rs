@@ -71,6 +71,39 @@ struct Udev {
     pointer: PointerImage,
     idle_queued: bool,
     active: bool,
+    /// Mice and touchpads, to apply the Settings app's choices to.
+    devices: Vec<smithay::reexports::input::Device>,
+}
+
+/// The Settings app's mouse and touchpad choices on one device.
+fn configure(device: &mut smithay::reexports::input::Device, input: &crate::desktop::Input) {
+    use smithay::reexports::input::AccelProfile;
+    let touchpad = device.config_tap_finger_count() > 0;
+    if touchpad {
+        let _ = device.config_tap_set_enabled(input.tap_to_click);
+        let _ = device.config_dwt_set_enabled(input.disable_touchpad_while_typing);
+    }
+    if device.config_scroll_has_natural_scroll() {
+        let natural = if touchpad {
+            input.natural_scroll_touchpad
+        } else {
+            input.natural_scroll_mouse
+        };
+        let _ = device.config_scroll_set_natural_scroll_enabled(natural);
+    }
+    if device.config_left_handed_is_available() {
+        let _ = device.config_left_handed_set(input.left_handed);
+    }
+    if device.config_accel_is_available() {
+        let _ =
+            device.config_accel_set_speed(f64::from(input.pointer_speed.clamp(-100, 100)) / 100.0);
+        let profile = if input.mouse_acceleration {
+            AccelProfile::Adaptive
+        } else {
+            AccelProfile::Flat
+        };
+        let _ = device.config_accel_set_profile(profile);
+    }
 }
 
 #[derive(Clone)]
@@ -95,6 +128,12 @@ impl Backend for Handle {
                 handle.0.borrow_mut().idle_queued = false;
                 handle.render_all(state);
             });
+        }
+    }
+
+    fn configure_input(&mut self, input: &crate::desktop::Input) {
+        for device in self.0.borrow_mut().devices.iter_mut() {
+            configure(device, input);
         }
     }
 
@@ -366,6 +405,7 @@ pub fn init(
             pointer: PointerImage::new(),
             idle_queued: false,
             active: true,
+            devices: Vec::new(),
         })),
         event_loop.handle(),
     );
@@ -385,10 +425,25 @@ pub fn init(
     libinput
         .udev_assign_seat(&seat_name)
         .map_err(|()| "cannot read the input devices")?;
-    event_loop.handle().insert_source(
-        LibinputInputBackend::new(libinput.clone()),
-        |event, _, state| state.process_input_event(event),
-    )?;
+    event_loop
+        .handle()
+        .insert_source(LibinputInputBackend::new(libinput.clone()), {
+            let h = handle.clone();
+            move |mut event, _, state| {
+                use smithay::backend::input::InputEvent;
+                match &mut event {
+                    InputEvent::DeviceAdded { device } => {
+                        configure(device, &state.desktop.input);
+                        h.0.borrow_mut().devices.push(device.clone());
+                    }
+                    InputEvent::DeviceRemoved { device } => {
+                        h.0.borrow_mut().devices.retain(|d| d != device);
+                    }
+                    _ => {}
+                }
+                state.process_input_event(event)
+            }
+        })?;
 
     // Switching to another terminal and back.
     let h = handle.clone();

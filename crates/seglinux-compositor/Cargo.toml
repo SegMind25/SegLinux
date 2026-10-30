@@ -10,6 +10,8 @@ homepage.workspace = true
 
 [dependencies]
 bitflags = "2"
+libc = "0.2"
+calloop = { version = "0.14", features = ["signals"] }
 fontdue = "0.9"
 serde.workspace = true
 toml.workspace = true

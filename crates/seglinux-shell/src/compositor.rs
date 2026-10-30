@@ -300,6 +300,15 @@ pub fn sync(config: &Config) -> io::Result<Synced> {
             .arg("--reconfigure")
             .status();
     }
+    // SegLinux's own compositor reads shell.toml itself: ask it to.
+    if let Some(pid) = std::env::var("SEGLINUX_COMPOSITOR_PID")
+        .ok()
+        .filter(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-HUP", &pid])
+            .status();
+    }
     Ok(synced)
 }
 

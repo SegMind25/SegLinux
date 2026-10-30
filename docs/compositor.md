@@ -39,6 +39,15 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   area) and the lock screen (ext-session-lock: swaylock, Super+L); while
   locked only the lock screen is shown and no key combination works except
   switching terminals.
+- Your SegLinux Settings (Super+I) apply here too, read from the same
+  `~/.config/seglinux/shell.toml` as on labwc: keyboard layouts and the key
+  that switches them, key repeat, mouse speed and acceleration, natural
+  scrolling, tap to click, typing turns off the touchpad, left-handed,
+  focus follows the mouse, and the number of workspaces. Saving in
+  Settings applies them at once (it signals the compositor).
+- Workspaces: Ctrl+Super+Left/Right shows the one to the left or right,
+  Ctrl+Shift+Super+Left/Right moves the window there; the dock keeps
+  listing every window and switches to its workspace.
 - Copy and paste between all applications, X11 and Wayland, and for
   clipboard managers and `wl-copy` / `wl-paste` (wlr-data-control).
 - Copy and paste (also middle-click paste), GPU buffers for games and
@@ -48,8 +57,7 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: workspaces, screen
-sharing, per-screen scaling and refresh
+Not yet: screen sharing, per-screen scaling and refresh
 choice, tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
 
@@ -78,6 +86,7 @@ repeat_rate = 30
 
 Actions: `spawn COMMAND`, `close`, `maximize`, `fullscreen`, `minimize`,
 `cycle-windows`, `snap-left`, `snap-right`, `show-desktop`,
+`workspace-prev`, `workspace-next`, `send-prev`, `send-next`,
 `reload-config`, `quit`, `switch-vt N`. Keys are xkb names (`Return`,
 `F4`, `Print`, `XF86AudioMute`) with `Super`, `Ctrl`, `Alt` and `Shift`.
 
