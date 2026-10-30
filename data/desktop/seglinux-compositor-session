@@ -1,0 +1,21 @@
+#!/bin/sh
+# The SegLinux desktop on seglinux-compositor, SegLinux's own Rust
+# compositor (a preview beside the labwc session, seglinux-session).
+# Settings: ~/.config/seglinux/compositor.toml (crates/seglinux-compositor).
+set -eu
+export XDG_CURRENT_DESKTOP=SegLinux
+export XDG_SESSION_DESKTOP=seglinux
+export XDG_SESSION_TYPE=wayland
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export ELECTRON_OZONE_PLATFORM_HINT=auto
+if [ -d /usr/share/icons/breeze_cursors ]; then
+    export XCURSOR_THEME=breeze_cursors
+else
+    export XCURSOR_THEME=Adwaita
+fi
+export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    exec dbus-run-session -- seglinux-compositor --tty
+fi
+exec seglinux-compositor --tty
