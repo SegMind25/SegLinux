@@ -36,7 +36,7 @@ Measurements and the reasons behind each removal are in
   the keyboard (Start menu search), X11 applications through XWayland, copy and paste
   between X11 and Wayland, screenshots, the lock screen, workspaces, display
   settings (resolution, refresh rate, scale, arrangement), and the Settings
-  app's keyboard, mouse and touchpad choices, and the keyboard layout picked in Setup, as in the labwc session ([docs/compositor.md](docs/compositor.md)).
+  app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
   less on disk, no Python, and about 200 MB less memory with a terminal open

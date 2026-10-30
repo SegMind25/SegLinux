@@ -43,21 +43,34 @@ pub fn hit(width: i32, x: i32) -> Hit {
 }
 
 type Rgba = [f32; 4];
-const WHITE: Rgba = [0.92, 0.93, 0.95, 1.0];
 
-/// The bar and the button glyphs, as rectangles relative to the bar.
-pub fn layout(width: i32, focused: bool) -> Vec<(Rectangle<i32, Logical>, Rgba)> {
+/// `#rrggbb` as an opaque colour.
+const fn hex(c: u32) -> Rgba {
+    [
+        ((c >> 16) & 0xff) as f32 / 255.0,
+        ((c >> 8) & 0xff) as f32 / 255.0,
+        (c & 0xff) as f32 / 255.0,
+        1.0,
+    ]
+}
+
+// The SegLinux window theme, as labwc draws it
+// (data/desktop/labwc/themerc-override): active, then inactive.
+const TITLE_BG: [Rgba; 2] = [hex(0x1b2b43), hex(0x111b2b)];
+const TITLE_TEXT: [Rgba; 2] = [hex(0xeef5ff), hex(0x889cb5)];
+const BUTTON_IMAGE: [Rgba; 2] = [hex(0xd3e5fc), hex(0x7f92ab)];
+const BORDER: [Rgba; 2] = [hex(0x446084), hex(0x25354b)];
+
+fn theme(colors: [Rgba; 2], focused: bool) -> Rgba {
+    colors[usize::from(!focused)]
+}
+
+/// The bar, the button glyphs and a 1 px border around the bar and the
+/// `height` tall window under it, as rectangles relative to the bar.
+pub fn layout(width: i32, height: i32, focused: bool) -> Vec<(Rectangle<i32, Logical>, Rgba)> {
     let rect = |x, y, w, h| Rectangle::new((x, y).into(), (w, h).into());
-    let bar = if focused {
-        [0.118, 0.141, 0.188, 1.0]
-    } else {
-        [0.165, 0.184, 0.227, 1.0]
-    };
-    let glyph = if focused {
-        WHITE
-    } else {
-        [0.6, 0.62, 0.66, 1.0]
-    };
+    let bar = theme(TITLE_BG, focused);
+    let glyph = theme(BUTTON_IMAGE, focused);
     let mut out = vec![(rect(0, 0, width, BAR), bar)];
     let x = |n: i32| width - n * BUTTON + (BUTTON - 10) / 2;
     let top = (BAR - 10) / 2;
@@ -75,6 +88,12 @@ pub fn layout(width: i32, focused: bool) -> Vec<(Rectangle<i32, Logical>, Rgba)>
         out.push((rect(c + 2 * i, top + 2 * i, 2, 2), glyph));
         out.push((rect(c + 8 - 2 * i, top + 2 * i, 2, 2), glyph));
     }
+    let border = theme(BORDER, focused);
+    let tall = BAR + height;
+    out.push((rect(-1, -1, width + 2, 1), border));
+    out.push((rect(-1, tall, width + 2, 1), border));
+    out.push((rect(-1, 0, 1, tall), border));
+    out.push((rect(width, 0, 1, tall), border));
     out
 }
 
@@ -82,7 +101,7 @@ pub fn layout(width: i32, focused: bool) -> Vec<(Rectangle<i32, Logical>, Rgba)>
 /// changed is drawn again.
 pub struct Deco {
     pub rects: Vec<(Point<i32, Logical>, SolidColorBuffer)>,
-    key: (i32, bool),
+    key: (i32, i32, bool),
     pub title: Option<(Point<i32, Logical>, MemoryRenderBuffer)>,
     title_key: (String, bool, i32),
 }
@@ -91,16 +110,16 @@ impl Deco {
     fn new() -> Self {
         Deco {
             rects: Vec::new(),
-            key: (-1, false),
+            key: (-1, -1, false),
             title: None,
             title_key: (String::new(), false, -1),
         }
     }
 
     /// Bring the buffers up to date for this width, focus and title.
-    pub fn update(&mut self, width: i32, focused: bool, title: &str) {
-        if self.key != (width, focused) {
-            let layout = layout(width, focused);
+    pub fn update(&mut self, width: i32, height: i32, focused: bool, title: &str) {
+        if self.key != (width, height, focused) {
+            let layout = layout(width, height, focused);
             if self.rects.len() != layout.len() {
                 self.rects = layout
                     .iter()
@@ -112,16 +131,12 @@ impl Deco {
                     buf.update(r.size, *c);
                 }
             }
-            self.key = (width, focused);
+            self.key = (width, height, focused);
         }
         let key = (title.to_string(), focused, width);
         if self.title_key != key {
             let room = (width - 3 * BUTTON - 20).max(0);
-            let color = if focused {
-                WHITE
-            } else {
-                [0.6, 0.62, 0.66, 1.0]
-            };
+            let color = theme(TITLE_TEXT, focused);
             self.title = text(title, room, color)
                 .map(|(size, buf)| (Point::from((10, (BAR - size.h) / 2)), buf));
             self.title_key = key;
@@ -240,19 +255,44 @@ mod tests {
     }
 
     #[test]
-    fn the_layout_stays_inside_the_bar() {
+    fn the_layout_hugs_the_window() {
         for focused in [true, false] {
-            let l = layout(300, focused);
+            let l = layout(300, 200, focused);
             assert_eq!(l[0].0, Rectangle::new((0, 0).into(), (300, BAR).into()));
+            // Glyphs inside the bar; the border just outside bar and window.
             for (r, _) in &l {
-                assert!(r.loc.x >= 0 && r.loc.y >= 0, "{r:?}");
+                assert!(r.loc.x >= -1 && r.loc.y >= -1, "{r:?}");
                 assert!(
-                    r.loc.x + r.size.w <= 300 && r.loc.y + r.size.h <= BAR,
+                    r.loc.x + r.size.w <= 301 && r.loc.y + r.size.h <= BAR + 201,
                     "{r:?}"
                 );
             }
         }
-        // The same number of rectangles at every width: buffers are reused.
-        assert_eq!(layout(200, true).len(), layout(900, false).len());
+        // The same number of rectangles at every size: buffers are reused.
+        assert_eq!(layout(200, 100, true).len(), layout(900, 600, false).len());
+    }
+
+    #[test]
+    fn theme_colours_match_labwc() {
+        let themerc = include_str!("../../../data/desktop/labwc/themerc-override");
+        let rgb = |c: Rgba| {
+            format!(
+                "#{:02x}{:02x}{:02x}",
+                (c[0] * 255.0).round() as u8,
+                (c[1] * 255.0).round() as u8,
+                (c[2] * 255.0).round() as u8
+            )
+        };
+        for (key, colors) in [
+            ("title.bg.color", TITLE_BG),
+            ("label.text.color", TITLE_TEXT),
+            ("button.unpressed.image.color", BUTTON_IMAGE),
+            ("border.color", BORDER),
+        ] {
+            for (state, c) in ["active", "inactive"].iter().zip(colors) {
+                let line = format!("window.{state}.{key}: {}", rgb(c));
+                assert!(themerc.contains(&line), "{line}");
+            }
+        }
     }
 }

@@ -166,11 +166,11 @@ where
                 .map(OutputElement::Surface),
         );
         if deco::has_bar(window) {
-            let width = window.geometry().size.w;
+            let size = window.geometry().size;
             let title = window_title(window);
             let bar: Point<i32, Logical> = (loc.x, loc.y - deco::BAR).into();
             deco::with_deco(window, |d| {
-                d.update(width, Some(window) == focused.as_ref(), &title);
+                d.update(size.w, size.h, Some(window) == focused.as_ref(), &title);
                 if let Some((at, buffer)) = &d.title
                     && let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
                         renderer,
