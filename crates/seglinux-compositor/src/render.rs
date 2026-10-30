@@ -202,6 +202,9 @@ pub fn send_frames(state: &State, output: &Output) {
 
 /// The window's title, for its title bar.
 pub fn window_title(window: &Window) -> String {
+    if let Some(x) = window.x11_surface() {
+        return x.title();
+    }
     window
         .toplevel()
         .map(|t| {

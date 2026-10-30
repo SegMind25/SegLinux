@@ -144,9 +144,7 @@ impl State {
                         self.focus(Some(window.clone()));
                         match hit {
                             Hit::Close => {
-                                if let Some(t) = window.toplevel() {
-                                    t.send_close();
-                                }
+                                State::close(&window);
                             }
                             Hit::Maximize => self.toggle_maximize(&window),
                             Hit::Minimize => self.minimize(&window),
@@ -269,7 +267,7 @@ impl State {
         };
         let _ = WindowSurfaceType::TOPLEVEL;
         if let (Some(surface), Some(k)) = (surface, self.seat.get_keyboard()) {
-            k.set_focus(self, Some(surface), SERIAL_COUNTER.next_serial());
+            k.set_focus(self, Some(surface.into()), SERIAL_COUNTER.next_serial());
         }
     }
 
@@ -310,8 +308,8 @@ impl State {
         match action {
             Action::Spawn(command) => self.spawn(&command),
             Action::Close => {
-                if let Some(t) = focused.as_ref().and_then(|w| w.toplevel()) {
-                    t.send_close();
+                if let Some(w) = &focused {
+                    State::close(w);
                 }
             }
             Action::Maximize => {

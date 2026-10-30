@@ -105,6 +105,16 @@ impl ForeignToplevelState {
 }
 
 fn info(window: &Window, activated: bool, minimized: bool) -> Info {
+    if let Some(x) = window.x11_surface() {
+        return Info {
+            title: x.title(),
+            app_id: x.class(),
+            activated: activated && !minimized,
+            minimized,
+            maximized: x.is_maximized(),
+            fullscreen: x.is_fullscreen(),
+        };
+    }
     let Some(toplevel) = window.toplevel() else {
         return Info::default();
     };
@@ -292,9 +302,7 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, u64> for State {
                 state.focus(Some(window));
             }
             handle::Request::Close => {
-                if let Some(t) = window.toplevel() {
-                    t.send_close();
-                }
+                State::close(&window);
             }
             handle::Request::SetMinimized => {
                 if !state.minimized.contains(&window) {

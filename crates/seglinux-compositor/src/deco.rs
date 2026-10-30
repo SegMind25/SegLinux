@@ -206,6 +206,9 @@ fn text(
 
 /// Does this window get a title bar from us?
 pub fn has_bar(window: &Window) -> bool {
+    if let Some(x) = window.x11_surface() {
+        return !x.is_decorated() && !x.is_fullscreen() && !x.is_override_redirect();
+    }
     window.toplevel().is_some_and(|t| {
         t.with_pending_state(|s| {
             s.decoration_mode == Some(DecorationMode::ServerSide)
