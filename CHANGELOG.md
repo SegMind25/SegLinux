@@ -35,7 +35,8 @@ Measurements and the reasons behind each removal are in
   windows, title bars with minimize, maximize and close, panels that take
   the keyboard (Start menu search), X11 applications through XWayland, copy and paste
   between X11 and Wayland, screenshots, the lock screen, workspaces, display
-  settings (resolution, refresh rate, scale, arrangement), and the Settings
+  settings (resolution, refresh rate, scale, arrangement), screen sharing
+  (only what changed is copied), and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB

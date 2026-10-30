@@ -1,6 +1,8 @@
 //! Screenshots (wlr-screencopy v3: grim, the Print key and Super+Shift+S).
 //! A client asks for an output or a part of it, gets the buffer size it
 //! must provide, and the next frame drawn is copied into its buffer.
+//! Screen sharing (xdg-desktop-portal-wlr) asks with `copy_with_damage`:
+//! such a frame waits until something on screen changed, and says what.
 
 use smithay::{
     backend::{
@@ -39,11 +41,24 @@ pub struct FrameData {
 pub struct Pending {
     frame: ZwlrScreencopyFrameV1,
     buffer: WlBuffer,
+    with_damage: bool,
+}
+
+/// The last image of an output (with or without the pointer), redrawn
+/// only where it changed: sharing a still screen costs nothing.
+struct Image {
+    output: Output,
+    cursor: bool,
+    size: smithay::utils::Size<i32, Physical>,
+    scale: f64,
+    texture: GlesTexture,
+    tracker: OutputDamageTracker,
 }
 
 #[derive(Default)]
 pub struct CaptureState {
     pub pending: Vec<Pending>,
+    images: Vec<Image>,
 }
 
 impl CaptureState {
@@ -149,12 +164,35 @@ impl Dispatch<ZwlrScreencopyFrameV1, Option<FrameData>> for State {
         _data_init: &mut DataInit<'_, State>,
     ) {
         match request {
-            frame::Request::Copy { buffer } | frame::Request::CopyWithDamage { buffer } => {
+            frame::Request::Copy { buffer } => {
                 state.capture.pending.push(Pending {
                     frame: resource.clone(),
                     buffer,
+                    with_damage: false,
                 });
                 state.backend.schedule_render();
+            }
+            // Filled at the next draw that changes something.
+            frame::Request::CopyWithDamage { buffer } => {
+                state.capture.pending.push(Pending {
+                    frame: resource.clone(),
+                    buffer,
+                    with_damage: true,
+                });
+                // A first frame (no image yet) is drawn right away.
+                let has_image = resource
+                    .data::<Option<FrameData>>()
+                    .and_then(|d| d.as_ref())
+                    .is_some_and(|d| {
+                        state
+                            .capture
+                            .images
+                            .iter()
+                            .any(|i| i.output == d.output && i.cursor == d.cursor)
+                    });
+                if !has_image {
+                    state.backend.schedule_render();
+                }
             }
             frame::Request::Destroy => state.capture.pending.retain(|p| &p.frame != resource),
             _ => {}
@@ -178,6 +216,9 @@ pub fn fulfill(
                 .is_some_and(|d| &d.output == output)
         });
     state.capture.pending = rest;
+    // Forget the images of unplugged screens.
+    let outputs: Vec<Output> = state.space.outputs().cloned().collect();
+    state.capture.images.retain(|i| outputs.contains(&i.output));
     if mine.is_empty() {
         return;
     }
@@ -186,25 +227,77 @@ pub fn fulfill(
     };
     let scale = output.current_scale().fractional_scale();
     let background = state.config.background;
+    // Bring each image this output's frames need up to date, once.
+    let mut changed: Vec<(bool, Vec<Rectangle<i32, Physical>>)> = Vec::new();
+    for cursor in [true, false] {
+        let wanted = mine.iter().any(|p| {
+            p.frame
+                .data::<Option<FrameData>>()
+                .and_then(|d| d.as_ref())
+                .is_some_and(|d| d.cursor == cursor)
+        });
+        if !wanted {
+            continue;
+        }
+        let mut elements = crate::render::output_elements(state, renderer, output, pointer);
+        if !cursor {
+            elements.retain(|e| !matches!(e, crate::render::OutputElement::Pointer(_)));
+        }
+        match redraw(
+            &mut state.capture.images,
+            renderer,
+            output,
+            cursor,
+            mode.size,
+            scale,
+            &elements,
+            background,
+        ) {
+            Ok(damage) => changed.push((cursor, damage)),
+            Err(e) => tracing::warn!("screenshot failed: {e}"),
+        }
+    }
     for p in mine {
         let Some(data) = p.frame.data::<Option<FrameData>>().and_then(|d| d.as_ref()) else {
             continue;
         };
-        let mut elements = crate::render::output_elements(state, renderer, output, pointer);
-        if !data.cursor {
-            elements.retain(|e| !matches!(e, crate::render::OutputElement::Pointer(_)));
+        let Some((_, damage)) = changed.iter().find(|(c, _)| *c == data.cursor) else {
+            p.frame.failed();
+            continue;
+        };
+        // What changed inside the region, relative to it.
+        let damage: Vec<_> = damage
+            .iter()
+            .filter_map(|d| d.intersection(data.region))
+            .map(|d| Rectangle::new(d.loc - data.region.loc, d.size))
+            .collect();
+        if p.with_damage && damage.is_empty() {
+            // Nothing new: wait for a draw that changes something.
+            state.capture.pending.push(p);
+            continue;
         }
-        match copy(
-            renderer,
-            mode.size,
-            scale,
-            data.region,
-            &elements,
-            background,
-            &p.buffer,
-        ) {
+        let Some(image) = state
+            .capture
+            .images
+            .iter_mut()
+            .find(|i| &i.output == output && i.cursor == data.cursor)
+        else {
+            p.frame.failed();
+            continue;
+        };
+        match copy(renderer, image, data.region, &p.buffer) {
             Ok(()) => {
                 p.frame.flags(frame::Flags::empty());
+                if p.with_damage {
+                    for d in &damage {
+                        p.frame.damage(
+                            d.loc.x as u32,
+                            d.loc.y as u32,
+                            d.size.w as u32,
+                            d.size.h as u32,
+                        );
+                    }
+                }
                 let now = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default();
@@ -220,26 +313,68 @@ pub fn fulfill(
     }
 }
 
-fn copy(
+/// Redraw what changed in the output's image; returns the changed areas
+/// (all of it for a new image).
+#[allow(clippy::too_many_arguments)]
+fn redraw(
+    images: &mut Vec<Image>,
     renderer: &mut GlesRenderer,
+    output: &Output,
+    cursor: bool,
     size: smithay::utils::Size<i32, Physical>,
     scale: f64,
-    region: Rectangle<i32, Physical>,
     elements: &[crate::render::OutputElement<GlesRenderer>],
     background: [f32; 4],
+) -> Result<Vec<Rectangle<i32, Physical>>, String> {
+    let index = match images
+        .iter()
+        .position(|i| &i.output == output && i.cursor == cursor)
+    {
+        Some(i) if images[i].size == size && images[i].scale == scale => i,
+        found => {
+            if let Some(i) = found {
+                images.remove(i);
+            }
+            let texture: GlesTexture = renderer
+                .create_buffer(
+                    Fourcc::Argb8888,
+                    size.to_logical(1).to_buffer(1, Transform::Normal),
+                )
+                .map_err(|e| e.to_string())?;
+            images.push(Image {
+                output: output.clone(),
+                cursor,
+                size,
+                scale,
+                texture,
+                tracker: OutputDamageTracker::new(size, scale, Transform::Normal),
+            });
+            images.len() - 1
+        }
+    };
+    let image = &mut images[index];
+    let mut fb = renderer
+        .bind(&mut image.texture)
+        .map_err(|e| e.to_string())?;
+    // Age 1: the texture holds the previous image.
+    let result = image
+        .tracker
+        .render_output(renderer, &mut fb, 1, elements, background)
+        .map_err(|e| format!("{e:?}"))?;
+    Ok(result.damage.cloned().unwrap_or_default())
+}
+
+/// Copy `region` of the image into the client's buffer.
+fn copy(
+    renderer: &mut GlesRenderer,
+    image: &mut Image,
+    region: Rectangle<i32, Physical>,
     buffer: &WlBuffer,
 ) -> Result<(), String> {
-    let mut texture: GlesTexture = renderer
-        .create_buffer(
-            Fourcc::Argb8888,
-            size.to_logical(1).to_buffer(1, Transform::Normal),
-        )
+    let size = image.size;
+    let fb = renderer
+        .bind(&mut image.texture)
         .map_err(|e| e.to_string())?;
-    let mut fb = renderer.bind(&mut texture).map_err(|e| e.to_string())?;
-    let mut tracker = OutputDamageTracker::new(size, scale, Transform::Normal);
-    tracker
-        .render_output(renderer, &mut fb, 0, elements, background)
-        .map_err(|e| format!("{e:?}"))?;
     // The texture holds the image bottom row first: read the matching rows.
     let area = Rectangle::new(
         (region.loc.x, size.h - region.loc.y - region.size.h).into(),

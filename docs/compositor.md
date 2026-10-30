@@ -39,6 +39,9 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   area) and the lock screen (ext-session-lock: swaylock, Super+L); while
   locked only the lock screen is shown and no key combination works except
   switching terminals.
+- Screen sharing (xdg-desktop-portal-wlr: Discord/Vesktop, OBS, browsers,
+  wf-recorder): a shared screen is only copied again where it changed, and
+  not at all while nothing moves.
 - Your SegLinux Settings (Super+I) apply here too, read from the same
   `~/.config/seglinux/shell.toml` as on labwc: keyboard layouts and the key
   that switches them, key repeat, mouse speed and acceleration, natural
@@ -61,7 +64,7 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: turning a screen off from the display settings, screen sharing,
+Not yet: turning a screen off from the display settings,
 tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
 
