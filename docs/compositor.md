@@ -48,6 +48,10 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
 - Workspaces: Ctrl+Super+Left/Right shows the one to the left or right,
   Ctrl+Shift+Super+Left/Right moves the window there; the dock keeps
   listing every window and switches to its workspace.
+- Display settings (wlr-output-management: wdisplays, which Settings opens,
+  wlr-randr, kanshi): resolution and refresh rate of each screen, scale
+  (also fractional, such as 1.25 or 1.5) and where screens sit next to
+  each other. Windows a smaller screen would cut are moved back onto it.
 - Copy and paste between all applications, X11 and Wayland, and for
   clipboard managers and `wl-copy` / `wl-paste` (wlr-data-control).
 - Copy and paste (also middle-click paste), GPU buffers for games and
@@ -57,8 +61,8 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: screen sharing, per-screen scaling and refresh
-choice, tearing for games, touch. These come in the next steps; labwc
+Not yet: turning a screen off from the display settings, screen sharing,
+tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
 
 ## Settings

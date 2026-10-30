@@ -61,6 +61,8 @@ struct Screen {
     queued: bool,
     /// Something changed: draw again at the next chance.
     dirty: bool,
+    /// Every mode the screen offers.
+    modes: Vec<smithay::reexports::drm::control::Mode>,
 }
 
 struct Udev {
@@ -128,6 +130,60 @@ impl Backend for Handle {
                 handle.0.borrow_mut().idle_queued = false;
                 handle.render_all(state);
             });
+        }
+    }
+
+    fn output_modes(&self, output: &Output) -> Vec<WlMode> {
+        let udev = self.0.borrow();
+        let mut modes: Vec<WlMode> = udev
+            .screens
+            .values()
+            .find(|s| &s.output == output)
+            .map(|s| s.modes.iter().map(|m| WlMode::from(*m)).collect())
+            .unwrap_or_default();
+        modes.dedup();
+        modes
+    }
+
+    fn set_mode(&mut self, output: &Output, mode: WlMode) -> bool {
+        let mut guard = self.0.borrow_mut();
+        let udev = &mut *guard;
+        let Some((crtc, drm_mode)) = udev.screens.iter().find_map(|(c, s)| {
+            (&s.output == output)
+                .then(|| {
+                    s.modes
+                        .iter()
+                        .find(|m| WlMode::from(**m) == mode)
+                        .map(|m| (*c, *m))
+                })
+                .flatten()
+        }) else {
+            return false;
+        };
+        match udev.manager.use_mode::<_, Element>(
+            &crtc,
+            drm_mode,
+            &mut udev.renderer,
+            &DrmOutputRenderElements::default(),
+        ) {
+            Ok(()) => {
+                output.change_current_state(Some(mode), None, None, None);
+                if let Some(s) = udev.screens.get_mut(&crtc) {
+                    s.dirty = true;
+                }
+                tracing::info!(
+                    "{}: {}x{} at {} Hz",
+                    output.name(),
+                    mode.size.w,
+                    mode.size.h,
+                    mode.refresh / 1000
+                );
+                true
+            }
+            Err(e) => {
+                tracing::warn!("{}: cannot use that mode: {e}", output.name());
+                false
+            }
         }
     }
 
@@ -339,6 +395,7 @@ impl Handle {
                     drm_output,
                     queued: false,
                     dirty: true,
+                    modes: info.modes().to_vec(),
                 },
             );
         }
