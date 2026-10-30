@@ -25,6 +25,9 @@ two protocols: layer-shell and foreign-toplevel).*
   foot): the title, then minimize, maximize and close on the right; drag the
   bar to move the window (a maximized one comes back to its size). GTK
   applications draw their own.
+- The Start menu and other panels that take the keyboard (wlr-layer-shell
+  keyboard interactivity): focused when they open, or on a click; the
+  window in front gets the keyboard back when they close.
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).

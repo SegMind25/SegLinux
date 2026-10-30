@@ -694,7 +694,7 @@ impl CompositorHandler for State {
             let _ = xdg.send_configure();
         }
 
-        if let Some(output) = self
+        let layer_output = self
             .space
             .outputs()
             .find(|o| {
@@ -702,8 +702,8 @@ impl CompositorHandler for State {
                     .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
                     .is_some()
             })
-            .cloned()
-        {
+            .cloned();
+        if let Some(output) = layer_output {
             let initial_sent = with_states(surface, |states| {
                 states
                     .data_map
@@ -713,10 +713,38 @@ impl CompositorHandler for State {
             });
             let mut map = layer_map_for_output(&output);
             map.arrange();
+            // A panel that wants the keyboard for itself (a menu with a
+            // search field) gets it when it appears.
+            let exclusive = map
+                .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
+                .is_some_and(|l| {
+                    l.cached_state().keyboard_interactivity
+                        == smithay::wayland::shell::wlr_layer::KeyboardInteractivity::Exclusive
+                        && matches!(l.layer(), Layer::Top | Layer::Overlay)
+                });
             if !initial_sent
                 && let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
             {
                 layer.layer_surface().send_configure();
+            }
+            drop(map);
+            let shown =
+                smithay::backend::renderer::utils::with_renderer_surface_state(surface, |s| {
+                    s.buffer().is_some()
+                })
+                .unwrap_or(false);
+            let keyboard = self.seat.get_keyboard();
+            let has_focus = keyboard
+                .as_ref()
+                .is_some_and(|k| k.current_focus().as_ref() == Some(surface));
+            if exclusive && shown && !has_focus {
+                if let Some(k) = keyboard {
+                    k.set_focus(self, Some(surface.clone()), SERIAL_COUNTER.next_serial());
+                }
+            } else if has_focus && !shown {
+                // The menu closed: back to the window in front.
+                let top = self.space.elements().last().cloned();
+                self.focus(top);
             }
         }
 
@@ -1043,6 +1071,15 @@ impl WlrLayerShellHandler for State {
         });
         if let Some((output, layer)) = found {
             layer_map_for_output(&output).unmap_layer(&layer);
+        }
+        let focused = self
+            .seat
+            .get_keyboard()
+            .and_then(|k| k.current_focus())
+            .is_some_and(|f| &f == surface.wl_surface());
+        if focused {
+            let top = self.space.elements().last().cloned();
+            self.focus(top);
         }
         self.backend.schedule_render();
     }

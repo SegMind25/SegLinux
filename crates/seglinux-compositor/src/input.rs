@@ -197,8 +197,8 @@ impl State {
                         }
                         Some(window) => self.focus(Some(window)),
                         // A click on a panel (the dock) leaves the focus alone,
-                        // unless the panel wants the keyboard itself.
-                        None => {}
+                        // unless the panel takes the keyboard (a search field).
+                        None => self.focus_layer_at(pos),
                     }
                 }
                 pointer.button(
@@ -240,6 +240,36 @@ impl State {
                 pointer.frame(self);
             }
             _ => {}
+        }
+    }
+
+    /// Give the keyboard to the panel under `pos` if it accepts it.
+    fn focus_layer_at(&mut self, pos: Point<f64, Logical>) {
+        use smithay::desktop::{WindowSurfaceType, layer_map_for_output};
+        use smithay::wayland::shell::wlr_layer::KeyboardInteractivity;
+        let Some(output) = self.space.output_under(pos).next().cloned() else {
+            return;
+        };
+        let Some(geo) = self.space.output_geometry(&output) else {
+            return;
+        };
+        let surface = {
+            let map = layer_map_for_output(&output);
+            let local = pos - geo.loc.to_f64();
+            [
+                smithay::wayland::shell::wlr_layer::Layer::Overlay,
+                smithay::wayland::shell::wlr_layer::Layer::Top,
+                smithay::wayland::shell::wlr_layer::Layer::Bottom,
+                smithay::wayland::shell::wlr_layer::Layer::Background,
+            ]
+            .into_iter()
+            .find_map(|l| map.layer_under(l, local))
+            .filter(|l| l.cached_state().keyboard_interactivity != KeyboardInteractivity::None)
+            .map(|l| l.wl_surface().clone())
+        };
+        let _ = WindowSurfaceType::TOPLEVEL;
+        if let (Some(surface), Some(k)) = (surface, self.seat.get_keyboard()) {
+            k.set_focus(self, Some(surface), SERIAL_COUNTER.next_serial());
         }
     }
 
