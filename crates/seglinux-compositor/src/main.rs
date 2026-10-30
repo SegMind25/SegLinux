@@ -15,6 +15,7 @@ mod foreign_toplevel;
 mod grabs;
 mod input;
 mod lock;
+mod outputs;
 mod pointer;
 mod render;
 mod state;
@@ -107,6 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     event_loop.run(None, &mut state, |state| {
         state.space.refresh();
         state.refresh_foreign_toplevels();
+        state.refresh_output_management();
         state.popups.cleanup();
         let _ = state.display_handle.flush_clients();
     })?;

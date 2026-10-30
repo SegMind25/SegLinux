@@ -77,6 +77,18 @@ pub trait Backend {
     fn change_vt(&mut self, _vt: i32) {}
     /// Something changed on screen: draw a new frame soon.
     fn schedule_render(&mut self) {}
+    /// The modes a screen offers (its current one when it cannot change).
+    fn output_modes(&self, output: &smithay::output::Output) -> Vec<smithay::output::Mode> {
+        output.current_mode().into_iter().collect()
+    }
+    /// Switch a screen to another mode; false if it could not.
+    fn set_mode(
+        &mut self,
+        _output: &smithay::output::Output,
+        _mode: smithay::output::Mode,
+    ) -> bool {
+        false
+    }
     /// Apply the mouse and touchpad settings to the input devices.
     fn configure_input(&mut self, _input: &crate::desktop::Input) {}
     /// Hand a client's GPU buffer to the renderer.
@@ -126,6 +138,7 @@ pub struct State {
     pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
     pub lock: crate::lock::Lock,
     pub capture: crate::capture::CaptureState,
+    pub output_management: crate::outputs::OutputManagementState,
 
     pub config: Config,
     /// The Settings app's choices (shell.toml).
@@ -230,6 +243,7 @@ impl State {
             >(&dh, |_| true),
             lock: crate::lock::Lock::default(),
             capture: crate::capture::CaptureState::new(&dh),
+            output_management: crate::outputs::OutputManagementState::new(&dh),
             seat_state,
             seat,
             display_handle: dh,
@@ -802,10 +816,56 @@ impl State {
         popup.with_pending_state(|s| s.geometry = s.positioner.get_unconstrained_geometry(target));
     }
 
-    /// Re-arrange the panels of every output (after a mode change).
+    /// Re-arrange the panels of every output (after a mode change), and
+    /// bring back windows a smaller or moved screen left outside.
     pub fn arrange_layers(&mut self) {
         for output in self.space.outputs() {
             layer_map_for_output(output).arrange();
+        }
+        let areas: Vec<Rectangle<i32, Logical>> = self
+            .space
+            .outputs()
+            .filter_map(|o| {
+                let geo = self.space.output_geometry(o)?;
+                let zone = layer_map_for_output(o).non_exclusive_zone();
+                Some(Rectangle::new(geo.loc + zone.loc, zone.size))
+            })
+            .collect();
+        let Some(first) = areas.first().copied() else {
+            return;
+        };
+        let windows: Vec<Window> = self.space.elements().cloned().collect();
+        for w in windows {
+            let Some(loc) = self.space.element_location(&w) else {
+                continue;
+            };
+            let size = w.geometry().size;
+            let rect = Rectangle::new(loc, size);
+            let area = areas
+                .iter()
+                .find(|a| a.overlaps(rect))
+                .copied()
+                .unwrap_or(first);
+            let x = loc.x.clamp(
+                area.loc.x,
+                (area.loc.x + area.size.w - size.w).max(area.loc.x),
+            );
+            let bar = if crate::deco::has_bar(&w) {
+                crate::deco::BAR
+            } else {
+                0
+            };
+            let y = loc.y.clamp(
+                area.loc.y + bar,
+                (area.loc.y + area.size.h - size.h).max(area.loc.y + bar),
+            );
+            if (x, y) == (loc.x, loc.y) {
+                continue;
+            }
+            if let Some(x11) = w.x11_surface() {
+                let _ = x11.configure(Rectangle::new((x, y).into(), size));
+            }
+            self.space.map_element(w, (x, y), false);
         }
     }
 }
