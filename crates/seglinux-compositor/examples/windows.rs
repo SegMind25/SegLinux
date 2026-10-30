@@ -73,8 +73,10 @@ impl Dispatch<handle::ZwlrForeignToplevelHandleV1, ()> for App {
             handle::Event::AppId { app_id } => w.app_id = app_id,
             handle::Event::State { state } => {
                 w.states = state
-                    .chunks_exact(4)
-                    .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|c| u32::from_ne_bytes(*c))
                     .collect()
             }
             handle::Event::Closed => s.wins.retain(|(x, _)| x != h),
