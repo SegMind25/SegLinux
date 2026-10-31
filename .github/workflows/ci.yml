@@ -61,7 +61,7 @@ jobs:
 
   # seg (tools/seg) is a workspace of its own with its own release profile.
   compositor-drm:
-    name: seglinux-compositor on a DRM device (vkms in a VM)
+    name: Build and test compositor
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
