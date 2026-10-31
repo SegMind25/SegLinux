@@ -26,6 +26,36 @@ retire_update_copy() {
     done
 }
 
+# SegLinux always asks for the password at startup now. Older Setups could
+# sign in by themselves (SDDM's [Autologin], greetd's [initial_session]):
+# that is removed once, the files kept in /var/lib/seglinux/autologin-backup.
+# Not on the live USB, which signs in by itself.
+sign_in_with_password() {
+    local done=/var/lib/seglinux/autologin-removed backup=/var/lib/seglinux/autologin-backup
+    local file section
+    [[ -e $done || -d /run/artix/bootmnt ]] && return 0
+    for file in /etc/greetd/config.toml /etc/sddm.conf /etc/sddm.conf.d/*.conf; do
+        [[ -f $file ]] || continue
+        case $file in
+            /etc/greetd/*) section='[initial_session]' ;;
+            *) section='[Autologin]' ;;
+        esac
+        grep -qxF "$section" "$file" || continue
+        install -d -m 700 "$backup"
+        cp -p "$file" "$backup/${file//\//_}"
+        # The section, and the comments Setup wrote about it.
+        awk -v section="$section" '
+            /^\[/ { skip = ($0 == section) }
+            /^# Setup: .* is signed in/ || /^# signing out shows the sign-in screen/ ||
+                /^# .* was signed in automatically/ { next }
+            !skip
+        ' "$backup/${file//\//_}" > "$file"
+        echo "==> Automatic sign-in turned off: the password is asked at startup ($file)."
+    done
+    mkdir -p "${done%/*}"
+    touch "$done"
+}
+
 post_install() {
     /usr/lib/seglinux/apply-branding
     trust_update_key
@@ -42,4 +72,5 @@ post_upgrade() {
     trust_update_key
     greeter_state
     retire_update_copy
+    sign_in_with_password
 }

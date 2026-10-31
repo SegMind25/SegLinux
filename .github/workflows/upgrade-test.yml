@@ -4,7 +4,7 @@ name: Upgrade an older SegLinux
 # 13 October 2026 system (before seglinux-upgrade existed, signing in with
 # SDDM) gets the command with the one-time download, then Artix's packages,
 # Brave, the newest SegLinux built from GitHub, and SegLinux's sign-in
-# screen in place of SDDM, without automatic sign-in.
+# screen in place of SDDM, without automatic sign-in (SDDM's is removed).
 on:
   push:
     branches: [main]
@@ -52,6 +52,10 @@ jobs:
           # Its owner, signing in with SDDM, as Setup set it up then.
           sudo chroot "$ROOT" useradd -m -G wheel segmind
           sudo chroot "$ROOT" rc-update add sddm default
+          # Signed in by itself, as an older Setup could set it up.
+          sudo install -d "$ROOT/etc/sddm.conf.d"
+          printf '[Autologin]\nUser=segmind\nSession=seglinux\n' |
+            sudo tee "$ROOT/etc/sddm.conf.d/20-seglinux-autologin.conf" >/dev/null
           sudo chroot "$ROOT" pacman -Q seglinux
           test ! -e "$ROOT/usr/bin/seglinux-update" && test ! -e "$ROOT/usr/bin/seglinux-upgrade"
       - name: The one-time command, then the upgrade
@@ -74,6 +78,9 @@ jobs:
           if grep -q '^\[chaotic-aur\]' "$ROOT/etc/pacman.conf"; then exit 1; fi
           test -f "$ROOT/etc/xdg/fastfetch/config.jsonc"
           in_root seglinux-shell --version
+          # SDDM (still in use) asks for the password again.
+          if grep -q '^\[Autologin\]' "$ROOT/etc/sddm.conf.d/20-seglinux-autologin.conf"; then exit 1; fi
+          test -f "$ROOT/var/lib/seglinux/autologin-backup/_etc_sddm.conf.d_20-seglinux-autologin.conf"
       - name: Asked, it switches from SDDM to SegLinux's sign-in screen
         env:
           GITHUB_TOKEN: ${{ github.token }}
