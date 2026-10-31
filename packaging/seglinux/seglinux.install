@@ -67,8 +67,19 @@ post_install() {
 MSG
 }
 
+# The network settings at once, not only after a restart: buffers and
+# congestion control now; NetworkManager reads the Wi-Fi power setting
+# when it reconnects (the card's driver options apply after a restart).
+apply_network() {
+    sysctl -q -p /etc/sysctl.d/81-seglinux-network.conf >/dev/null 2>&1 || true
+    if command -v nmcli >/dev/null 2>&1; then
+        nmcli general reload conf >/dev/null 2>&1 || true
+    fi
+}
+
 post_upgrade() {
     /usr/lib/seglinux/apply-branding
+    apply_network
     trust_update_key
     greeter_state
     retire_update_copy

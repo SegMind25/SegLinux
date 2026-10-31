@@ -150,6 +150,10 @@ pub struct State {
     pub screens: crate::screens::ScreensState,
     /// Screens turned off in the display settings, and where they were.
     pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
+    /// Where a window being dragged would snap (drawn tinted).
+    pub snap_preview: Option<Rectangle<i32, Logical>>,
+    /// The last click on a title bar, for double clicks.
+    pub last_bar_click: Option<(Window, Instant)>,
     pub output_management: crate::outputs::OutputManagementState,
 
     pub config: Config,
@@ -259,6 +263,8 @@ impl State {
             protocols: crate::protocols::Protocols::new(&dh),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),
+            snap_preview: None,
+            last_bar_click: None,
             output_management: crate::outputs::OutputManagementState::new(&dh),
             seat_state,
             seat,
@@ -431,10 +437,15 @@ impl State {
                         .map(|(s, p)| (s, (p + loc).to_f64()))
                 })
         };
-        if let Some(hit) = layer_hit(Layer::Overlay).or_else(|| layer_hit(Layer::Top)) {
+        // A fullscreen window covers the top panels (the dock).
+        let covered = self.fullscreen_on(output);
+        if let Some(hit) = layer_hit(Layer::Overlay)
+            .or_else(|| (!covered).then(|| layer_hit(Layer::Top)).flatten())
+        {
             return Some(hit);
         }
-        if self.deco_under(pos).is_some() {
+        // Title bars and resize borders belong to the compositor.
+        if self.deco_under(pos).is_some() || self.border_under(pos).is_some() {
             return None;
         }
         None.or_else(|| {
@@ -541,7 +552,9 @@ impl State {
         Some(Rectangle::new(geo.loc + zone.loc, zone.size))
     }
 
-    fn remember(window: &Window, rect: Rectangle<i32, Logical>) {
+    /// Where `window` goes back to when it leaves maximized, fullscreen or
+    /// a snap (kept if already set).
+    pub fn remember(window: &Window, rect: Rectangle<i32, Logical>) {
         let slot = window
             .user_data()
             .get_or_insert(|| Restore(std::sync::Mutex::new(None)));
@@ -549,6 +562,14 @@ impl State {
         if slot.is_none() {
             *slot = Some(rect);
         }
+    }
+
+    /// Where the window goes back to, without forgetting it.
+    pub fn restore_rect(window: &Window) -> Option<Rectangle<i32, Logical>> {
+        window
+            .user_data()
+            .get::<Restore>()
+            .and_then(|r| *r.0.lock().unwrap())
     }
 
     fn take_restore(window: &Window) -> Option<Rectangle<i32, Logical>> {
@@ -688,6 +709,7 @@ impl State {
                 Rectangle::new(loc, (half, area.size.h).into()),
                 None,
             );
+            crate::snap::set_snapped(window, true);
         }
     }
 
@@ -756,6 +778,14 @@ impl State {
 
     /// A new window: centred in the work area, a little lower and to the
     /// right of the previous one so they do not cover each other exactly.
+    /// The topmost window on `output` is fullscreen: it covers the panels.
+    pub fn fullscreen_on(&self, output: &smithay::output::Output) -> bool {
+        self.space
+            .elements_for_output(output)
+            .last()
+            .is_some_and(|w| Self::is_state(w, xdg_toplevel::State::Fullscreen))
+    }
+
     pub fn place_new(&mut self, window: Window) {
         let area = self
             .work_area()
@@ -763,6 +793,40 @@ impl State {
         let count = self.space.elements().count() as i32;
         let offset = (count % 8) * 32;
         let size = window.geometry().size;
+        // Fullscreen from the start (games; X11 ones often as a borderless
+        // window the size of the screen): the whole screen.
+        let screen = self
+            .space
+            .outputs()
+            .next()
+            .and_then(|o| self.space.output_geometry(o));
+        let fullscreen = Self::is_state(&window, xdg_toplevel::State::Fullscreen)
+            || window.x11_surface().is_some_and(|x| {
+                // Exactly the screen, at its corner, borderless, not
+                // maximized: a game's window (an application that only
+                // opens big is left alone).
+                x.is_fullscreen()
+                    || (x.is_decorated()
+                        && !x.is_maximized()
+                        && screen.is_some_and(|g| x.geometry() == g))
+            });
+        if fullscreen && let Some(geo) = screen {
+            // Where it goes when it leaves fullscreen.
+            let normal = Rectangle::new(
+                (area.loc.x + area.size.w / 6, area.loc.y + area.size.h / 6).into(),
+                (area.size.w * 2 / 3, area.size.h * 2 / 3).into(),
+            );
+            Self::remember(&window, normal);
+            if let Some(x) = window.x11_surface() {
+                let _ = x.set_fullscreen(true);
+                let _ = x.configure(geo);
+            }
+            tracing::info!(w = geo.size.w, h = geo.size.h, "window shown fullscreen");
+            self.space.map_element(window.clone(), geo.loc, true);
+            self.focus(Some(window));
+            return;
+        }
+        let maximized = Self::is_state(&window, xdg_toplevel::State::Maximized);
         let w = if size.w > 0 {
             size.w
         } else {
@@ -778,8 +842,14 @@ impl State {
         } else {
             0
         };
-        let x = area.loc.x + ((area.size.w - w) / 2).max(0) + offset;
-        let y = area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar;
+        let (x, y) = if maximized {
+            (area.loc.x, area.loc.y + bar)
+        } else {
+            (
+                area.loc.x + ((area.size.w - w) / 2).max(0) + offset,
+                area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar,
+            )
+        };
         tracing::info!(x, y, w, h, "window shown");
         self.space.map_element(window.clone(), (x, y), true);
         self.focus(Some(window));
@@ -1216,9 +1286,10 @@ impl XdgShellHandler for State {
         let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
             return;
         };
-        if Self::is_state(&window, xdg_toplevel::State::Maximized) {
-            self.restore(&window);
-        }
+        // Maximized or snapped: its own size back once it moves, under
+        // the pointer.
+        let unsnap = Self::is_state(&window, xdg_toplevel::State::Maximized)
+            || crate::snap::is_snapped(&window);
         let Some(initial_window_location) = self.space.element_location(&window) else {
             return;
         };
@@ -1226,6 +1297,7 @@ impl XdgShellHandler for State {
             start_data,
             window,
             initial_window_location,
+            unsnap,
         };
         if let Some(pointer) = seat.get_pointer() {
             pointer.set_grab(self, grab, serial, Focus::Clear);

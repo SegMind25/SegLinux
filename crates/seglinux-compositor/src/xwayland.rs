@@ -140,6 +140,9 @@ impl XwmHandler for State {
             self.space.unmap_elem(&window);
             self.minimized.retain(|w| w != &window);
         }
+        // Hidden on another workspace (Steam to its tray): it stays hidden.
+        self.hidden
+            .retain(|(w, _, _)| w.x11_surface() != Some(&surface));
         if !surface.is_override_redirect() {
             let _ = surface.set_mapped(false);
         }
@@ -281,6 +284,8 @@ impl XwmHandler for State {
                 button,
                 location: pointer.current_location(),
             },
+            unsnap: State::is_state(&window, xdg_toplevel::State::Maximized)
+                || crate::snap::is_snapped(&window),
             window,
             initial_window_location: loc,
         };

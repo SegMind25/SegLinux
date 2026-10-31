@@ -66,6 +66,8 @@ pub struct Windows {
     pub workspaces: u32,
     /// "no", "fullscreen" or "yes" (Settings, Gaming).
     pub adaptive_sync: String,
+    /// "no", "yes" (when the game asks) or "fullscreen".
+    pub allow_tearing: String,
 }
 
 impl Default for Windows {
@@ -74,6 +76,7 @@ impl Default for Windows {
             focus_follows_mouse: false,
             workspaces: 1,
             adaptive_sync: "fullscreen".into(),
+            allow_tearing: "yes".into(),
         }
     }
 }
@@ -145,6 +148,7 @@ tap_to_click = false
             d.windows.adaptive_sync(),
             crate::config::AdaptiveSync::Fullscreen
         );
+        assert_eq!(d.windows.allow_tearing, "yes");
         let yes = Desktop::parse("[windows]\nadaptive_sync = \"yes\"\n");
         assert_eq!(yes.windows.adaptive_sync(), crate::config::AdaptiveSync::On);
         assert_eq!(d.input.pointer_speed, -30);

@@ -112,6 +112,7 @@ impl State {
                     pointer.frame(self);
                     return;
                 }
+                let before = pointer.current_focus();
                 let mut pos = self.clamp(old + event.delta());
                 let mut under = self.surface_under(pos);
                 // Confined: it does not leave the surface (or its region).
@@ -138,6 +139,10 @@ impl State {
                 if let Some((s, origin)) = &under {
                     self.activate_constraint(&pointer, s, *origin);
                 }
+                if !pointer.is_grabbed() {
+                    self.entered(&before, under.as_ref().map(|(s, _)| s));
+                    self.update_cursor(pos, under.is_some());
+                }
                 self.after_motion(pos);
             }
             InputEvent::PointerMotionAbsolute { event } => {
@@ -151,7 +156,10 @@ impl State {
                 let Some(pointer) = self.seat.get_pointer() else {
                     return;
                 };
+                let before = pointer.current_focus();
                 let under = self.surface_under(pos);
+                let on_surface = under.is_some();
+                let now = under.as_ref().map(|(s, _)| s.clone());
                 pointer.motion(
                     self,
                     under,
@@ -162,6 +170,10 @@ impl State {
                     },
                 );
                 pointer.frame(self);
+                if !pointer.is_grabbed() {
+                    self.entered(&before, now.as_ref());
+                    self.update_cursor(pos, on_surface);
+                }
                 self.after_motion(pos);
             }
             InputEvent::PointerButton { event } => {
@@ -173,6 +185,31 @@ impl State {
                 let state = event.state();
                 if state == ButtonState::Pressed && !pointer.is_grabbed() && !self.lock.locked {
                     let pos = pointer.current_location();
+                    // The border around a window: resize it from there.
+                    if button == BTN_LEFT
+                        && let Some((window, edges)) = self.border_under(pos)
+                    {
+                        tracing::info!(?edges, "resizing from the border");
+                        self.focus(Some(window.clone()));
+                        if let Some(loc) = self.space.element_location(&window) {
+                            let start_data = smithay::input::pointer::GrabStartData {
+                                focus: None,
+                                button,
+                                location: pos,
+                            };
+                            let rect = smithay::utils::Rectangle::new(loc, window.geometry().size);
+                            crate::snap::set_snapped(&window, false);
+                            self.cursor_status = smithay::input::pointer::CursorImageStatus::Named(
+                                crate::snap::edge_icon(edges),
+                            );
+                            let grab = crate::grabs::ResizeSurfaceGrab::start(
+                                start_data, window, edges, rect,
+                            );
+                            pointer.set_grab(self, grab, serial, Focus::Clear);
+                        }
+                        self.backend.schedule_render();
+                        return;
+                    }
                     // A title bar: its buttons, or dragging it moves the window.
                     if button == BTN_LEFT
                         && let Some((window, hit)) = self.deco_under(pos)
@@ -184,11 +221,20 @@ impl State {
                             }
                             Hit::Maximize => self.toggle_maximize(&window),
                             Hit::Minimize => self.minimize(&window),
+                            // A double click maximizes, or gives the size back.
+                            Hit::Bar if self.is_double_click(&window) => {
+                                self.toggle_maximize(&window);
+                            }
                             Hit::Bar => {
-                                if State::is_state(&window, xdg_toplevel::State::Maximized) {
-                                    self.restore(&window);
-                                }
+                                let snapped = crate::snap::is_snapped(&window)
+                                    || State::is_state(&window, xdg_toplevel::State::Maximized);
+                                // Dragged off the edge: its own size again
+                                // (only once it really moves, see the grab).
                                 if let Some(loc) = self.space.element_location(&window) {
+                                    self.cursor_status =
+                                        smithay::input::pointer::CursorImageStatus::Named(
+                                            smithay::input::pointer::CursorIcon::Grabbing,
+                                        );
                                     let grab = MoveSurfaceGrab {
                                         start_data: smithay::input::pointer::GrabStartData {
                                             focus: None,
@@ -197,6 +243,7 @@ impl State {
                                         },
                                         window,
                                         initial_window_location: loc,
+                                        unsnap: snapped,
                                     };
                                     pointer.set_grab(self, grab, serial, Focus::Clear);
                                 }
@@ -220,10 +267,13 @@ impl State {
                                     button,
                                     location: pos,
                                 };
+                                let snapped = crate::snap::is_snapped(&window)
+                                    || State::is_state(&window, xdg_toplevel::State::Maximized);
                                 let grab = MoveSurfaceGrab {
                                     start_data,
                                     window,
                                     initial_window_location: loc,
+                                    unsnap: snapped,
                                 };
                                 pointer.set_grab(self, grab, serial, Focus::Clear);
                                 return;

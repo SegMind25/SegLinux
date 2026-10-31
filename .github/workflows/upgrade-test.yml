@@ -65,7 +65,7 @@ jobs:
           # As `curl ... -o /tmp/seglinux-upgrade && sudo bash /tmp/seglinux-upgrade`.
           sudo cp data/system/seglinux-upgrade "$ROOT/tmp/seglinux-upgrade"
           sudo chroot "$ROOT" env SUDO_USER=segmind GITHUB_TOKEN="$GITHUB_TOKEN" \
-            bash /tmp/seglinux-upgrade --noconfirm
+            bash /tmp/seglinux-upgrade --from-source --noconfirm
       - name: It has the newest SegLinux, Brave and the command
         run: |
           in_root() { sudo chroot "$ROOT" "$@"; }

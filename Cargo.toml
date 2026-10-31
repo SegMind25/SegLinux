@@ -38,3 +38,7 @@ tempfile = "3"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# Smithay with tearing for games (vendor/smithay/SEGLINUX-PATCH.md).
+[patch.crates-io]
+smithay = { path = "vendor/smithay" }

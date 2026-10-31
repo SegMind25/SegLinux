@@ -1,6 +1,11 @@
-//! The mouse pointer image from the XCursor theme (from Smithay's anvil, MIT).
+//! The mouse pointer images from the XCursor theme (XCURSOR_THEME, the
+//! session's Breeze or Adwaita): the arrow, and the named shapes the
+//! compositor (resize edges, moving) and applications (cursor-shape) ask
+//! for, at the screen's scale. Loading from Smithay's anvil (MIT).
 
-use std::{io::Read, time::Duration};
+use std::{collections::HashMap, io::Read, rc::Rc, time::Duration};
+
+use smithay::input::pointer::CursorIcon;
 
 use tracing::warn;
 use xcursor::{
@@ -11,8 +16,12 @@ use xcursor::{
 static FALLBACK_CURSOR_DATA: &[u8] = include_bytes!("../resources/cursor.rgba");
 
 pub struct Cursor {
-    icons: Vec<Image>,
+    theme: CursorTheme,
     size: u32,
+    /// Each shape asked for so far (none: the theme lacks it).
+    icons: HashMap<CursorIcon, Option<Rc<Vec<Image>>>>,
+    /// The theme's arrow, else a built-in one.
+    default: Rc<Vec<Image>>,
 }
 
 impl Cursor {
@@ -26,9 +35,11 @@ impl Cursor {
             .unwrap_or(24);
 
         let theme = CursorTheme::load(&name);
-        let icons = load_icon(&theme)
-            .map_err(|err| warn!("Unable to load xcursor: {}, using fallback cursor", err))
-            .unwrap_or_else(|_| {
+        let default = ["default", "left_ptr"]
+            .iter()
+            .find_map(|n| load_icon(&theme, n).ok())
+            .unwrap_or_else(|| {
+                warn!("cursor theme `{name}` has no arrow; using the built-in one");
                 vec![Image {
                     size: 32,
                     width: 64,
@@ -41,12 +52,31 @@ impl Cursor {
                 }]
             });
 
-        Cursor { icons, size }
+        Cursor {
+            theme,
+            size,
+            icons: HashMap::new(),
+            default: Rc::new(default),
+        }
     }
 
-    pub fn get_image(&self, scale: u32, time: Duration) -> Image {
-        let size = self.size * scale;
-        frame(time.as_millis() as u32, size, &self.icons)
+    /// The image of `icon` (by its name, then its other names, else the
+    /// arrow) for a screen at `scale`, at `time` for animated ones, and
+    /// which frame it is.
+    pub fn image(&mut self, icon: CursorIcon, scale: u32, time: Duration) -> (usize, Image) {
+        let theme = &self.theme;
+        let images = self
+            .icons
+            .entry(icon)
+            .or_insert_with(|| {
+                std::iter::once(icon.name())
+                    .chain(icon.alt_names().iter().copied())
+                    .find_map(|n| load_icon(theme, n).ok())
+                    .map(Rc::new)
+            })
+            .clone()
+            .unwrap_or_else(|| self.default.clone());
+        frame(time.as_millis() as u32, self.size * scale.max(1), &images)
     }
 }
 
@@ -62,16 +92,16 @@ fn nearest_images(size: u32, images: &[Image]) -> impl Iterator<Item = &Image> {
     })
 }
 
-fn frame(mut millis: u32, size: u32, images: &[Image]) -> Image {
+fn frame(mut millis: u32, size: u32, images: &[Image]) -> (usize, Image) {
     let total = nearest_images(size, images).fold(0, |acc, image| acc + image.delay);
     if total == 0 {
-        return nearest_images(size, images).next().unwrap().clone();
+        return (0, nearest_images(size, images).next().unwrap().clone());
     }
     millis %= total;
 
-    for img in nearest_images(size, images) {
+    for (i, img) in nearest_images(size, images).enumerate() {
         if millis < img.delay {
-            return img.clone();
+            return (i, img.clone());
         }
         millis -= img.delay;
     }
@@ -102,8 +132,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-fn load_icon(theme: &CursorTheme) -> Result<Vec<Image>, Error> {
-    let icon_path = theme.load_icon("default").ok_or(Error::NoDefaultCursor)?;
+fn load_icon(theme: &CursorTheme, name: &str) -> Result<Vec<Image>, Error> {
+    let icon_path = theme.load_icon(name).ok_or(Error::NoDefaultCursor)?;
     let mut cursor_file = std::fs::File::open(icon_path)?;
     let mut cursor_data = Vec::new();
     cursor_file.read_to_end(&mut cursor_data)?;

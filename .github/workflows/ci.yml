@@ -61,7 +61,7 @@ jobs:
 
   # seg (tools/seg) is a workspace of its own with its own release profile.
   compositor-drm:
-    name: seglinux-compositor on a DRM device (vkms in a VM)
+    name: Build and test compositor
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -73,9 +73,14 @@ jobs:
           sudo apt-get install -y -qq libwayland-dev libxkbcommon-dev libinput-dev libseat-dev libudev-dev \
             libgbm-dev libdrm-dev libegl-dev libgles-dev libgl1-mesa-dri qemu-system-x86 busybox-static zstd \
             seatd foot swaybg grim wlr-randr wlopm xwayland xterm python3-pip > /dev/null
-          # Ubuntu's generic kernel: vkms is among its extra modules.
+          # Ubuntu's generic kernel with vkms: among its extra modules where
+          # Ubuntu still splits them out (24.04), else in its modules.
           version=$(apt-cache depends linux-image-virtual | sed -n 's/.*linux-image-\([0-9][^ ]*\)$/\1/p' | head -n 1)
-          sudo apt-get install -y -qq --no-install-recommends "linux-image-$version" "linux-modules-extra-$version" > /dev/null
+          sudo apt-get install -y -qq --no-install-recommends "linux-image-$version" "linux-modules-$version" > /dev/null
+          if apt-cache show "linux-modules-extra-$version" > /dev/null 2>&1; then
+            sudo apt-get install -y -qq --no-install-recommends "linux-modules-extra-$version" > /dev/null
+          fi
+          find "/lib/modules/$version" -name 'vkms.ko*' | grep -q . || { echo "no vkms in $version"; exit 1; }
           echo "KERNEL=/boot/vmlinuz-$version" >> "$GITHUB_ENV"
           sudo pip3 install -q --break-system-packages virtme-ng
           # KVM when the runner offers it.

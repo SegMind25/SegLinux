@@ -111,9 +111,9 @@ Laid out like a Plasma desktop with a floating panel:
   KWin under Plasma. If it cannot start (no usable GPU driver), the same
   desktop comes up on labwc, which falls back to software rendering, then
   to wlroots' CPU renderer.
-- Gaming: variable refresh rate for fullscreen games (Settings' adaptive
-  sync; labwc also tears when a game asks, `allowTearing`, which
-  seglinux-compositor cannot yet), and a separate **SegLinux Gaming Mode**
+- Gaming: variable refresh rate and tearing for fullscreen games (Settings'
+  adaptive sync and tearing choices, on either compositor), and a separate
+  **SegLinux Gaming Mode**
   session (Steam Big Picture in gamescope). See [gaming.md](gaming.md).
 
 ## Sign-in screen
@@ -347,7 +347,18 @@ and does not unlock KDE Wallet at sign-in as SDDM did.
 
 - TCP BBR with fq pacing, TCP Fast Open, no slow restart after idle and
   MTU probing (`/etc/sysctl.d/81-seglinux-network.conf`): fewer lag spikes
-  while something downloads, steadier speed on slow and fast connections.
+  while something downloads, steadier speed on slow and fast connections;
+  up to 16 MiB of buffers per connection for fast downloads from far away.
+- Wi-Fi without power saving: NetworkManager's `wifi.powersave = 2`
+  (`/usr/lib/NetworkManager/conf.d/80-seglinux-wifi.conf`) and the drivers'
+  own sleep modes off (`/usr/lib/modprobe.d/seglinux-wifi.conf`: Intel,
+  Realtek rtw88/rtw89/rtlwifi, MediaTek). A sleeping card makes the speed
+  and the ping jump around and Realtek cards drop the connection; awake it
+  costs a little battery. The speed itself is the connection's: this only
+  keeps the computer from slowing it. Check the card and its driver with
+  `lspci -k | grep -A3 -i network`. An RTL8723BE with a weak signal often
+  has only one antenna connected: `options rtl8723be ant_sel=2` (or `=1`)
+  in `/etc/modprobe.d/rtl8723be.conf`, then restart.
 - Compressed swap in memory (zram, zstd, half the RAM up to 8 GB), set up
   at boot by `/usr/lib/seglinux/zram-setup`: low-end PCs keep more open
   without stutter. Check it with `swapon --show`.
