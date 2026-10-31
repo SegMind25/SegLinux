@@ -27,6 +27,7 @@ always uses labwc. Keep labwc working: it is the fallback.
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
 | `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
 | `vendor/smithay` | Smithay 0.7.0 + tearing (async page flips), see `SEGLINUX-PATCH.md`; changes marked `SegLinux` |
+| `snap.rs` | edge/corner snapping while dragging (preview), resize borders, compositor pointer shapes, double clicks |
 | `screens.rs` | screen power (wlr-output-power-management), adaptive sync policy, idle notify/inhibit; per-screen `Prefs` on the Output |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 
@@ -53,7 +54,11 @@ wlr-randr, wlopm off/on, a Wayland and an X11 terminal, grim. CI runs it
 (`compositor-drm`, screenshots as an artifact). Here: `apt-get install
 qemu-system-x86 linux-image-virtual linux-modules-extra-<version> seatd
 busybox-static zstd` and `pip install virtme-ng`; without KVM it takes ~3 min.
-It caught screenshots upside down on real screens that `--winit` hid (that
+`tests/mouse.py` (a uinput absolute mouse; the VM runs udevd) drags,
+double-clicks and resizes and photographs each step: it found a freeze
+(maximizing asked for the pointer position inside a pointer grab, whose
+lock was held: never call `seat.get_pointer()` methods from a grab, defer
+with `loop_handle.insert_idle`). It caught screenshots upside down on real screens that `--winit` hid (that
 output reports Flipped180).
 
 ## Test with screenshots (no GPU needed)

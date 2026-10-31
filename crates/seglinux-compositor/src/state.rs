@@ -150,6 +150,10 @@ pub struct State {
     pub screens: crate::screens::ScreensState,
     /// Screens turned off in the display settings, and where they were.
     pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
+    /// Where a window being dragged would snap (drawn tinted).
+    pub snap_preview: Option<Rectangle<i32, Logical>>,
+    /// The last click on a title bar, for double clicks.
+    pub last_bar_click: Option<(Window, Instant)>,
     pub output_management: crate::outputs::OutputManagementState,
 
     pub config: Config,
@@ -259,6 +263,8 @@ impl State {
             protocols: crate::protocols::Protocols::new(&dh),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),
+            snap_preview: None,
+            last_bar_click: None,
             output_management: crate::outputs::OutputManagementState::new(&dh),
             seat_state,
             seat,
@@ -438,7 +444,8 @@ impl State {
         {
             return Some(hit);
         }
-        if self.deco_under(pos).is_some() {
+        // Title bars and resize borders belong to the compositor.
+        if self.deco_under(pos).is_some() || self.border_under(pos).is_some() {
             return None;
         }
         None.or_else(|| {
@@ -545,7 +552,9 @@ impl State {
         Some(Rectangle::new(geo.loc + zone.loc, zone.size))
     }
 
-    fn remember(window: &Window, rect: Rectangle<i32, Logical>) {
+    /// Where `window` goes back to when it leaves maximized, fullscreen or
+    /// a snap (kept if already set).
+    pub fn remember(window: &Window, rect: Rectangle<i32, Logical>) {
         let slot = window
             .user_data()
             .get_or_insert(|| Restore(std::sync::Mutex::new(None)));
@@ -553,6 +562,14 @@ impl State {
         if slot.is_none() {
             *slot = Some(rect);
         }
+    }
+
+    /// Where the window goes back to, without forgetting it.
+    pub fn restore_rect(window: &Window) -> Option<Rectangle<i32, Logical>> {
+        window
+            .user_data()
+            .get::<Restore>()
+            .and_then(|r| *r.0.lock().unwrap())
     }
 
     fn take_restore(window: &Window) -> Option<Rectangle<i32, Logical>> {
@@ -692,6 +709,7 @@ impl State {
                 Rectangle::new(loc, (half, area.size.h).into()),
                 None,
             );
+            crate::snap::set_snapped(window, true);
         }
     }
 
@@ -1264,9 +1282,10 @@ impl XdgShellHandler for State {
         let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
             return;
         };
-        if Self::is_state(&window, xdg_toplevel::State::Maximized) {
-            self.restore(&window);
-        }
+        // Maximized or snapped: its own size back once it moves, under
+        // the pointer.
+        let unsnap = Self::is_state(&window, xdg_toplevel::State::Maximized)
+            || crate::snap::is_snapped(&window);
         let Some(initial_window_location) = self.space.element_location(&window) else {
             return;
         };
@@ -1274,6 +1293,7 @@ impl XdgShellHandler for State {
             start_data,
             window,
             initial_window_location,
+            unsnap,
         };
         if let Some(pointer) = seat.get_pointer() {
             pointer.set_grab(self, grab, serial, Focus::Clear);

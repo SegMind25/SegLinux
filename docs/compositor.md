@@ -14,6 +14,14 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
 
 ## What works
 
+- The mouse, as on Windows and KDE: a window dragged to the top edge of a
+  screen is maximized, to the left or right edge it takes that half, to a
+  corner that quarter (a blue area shows where before letting go);
+  dragging it away gives its size back under the pointer; a double click
+  on a title bar maximizes or restores; windows with SegLinux title bars
+  are resized from an invisible 8 px border, with the theme's arrows; the
+  pointer takes the shapes applications ask for (cursor-shape), sharp at
+  any scale.
 - Application windows (xdg-shell): placed in the middle of the screen,
   focus on click, move and resize from the title bar, Super+drag moves a
   window from anywhere in it; maximize, fullscreen, minimize, snap to the

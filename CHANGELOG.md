@@ -46,7 +46,9 @@ Measurements and the reasons behind each removal are in
   (only what changed is copied), mouse look in games (relative and locked
   pointers), focus requests, sharp fractional scaling, screens turned off and power
   management, adaptive sync and tearing for fullscreen games, idle and idle-inhibit,
-  touch screens, and the Settings
+  touch screens, snapping windows to screen edges and
+  corners by dragging, double-click to maximize, resizing from borders,
+  the theme's pointer shapes, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB

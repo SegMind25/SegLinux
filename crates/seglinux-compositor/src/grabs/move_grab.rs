@@ -15,7 +15,12 @@ pub struct MoveSurfaceGrab {
     pub start_data: PointerGrabStartData<State>,
     pub window: Window,
     pub initial_window_location: Point<i32, Logical>,
+    /// Maximized or snapped: it gets its own size back once it moves.
+    pub unsnap: bool,
 }
+
+/// How far the pointer moves before a maximized window comes loose.
+const LOOSEN: f64 = 8.0;
 
 impl PointerGrab<State> for MoveSurfaceGrab {
     fn motion(
@@ -27,10 +32,41 @@ impl PointerGrab<State> for MoveSurfaceGrab {
     ) {
         // While the grab is active, no client has pointer focus
         handle.motion(data, None, event);
+        if self.unsnap {
+            let moved = event.location - self.start_data.location;
+            if moved.x.hypot(moved.y) < LOOSEN {
+                return;
+            }
+            self.unsnap = false;
+            if let Some(loc) = data.unsnap_under(&self.window, event.location) {
+                self.initial_window_location = loc;
+                self.start_data.location = event.location;
+            }
+        }
+        // Where it would snap, shown while dragging.
+        let preview = data.snap_at(event.location).map(|(_, r)| r);
+        if preview != data.snap_preview {
+            data.snap_preview = preview;
+            data.backend.schedule_render();
+        }
 
         let delta = event.location - self.start_data.location;
         let new_location = self.initial_window_location.to_f64() + delta;
-        let new_location = new_location.to_i32_round();
+        let mut new_location = new_location.to_i32_round::<i32>();
+        // The title bar stays on the screen, where it can be caught again.
+        if let Some(screen) = data
+            .space
+            .output_under(event.location)
+            .next()
+            .and_then(|o| data.space.output_geometry(o))
+        {
+            let bar = if crate::deco::has_bar(&self.window) {
+                crate::deco::BAR
+            } else {
+                0
+            };
+            new_location.y = new_location.y.max(screen.loc.y + bar);
+        }
         if let Some(x) = self.window.x11_surface() {
             // X11 applications place their menus from their own position.
             let _ = x.configure(smithay::utils::Rectangle::new(
@@ -66,7 +102,28 @@ impl PointerGrab<State> for MoveSurfaceGrab {
 
         if !handle.current_pressed().contains(&BTN_LEFT) {
             // No more buttons are pressed, release the grab.
+            let at = handle.current_location();
             handle.unset_grab(self, data, event.serial, event.time, true);
+            data.snap_preview = None;
+            data.cursor_status = smithay::input::pointer::CursorImageStatus::default_named();
+            // Let go at an edge or a corner: snapped there, once the pointer
+            // is free again (maximizing asks where the pointer is).
+            if let Some((snap, rect)) = data.snap_at(at) {
+                // Its size back puts it where the drag began.
+                State::remember(
+                    &self.window,
+                    smithay::utils::Rectangle::new(
+                        self.initial_window_location,
+                        self.window.geometry().size,
+                    ),
+                );
+                let window = self.window.clone();
+                data.loop_handle
+                    .insert_idle(move |state| state.apply_snap(&window, snap, rect));
+            } else if !self.unsnap {
+                crate::snap::set_snapped(&self.window, false);
+            }
+            data.backend.schedule_render();
         }
     }
 

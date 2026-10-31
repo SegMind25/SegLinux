@@ -20,6 +20,7 @@ mod pointer;
 mod protocols;
 mod render;
 mod screens;
+mod snap;
 mod state;
 mod udev;
 mod winit;

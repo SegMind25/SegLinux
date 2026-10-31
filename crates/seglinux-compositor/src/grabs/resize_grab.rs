@@ -206,6 +206,7 @@ impl PointerGrab<State> for ResizeSurfaceGrab {
         if !handle.current_pressed().contains(&BTN_LEFT) {
             // No more buttons are pressed, release the grab.
             handle.unset_grab(self, data, event.serial, event.time, true);
+            data.cursor_status = smithay::input::pointer::CursorImageStatus::default_named();
 
             let Some(xdg) = self.window.toplevel() else {
                 return;

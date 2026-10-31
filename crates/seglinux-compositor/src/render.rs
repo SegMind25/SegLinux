@@ -40,19 +40,34 @@ render_elements! {
 /// The XCursor theme's default image, uploaded once.
 pub struct PointerImage {
     cursor: Cursor,
-    buffer: Option<MemoryRenderBuffer>,
+    /// Uploaded images: by shape, scale and animation frame.
+    buffers: std::collections::HashMap<
+        (smithay::input::pointer::CursorIcon, u32, usize),
+        MemoryRenderBuffer,
+    >,
     element: PointerElement,
+    /// Where a dragged window would snap: a tinted area and its outline.
+    snap_fill: smithay::backend::renderer::element::solid::SolidColorBuffer,
+    snap_outline: [smithay::backend::renderer::element::solid::SolidColorBuffer; 4],
 }
 
 impl PointerImage {
     pub fn new() -> Self {
         PointerImage {
             cursor: Cursor::load(),
-            buffer: None,
+            buffers: std::collections::HashMap::new(),
             element: PointerElement::default(),
+            snap_fill: Default::default(),
+            snap_outline: Default::default(),
         }
     }
 }
+
+/// Breeze's highlight blue (#3daee9), premultiplied: faint inside, strong
+/// at the edge.
+const SNAP_FILL: [f32; 4] = [0.06, 0.17, 0.228, 0.25];
+const SNAP_OUTLINE: [f32; 4] = [0.215, 0.614, 0.822, 0.9];
+const SNAP_LINE: i32 = 3;
 
 /// Everything to draw on `output`, front first.
 pub fn output_elements<R>(
@@ -83,24 +98,36 @@ where
         }
         let hotspot = match &state.cursor_status {
             CursorImageStatus::Surface(surface) => crate::state::cursor_hotspot(surface),
-            _ => {
-                let image = pointer.cursor.get_image(1, state.start_time.elapsed());
-                if pointer.buffer.is_none() {
-                    pointer.buffer = Some(MemoryRenderBuffer::from_slice(
-                        &image.pixels_rgba,
-                        Fourcc::Argb8888,
-                        (image.width as i32, image.height as i32),
-                        1,
-                        Transform::Normal,
-                        None,
-                    ));
-                }
-                (image.xhot as i32, image.yhot as i32).into()
+            CursorImageStatus::Hidden => (0, 0).into(),
+            CursorImageStatus::Named(icon) => {
+                // Drawn sharp at the screen's scale (2 at 150 %, 200 %).
+                let image_scale = output.current_scale().fractional_scale().ceil().max(1.0) as u32;
+                let (frame, image) =
+                    pointer
+                        .cursor
+                        .image(*icon, image_scale, state.start_time.elapsed());
+                let buffer = pointer
+                    .buffers
+                    .entry((*icon, image_scale, frame))
+                    .or_insert_with(|| {
+                        MemoryRenderBuffer::from_slice(
+                            &image.pixels_rgba,
+                            Fourcc::Argb8888,
+                            (image.width as i32, image.height as i32),
+                            image_scale as i32,
+                            Transform::Normal,
+                            None,
+                        )
+                    })
+                    .clone();
+                pointer.element.set_buffer(buffer);
+                (
+                    image.xhot as i32 / image_scale as i32,
+                    image.yhot as i32 / image_scale as i32,
+                )
+                    .into()
             }
         };
-        if let Some(buffer) = &pointer.buffer {
-            pointer.element.set_buffer(buffer.clone());
-        }
         pointer.element.set_status(state.cursor_status.clone());
         let pos = (location - geo.loc.to_f64() - hotspot.to_f64())
             .to_physical(scale)
@@ -155,6 +182,39 @@ where
     let covered = state.fullscreen_on(output);
     if !covered {
         layer(Layer::Top, &mut elements, renderer);
+    }
+    // Where the window being dragged would snap, over the windows.
+    if let Some(rect) = state.snap_preview
+        && let Some(on) = rect.intersection(geo)
+    {
+        let (x, y) = (on.loc.x - geo.loc.x, on.loc.y - geo.loc.y);
+        let (w, h) = (on.size.w, on.size.h);
+        let l = SNAP_LINE.min(w / 2).min(h / 2).max(1);
+        let lines = [
+            (x, y, w, l),
+            (x, y + h - l, w, l),
+            (x, y, l, h),
+            (x + w - l, y, l, h),
+        ];
+        for (buffer, (lx, ly, lw, lh)) in pointer.snap_outline.iter_mut().zip(lines) {
+            buffer.update((lw, lh), SNAP_OUTLINE);
+            elements.push(OutputElement::Solid(SolidColorRenderElement::from_buffer(
+                buffer,
+                Point::<i32, smithay::utils::Logical>::from((lx, ly))
+                    .to_physical_precise_round(scale),
+                scale,
+                1.0,
+                Kind::Unspecified,
+            )));
+        }
+        pointer.snap_fill.update((w, h), SNAP_FILL);
+        elements.push(OutputElement::Solid(SolidColorRenderElement::from_buffer(
+            &pointer.snap_fill,
+            Point::<i32, smithay::utils::Logical>::from((x, y)).to_physical_precise_round(scale),
+            scale,
+            1.0,
+            Kind::Unspecified,
+        )));
     }
     let focused = state.focused_window();
     for window in state.space.elements_for_output(output).rev() {

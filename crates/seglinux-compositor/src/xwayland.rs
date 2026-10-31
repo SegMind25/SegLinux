@@ -281,6 +281,8 @@ impl XwmHandler for State {
                 button,
                 location: pointer.current_location(),
             },
+            unsnap: State::is_state(&window, xdg_toplevel::State::Maximized)
+                || crate::snap::is_snapped(&window),
             window,
             initial_window_location: loc,
         };
