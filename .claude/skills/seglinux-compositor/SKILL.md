@@ -26,6 +26,7 @@ until the user has tried it on real hardware and says so.
 | `xwayland.rs` | XWayland, X11 window management |
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
 | `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
+| `screens.rs` | screen power (wlr-output-power-management), adaptive sync policy, idle notify/inhibit; per-screen `Prefs` on the Output |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 
 ## Build
@@ -67,6 +68,8 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
   be checked for protocol errors here (`weston-constraints` runs clean).
 - Weston gone after a session restart (stale `wl-host` socket, winit says
   NoCompositor): `rm /tmp/xdg/wl-host*` and start it again.
+- Screens: `wlr-randr --output winit --off` must fail (last screen),
+  `wlopm --off winit` / `--on`, `swayidle -w timeout 2 'touch /tmp/x'`.
 - Waybar needs a D-Bus session (`dbus-run-session`), as the real session has.
 - `pkill -x seglinux-compos` (process names are cut to 15 characters);
   never `pkill -f seglinux-compositor`, it kills your own shell.

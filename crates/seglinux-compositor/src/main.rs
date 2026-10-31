@@ -19,6 +19,7 @@ mod outputs;
 mod pointer;
 mod protocols;
 mod render;
+mod screens;
 mod state;
 mod udev;
 mod winit;

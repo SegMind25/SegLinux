@@ -5,6 +5,7 @@ use smithay::{
     backend::input::{
         AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
         KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+        TouchEvent,
     },
     input::{
         keyboard::{FilterResult, Keysym, ModifiersState, xkb},
@@ -39,6 +40,12 @@ fn combo(mods: &ModifiersState, sym: Keysym) -> Combo {
 
 impl State {
     pub fn process_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
+        if !matches!(
+            event,
+            InputEvent::DeviceAdded { .. } | InputEvent::DeviceRemoved { .. }
+        ) {
+            self.activity();
+        }
         match event {
             InputEvent::Keyboard { event } => {
                 let serial = SERIAL_COUNTER.next_serial();
@@ -240,6 +247,84 @@ impl State {
                 pointer.frame(self);
                 self.backend.schedule_render();
             }
+            InputEvent::TouchDown { event } => {
+                let Some(touch) = self.seat.get_touch() else {
+                    return;
+                };
+                let Some(pos) = self.touch_position(&event) else {
+                    return;
+                };
+                if !self.lock.locked {
+                    // A title bar's buttons answer a tap; the window comes forward.
+                    if let Some((window, hit)) = self.deco_under(pos) {
+                        self.focus(Some(window.clone()));
+                        match hit {
+                            Hit::Close => State::close(&window),
+                            Hit::Maximize => self.toggle_maximize(&window),
+                            Hit::Minimize => self.minimize(&window),
+                            Hit::Bar => {}
+                        }
+                        self.backend.schedule_render();
+                        return;
+                    }
+                    match self.space.element_under(pos).map(|(w, _)| w.clone()) {
+                        Some(window) => self.focus(Some(window)),
+                        None => self.focus_layer_at(pos),
+                    }
+                }
+                let under = self.surface_under(pos);
+                touch.down(
+                    self,
+                    under,
+                    &smithay::input::touch::DownEvent {
+                        slot: event.slot(),
+                        location: pos,
+                        serial: SERIAL_COUNTER.next_serial(),
+                        time: event.time_msec(),
+                    },
+                );
+                self.backend.schedule_render();
+            }
+            InputEvent::TouchMotion { event } => {
+                let Some(touch) = self.seat.get_touch() else {
+                    return;
+                };
+                let Some(pos) = self.touch_position(&event) else {
+                    return;
+                };
+                let under = self.surface_under(pos);
+                touch.motion(
+                    self,
+                    under,
+                    &smithay::input::touch::MotionEvent {
+                        slot: event.slot(),
+                        location: pos,
+                        time: event.time_msec(),
+                    },
+                );
+            }
+            InputEvent::TouchUp { event } => {
+                if let Some(touch) = self.seat.get_touch() {
+                    touch.up(
+                        self,
+                        &smithay::input::touch::UpEvent {
+                            slot: event.slot(),
+                            serial: SERIAL_COUNTER.next_serial(),
+                            time: event.time_msec(),
+                        },
+                    );
+                }
+            }
+            InputEvent::TouchFrame { .. } => {
+                if let Some(touch) = self.seat.get_touch() {
+                    touch.frame(self);
+                }
+            }
+            InputEvent::TouchCancel { .. } => {
+                if let Some(touch) = self.seat.get_touch() {
+                    touch.cancel(self);
+                }
+            }
             InputEvent::PointerAxis { event } => {
                 let source = event.source();
                 let amount = |axis| {
@@ -320,6 +405,24 @@ impl State {
             .y
             .clamp(geo.loc.y as f64, (geo.loc.y + geo.size.h - 1) as f64);
         (x, y).into()
+    }
+
+    /// Where a touch lands: on the built-in screen (a laptop's or tablet's),
+    /// else the first one.
+    fn touch_position<E: AbsolutePositionEvent<I>, I: InputBackend>(
+        &self,
+        event: &E,
+    ) -> Option<Point<f64, Logical>> {
+        let output = self
+            .space
+            .outputs()
+            .find(|o| {
+                let name = o.name();
+                name.starts_with("eDP") || name.starts_with("LVDS") || name.starts_with("DSI")
+            })
+            .or_else(|| self.space.outputs().next())?;
+        let geo = self.space.output_geometry(output)?;
+        Some(event.position_transformed(geo.size) + geo.loc.to_f64())
     }
 
     fn after_motion(&mut self, pos: Point<f64, Logical>) {

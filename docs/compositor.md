@@ -69,9 +69,23 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: turning a screen off from the display settings,
-tearing for games, touch. These come in the next steps; labwc
-remains the default until they are done.
+- Screens: turned off and on from the display settings (the windows move
+  to the other screens; the last one stays on), their picture switched off
+  by power management (wlopm, swayidle; any key or mouse movement brings it
+  back), adaptive sync (FreeSync, G-Sync Compatible) while a game or video
+  is fullscreen, or always, or never (`adaptive_sync`, or per screen in the
+  display settings).
+- Idle: swayidle and other idle tools are told when nobody uses the
+  computer (ext-idle-notify); video players and browsers playing a video
+  keep it awake (idle-inhibit). The SegLinux session itself turns nothing
+  off, as on labwc.
+- Touch screens: taps, swipes and several fingers go to the application;
+  a tap on a title bar's buttons works. Touches land on the built-in
+  screen (eDP, LVDS, DSI), else the first.
+
+Not yet: tearing (immediate frames for games, beyond adaptive sync). labwc
+remains the default session until this one has been tried on real
+computers.
 
 ## Settings
 
@@ -83,6 +97,7 @@ reads it again.
 autostart = ["sh /usr/share/seglinux/labwc/autostart", "nm-applet"]
 background = "#0b1220"
 focus_follows_mouse = false
+adaptive_sync = "fullscreen"   # "on", "off"
 
 [keyboard]
 layout = "us,ara"
