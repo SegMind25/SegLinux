@@ -431,7 +431,11 @@ impl State {
                         .map(|(s, p)| (s, (p + loc).to_f64()))
                 })
         };
-        if let Some(hit) = layer_hit(Layer::Overlay).or_else(|| layer_hit(Layer::Top)) {
+        // A fullscreen window covers the top panels (the dock).
+        let covered = self.fullscreen_on(output);
+        if let Some(hit) = layer_hit(Layer::Overlay)
+            .or_else(|| (!covered).then(|| layer_hit(Layer::Top)).flatten())
+        {
             return Some(hit);
         }
         if self.deco_under(pos).is_some() {
@@ -756,6 +760,14 @@ impl State {
 
     /// A new window: centred in the work area, a little lower and to the
     /// right of the previous one so they do not cover each other exactly.
+    /// The topmost window on `output` is fullscreen: it covers the panels.
+    pub fn fullscreen_on(&self, output: &smithay::output::Output) -> bool {
+        self.space
+            .elements_for_output(output)
+            .last()
+            .is_some_and(|w| Self::is_state(w, xdg_toplevel::State::Fullscreen))
+    }
+
     pub fn place_new(&mut self, window: Window) {
         let area = self
             .work_area()
@@ -763,6 +775,36 @@ impl State {
         let count = self.space.elements().count() as i32;
         let offset = (count % 8) * 32;
         let size = window.geometry().size;
+        // Fullscreen from the start (games; X11 ones often as a borderless
+        // window the size of the screen): the whole screen.
+        let screen = self
+            .space
+            .outputs()
+            .next()
+            .and_then(|o| self.space.output_geometry(o));
+        let fullscreen = Self::is_state(&window, xdg_toplevel::State::Fullscreen)
+            || window.x11_surface().is_some_and(|x| {
+                x.is_fullscreen()
+                    || (x.is_decorated()
+                        && screen.is_some_and(|g| size.w >= g.size.w && size.h >= g.size.h))
+            });
+        if fullscreen && let Some(geo) = screen {
+            // Where it goes when it leaves fullscreen.
+            let normal = Rectangle::new(
+                (area.loc.x + area.size.w / 6, area.loc.y + area.size.h / 6).into(),
+                (area.size.w * 2 / 3, area.size.h * 2 / 3).into(),
+            );
+            Self::remember(&window, normal);
+            if let Some(x) = window.x11_surface() {
+                let _ = x.set_fullscreen(true);
+                let _ = x.configure(geo);
+            }
+            tracing::info!(w = geo.size.w, h = geo.size.h, "window shown fullscreen");
+            self.space.map_element(window.clone(), geo.loc, true);
+            self.focus(Some(window));
+            return;
+        }
+        let maximized = Self::is_state(&window, xdg_toplevel::State::Maximized);
         let w = if size.w > 0 {
             size.w
         } else {
@@ -778,8 +820,14 @@ impl State {
         } else {
             0
         };
-        let x = area.loc.x + ((area.size.w - w) / 2).max(0) + offset;
-        let y = area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar;
+        let (x, y) = if maximized {
+            (area.loc.x, area.loc.y + bar)
+        } else {
+            (
+                area.loc.x + ((area.size.w - w) / 2).max(0) + offset,
+                area.loc.y + ((area.size.h - h - bar) / 2).max(0) + offset + bar,
+            )
+        };
         tracing::info!(x, y, w, h, "window shown");
         self.space.map_element(window.clone(), (x, y), true);
         self.focus(Some(window));

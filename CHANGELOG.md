@@ -45,7 +45,7 @@ Measurements and the reasons behind each removal are in
   settings (resolution, refresh rate, scale, arrangement), screen sharing
   (only what changed is copied), mouse look in games (relative and locked
   pointers), focus requests, sharp fractional scaling, screens turned off and power
-  management, adaptive sync for fullscreen games, idle and idle-inhibit,
+  management, adaptive sync and tearing for fullscreen games, idle and idle-inhibit,
   touch screens, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 

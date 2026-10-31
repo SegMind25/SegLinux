@@ -3,7 +3,9 @@
 # (--tty: libseat through seatd, KMS, GBM, EGL): a virtual machine boots
 # this system's own files (virtme-ng) with vkms, the kernel's virtual
 # display driver. A wallpaper, a Wayland and an X11 terminal open; the
-# screen is listed, turned off and on, and photographed.
+# screen is listed, turned off and on, and photographed; a fullscreen
+# window with tearing allowed still shows (vkms refuses immediate flips:
+# the frames wait for vblank instead).
 #
 #   crates/seglinux-compositor/tests/drm-vm.sh OUTPUT_DIR [COMPOSITOR]
 #
@@ -36,6 +38,7 @@ mkdir -p -m 700 "\$XDG_RUNTIME_DIR" /tmp/vmcfg/seglinux
 cat > /tmp/vmcfg/seglinux/compositor.toml <<'TOML'
 autostart = ["swaybg -i $wallpaper -m fill", "foot", "sh $work/probe.sh"]
 TOML
+printf '[windows]\nallow_tearing = "fullscreen"\n' > /tmp/vmcfg/seglinux/shell.toml
 timeout 300 seatd-launch -- "$compositor" --tty > "$out/compositor.log" 2>&1
 echo "compositor exit \$?"
 EOF
@@ -55,6 +58,9 @@ xterm -geometry 60x10 -title X11 &
 sleep 20
 grim "$out/screen.png" && echo grim-ok
 grim -g "0,0 400x100" "$out/corner.png" && echo region-ok
+foot --fullscreen --title game &
+sleep 20
+grim "$out/fullscreen.png" && echo fullscreen-ok
 pkill -f seatd-launch
 EOF
 chmod +x "$work"/*.sh
@@ -66,7 +72,7 @@ vng -r "$kernel" "${kvm[@]}" --force-9p --memory 3G --cpus 4 \
 
 grep -- '-ok' "$out/probe.log" 2>/dev/null || true
 failed=0
-for check in randr-ok power-off-ok power-on-ok grim-ok region-ok; do
+for check in randr-ok power-off-ok power-on-ok grim-ok region-ok fullscreen-ok; do
     grep -qx "$check" "$out/probe.log" 2>/dev/null || { echo "missing: $check" >&2; failed=1; }
 done
 grep -q 'screen .* at ' "$out/compositor.log" 2>/dev/null || { echo "no screen was set up" >&2; failed=1; }

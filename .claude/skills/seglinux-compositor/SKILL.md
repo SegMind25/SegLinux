@@ -26,6 +26,7 @@ always uses labwc. Keep labwc working: it is the fallback.
 | `xwayland.rs` | XWayland, X11 window management |
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
 | `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
+| `vendor/smithay` | Smithay 0.7.0 + tearing (async page flips), see `SEGLINUX-PATCH.md`; changes marked `SegLinux` |
 | `screens.rs` | screen power (wlr-output-power-management), adaptive sync policy, idle notify/inhibit; per-screen `Prefs` on the Output |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 

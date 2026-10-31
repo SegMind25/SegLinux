@@ -111,9 +111,9 @@ Laid out like a Plasma desktop with a floating panel:
   KWin under Plasma. If it cannot start (no usable GPU driver), the same
   desktop comes up on labwc, which falls back to software rendering, then
   to wlroots' CPU renderer.
-- Gaming: variable refresh rate for fullscreen games (Settings' adaptive
-  sync; labwc also tears when a game asks, `allowTearing`, which
-  seglinux-compositor cannot yet), and a separate **SegLinux Gaming Mode**
+- Gaming: variable refresh rate and tearing for fullscreen games (Settings'
+  adaptive sync and tearing choices, on either compositor), and a separate
+  **SegLinux Gaming Mode**
   session (Steam Big Picture in gamescope). See [gaming.md](gaming.md).
 
 ## Sign-in screen

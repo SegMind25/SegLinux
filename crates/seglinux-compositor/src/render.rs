@@ -151,7 +151,11 @@ where
         }
     };
     layer(Layer::Overlay, &mut elements, renderer);
-    layer(Layer::Top, &mut elements, renderer);
+    // A fullscreen window (a game, a video) covers the top panels (the dock).
+    let covered = state.fullscreen_on(output);
+    if !covered {
+        layer(Layer::Top, &mut elements, renderer);
+    }
     let focused = state.focused_window();
     for window in state.space.elements_for_output(output).rev() {
         let Some(loc) = state.space.element_location(window) else {
@@ -196,6 +200,9 @@ where
                 }
             });
         }
+    }
+    if covered {
+        layer(Layer::Top, &mut elements, renderer);
     }
     layer(Layer::Bottom, &mut elements, renderer);
     layer(Layer::Background, &mut elements, renderer);
