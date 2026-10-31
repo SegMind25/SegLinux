@@ -802,9 +802,13 @@ impl State {
             .and_then(|o| self.space.output_geometry(o));
         let fullscreen = Self::is_state(&window, xdg_toplevel::State::Fullscreen)
             || window.x11_surface().is_some_and(|x| {
+                // Exactly the screen, at its corner, borderless, not
+                // maximized: a game's window (an application that only
+                // opens big is left alone).
                 x.is_fullscreen()
                     || (x.is_decorated()
-                        && screen.is_some_and(|g| size.w >= g.size.w && size.h >= g.size.h))
+                        && !x.is_maximized()
+                        && screen.is_some_and(|g| x.geometry() == g))
             });
         if fullscreen && let Some(geo) = screen {
             // Where it goes when it leaves fullscreen.

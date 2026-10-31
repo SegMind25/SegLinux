@@ -32,6 +32,11 @@ impl PointerGrab<State> for MoveSurfaceGrab {
     ) {
         // While the grab is active, no client has pointer focus
         handle.motion(data, None, event);
+        // The window closed while being dragged: nothing left to move.
+        if !smithay::utils::IsAlive::alive(&self.window) {
+            handle.unset_grab(self, data, event.serial, event.time, true);
+            return;
+        }
         if self.unsnap {
             let moved = event.location - self.start_data.location;
             if moved.x.hypot(moved.y) < LOOSEN {
@@ -216,5 +221,12 @@ impl PointerGrab<State> for MoveSurfaceGrab {
         &self.start_data
     }
 
-    fn unset(&mut self, _data: &mut State) {}
+    /// Ended in any way (let go, the window closed, another grab, a
+    /// terminal switch): no preview left behind, the arrow again.
+    fn unset(&mut self, data: &mut State) {
+        if data.snap_preview.take().is_some() {
+            data.backend.schedule_render();
+        }
+        data.cursor_status = smithay::input::pointer::CursorImageStatus::default_named();
+    }
 }

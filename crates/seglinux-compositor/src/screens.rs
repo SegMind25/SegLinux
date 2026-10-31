@@ -177,6 +177,25 @@ impl State {
         })
     }
 
+    /// Windows and surfaces that are gone leave every list: other
+    /// workspaces, minimized, a crashed video player's screen-awake request
+    /// (else the screen never blanks again).
+    pub fn forget_dead(&mut self) {
+        use smithay::utils::IsAlive;
+        self.hidden.retain(|(w, _, _)| w.alive());
+        self.minimized.retain(|w| w.alive());
+        if self
+            .last_bar_click
+            .as_ref()
+            .is_some_and(|(w, _)| !w.alive())
+        {
+            self.last_bar_click = None;
+        }
+        if self.screens.inhibitors.iter().any(|s| !s.is_alive()) {
+            self.update_inhibit();
+        }
+    }
+
     fn update_inhibit(&mut self) {
         self.screens.inhibitors.retain(|s| s.is_alive());
         let inhibited = !self.screens.inhibitors.is_empty();
