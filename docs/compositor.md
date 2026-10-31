@@ -52,6 +52,10 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   through XWayland), focus requests (xdg-activation: a link from a chat
   brings the browser forward), sharp text at 125 % or 150 % (fractional
   scale), portal dialogs over their application (xdg-foreign).
+- Smooth frames for Chromium and Electron applications (Discord, browsers)
+  and games: presentation-time tells them when each frame reached the
+  screen (at vblank, with the driver's timestamp), so they draw in step
+  with it instead of guessing.
 - Screen sharing (xdg-desktop-portal-wlr: Discord/Vesktop, OBS, browsers,
   wf-recorder): a shared screen is only copied again where it changed, and
   not at all while nothing moves.
@@ -140,6 +144,8 @@ Super+. emoji, the volume and brightness keys, Ctrl+Alt+Backspace quit.
 **SegLinux** on the sign-in screen. CI runs it on a real (virtual) display
 driver, vkms, in a virtual machine: `crates/seglinux-compositor/tests/drm-vm.sh`.
 In a window of a running desktop:
-`seglinux-compositor --winit`. Problems are logged with `RUST_LOG=debug`.
+`seglinux-compositor --winit`. On real screens the compositor writes its log
+to `~/.local/state/seglinux/compositor.log` (the previous session's is
+`compositor-previous.log`); `RUST_LOG=debug` for more.
 Should something not work, sign in to **SegLinux (labwc)**: the same
 desktop on labwc.

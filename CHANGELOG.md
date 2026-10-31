@@ -54,7 +54,8 @@ Measurements and the reasons behind each removal are in
   management, adaptive sync and tearing for fullscreen games, idle and idle-inhibit,
   touch screens, snapping windows to screen edges and
   corners by dragging, double-click to maximize, resizing from borders,
-  the theme's pointer shapes, and the Settings
+  the theme's pointer shapes, presentation-time
+  (smooth frames in Discord, browsers and games), a log file, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
