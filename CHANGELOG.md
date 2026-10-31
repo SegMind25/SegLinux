@@ -9,6 +9,12 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **The password is asked at startup again on older systems**: an earlier
+  Setup could sign in by itself (SDDM's or greetd's automatic sign-in). The
+  next update turns that off once, on SDDM (runit systems) and on the
+  SegLinux sign-in screen alike, keeping the old files in
+  `/var/lib/seglinux/autologin-backup`. The live USB still signs in by itself.
+
 - **`seglinux-upgrade` no longer uses Chaotic-AUR**: its package list (several
   MB on every update) only served Brave. The update removes the repository and
   its keyring and updates Brave from its AUR recipe instead, only when a new
@@ -31,8 +37,13 @@ Measurements and the reasons behind each removal are in
   Rust on Smithay, as an extra choice on the sign-in screen beside the labwc
   session, which stays the default. Windows, the dock and its menus, the
   same keys as on labwc, a settings file for keys, start-up and keyboard,
-  GPU buffers for games, several screens, and the dock's list of open
-  windows ([docs/compositor.md](docs/compositor.md)).
+  GPU buffers for games, several screens, the dock's list of open
+  windows, title bars with minimize, maximize and close, panels that take
+  the keyboard (Start menu search), X11 applications through XWayland, copy and paste
+  between X11 and Wayland, screenshots, the lock screen, workspaces, display
+  settings (resolution, refresh rate, scale, arrangement), screen sharing
+  (only what changed is copied), and the Settings
+  app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
   less on disk, no Python, and about 200 MB less memory with a terminal open

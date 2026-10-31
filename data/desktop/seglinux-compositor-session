@@ -3,7 +3,7 @@
 # compositor (a preview beside the labwc session, seglinux-session).
 # Settings: ~/.config/seglinux/compositor.toml (crates/seglinux-compositor).
 set -eu
-export XDG_CURRENT_DESKTOP=SegLinux
+export XDG_CURRENT_DESKTOP=SegLinux:wlroots
 export XDG_SESSION_DESKTOP=seglinux
 export XDG_SESSION_TYPE=wayland
 export GDK_BACKEND=wayland
@@ -15,6 +15,15 @@ else
     export XCURSOR_THEME=Adwaita
 fi
 export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
+# The keyboard layout chosen in Setup (written for X11), as in
+# seglinux-session; a layout set in SegLinux Settings wins (shell.toml).
+keyboard_conf=/etc/X11/xorg.conf.d/00-keyboard.conf
+if [ -z "${XKB_DEFAULT_LAYOUT:-}" ] && [ -r "$keyboard_conf" ]; then
+    layout=$(sed -n 's/^[[:space:]]*Option[[:space:]]*"XkbLayout"[[:space:]]*"\([^"]*\)".*/\1/p' "$keyboard_conf" | head -n 1)
+    if [ -n "$layout" ]; then
+        export XKB_DEFAULT_LAYOUT="$layout"
+    fi
+fi
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     exec dbus-run-session -- seglinux-compositor --tty
 fi

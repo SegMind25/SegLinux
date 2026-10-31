@@ -8,8 +8,9 @@ stays the default and this is an extra choice on the sign-in screen:
 
 ![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
 
-*Tested in a window, with Waybar standing in for the SegLinux dock (the same
-two protocols: layer-shell and foreign-toplevel).*
+*Taken by the compositor itself (grim), running in a window, with Waybar
+standing in for the SegLinux dock (the same two protocols: layer-shell and
+foreign-toplevel); the terminal with the white page is an X11 application.*
 
 ## What works
 
@@ -21,6 +22,41 @@ two protocols: layer-shell and foreign-toplevel).*
   windows kept out of the dock's space; the dock's open windows
   (wlr-foreign-toplevel): click to switch, minimize or restore, close, and
   show the desktop.
+- Title bars for applications that ask for them (Qt and KDE applications,
+  foot): the title, then minimize, maximize and close on the right; drag the
+  bar to move the window (a maximized one comes back to its size). GTK
+  applications draw their own.
+- The Start menu and other panels that take the keyboard (wlr-layer-shell
+  keyboard interactivity): focused when they open, or on a click; the
+  window in front gets the keyboard back when they close.
+- X11 applications through XWayland (Steam, Wine and Proton games, older
+  programs): their windows are placed, focused, maximized and listed like
+  any other, with a SegLinux title bar when they do not draw their own;
+  their menus and tooltips appear where they ask. The desktop starts once
+  XWayland is ready, so everything opened from it finds `$DISPLAY`. X11
+  windows can be resized from the borders they draw (Steam's).
+- Screenshots (wlr-screencopy: grim, the Print key, Super+Shift+S for an
+  area) and the lock screen (ext-session-lock: swaylock, Super+L); while
+  locked only the lock screen is shown and no key combination works except
+  switching terminals.
+- Screen sharing (xdg-desktop-portal-wlr: Discord/Vesktop, OBS, browsers,
+  wf-recorder): a shared screen is only copied again where it changed, and
+  not at all while nothing moves.
+- Your SegLinux Settings (Super+I) apply here too, read from the same
+  `~/.config/seglinux/shell.toml` as on labwc: keyboard layouts and the key
+  that switches them, key repeat, mouse speed and acceleration, natural
+  scrolling, tap to click, typing turns off the touchpad, left-handed,
+  focus follows the mouse, and the number of workspaces. Saving in
+  Settings applies them at once (it signals the compositor).
+- Workspaces: Ctrl+Super+Left/Right shows the one to the left or right,
+  Ctrl+Shift+Super+Left/Right moves the window there; the dock keeps
+  listing every window and switches to its workspace.
+- Display settings (wlr-output-management: wdisplays, which Settings opens,
+  wlr-randr, kanshi): resolution and refresh rate of each screen, scale
+  (also fractional, such as 1.25 or 1.5) and where screens sit next to
+  each other. Windows a smaller screen would cut are moved back onto it.
+- Copy and paste between all applications, X11 and Wayland, and for
+  clipboard managers and `wl-copy` / `wl-paste` (wlr-data-control).
 - Copy and paste (also middle-click paste), GPU buffers for games and
   OpenGL/Vulkan applications (linux-dmabuf), several screens side by side
   and plugging screens in and out, switching terminals (Ctrl+Alt+F1..F12).
@@ -28,11 +64,8 @@ two protocols: layer-shell and foreign-toplevel).*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: title bars
-for applications that do not draw their own, XWayland (older X11
-applications and many games through Wine/Proton), workspaces, screen
-sharing and screenshots (wlr-screencopy), per-screen scaling and refresh
-choice, tearing for games, touch. These come in the next steps; labwc
+Not yet: turning a screen off from the display settings,
+tearing for games, touch. These come in the next steps; labwc
 remains the default until they are done.
 
 ## Settings
@@ -60,6 +93,7 @@ repeat_rate = 30
 
 Actions: `spawn COMMAND`, `close`, `maximize`, `fullscreen`, `minimize`,
 `cycle-windows`, `snap-left`, `snap-right`, `show-desktop`,
+`workspace-prev`, `workspace-next`, `send-prev`, `send-next`,
 `reload-config`, `quit`, `switch-vt N`. Keys are xkb names (`Return`,
 `F4`, `Print`, `XF86AudioMute`) with `Super`, `Ctrl`, `Alt` and `Shift`.
 

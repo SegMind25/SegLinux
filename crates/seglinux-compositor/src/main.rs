@@ -5,16 +5,23 @@
 //! Based on Smithay's smallvil and anvil examples (MIT licence, Copyright
 //! (c) 2017 Victor Berger and Smithay contributors).
 
+mod capture;
 mod config;
 mod cursor;
+mod deco;
+mod desktop;
+mod focus;
 mod foreign_toplevel;
 mod grabs;
 mod input;
+mod lock;
+mod outputs;
 mod pointer;
 mod render;
 mod state;
 mod udev;
 mod winit;
+mod xwayland;
 
 use std::path::PathBuf;
 
@@ -85,11 +92,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::set_var("WAYLAND_DISPLAY", &state.socket_name);
     }
     tracing::info!("listening on {}", state.socket_name.to_string_lossy());
-    state.autostart();
+    // The Settings app (seglinux-shell) asks for a reload with SIGHUP to
+    // this process when its settings are saved.
+    unsafe {
+        std::env::set_var("SEGLINUX_COMPOSITOR_PID", std::process::id().to_string());
+    }
+    let hup = calloop::signals::Signals::new(&[calloop::signals::Signal::SIGHUP])?;
+    event_loop
+        .handle()
+        .insert_source(hup, |_, _, state| state.reload_config())?;
+
+    // X11 applications; the autostart follows when XWayland is ready.
+    state.start_xwayland();
 
     event_loop.run(None, &mut state, |state| {
         state.space.refresh();
         state.refresh_foreign_toplevels();
+        state.refresh_output_management();
         state.popups.cleanup();
         let _ = state.display_handle.flush_clients();
     })?;
