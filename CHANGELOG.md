@@ -9,6 +9,12 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **The password is asked at startup again on older systems**: an earlier
+  Setup could sign in by itself (SDDM's or greetd's automatic sign-in). The
+  next update turns that off once, on SDDM (runit systems) and on the
+  SegLinux sign-in screen alike, keeping the old files in
+  `/var/lib/seglinux/autologin-backup`. The live USB still signs in by itself.
+
 - **`seglinux-upgrade` no longer uses Chaotic-AUR**: its package list (several
   MB on every update) only served Brave. The update removes the repository and
   its keyring and updates Brave from its AUR recipe instead, only when a new

@@ -145,8 +145,12 @@ clock_format = "%I:%M %p"   # 12-hour clock; "%H:%M" is 24-hour
 **No automatic sign-in.** Installed systems always show the sign-in screen
 and ask for the password; Setup no longer offers to skip it, and
 `seglinux-upgrade` does not carry SDDM's automatic sign-in over when it
-switches a system to this screen. (Only the live USB session signs in by
-itself.) Anyone who still wants it can add greetd's `[initial_session]`
+switches a system to this screen. Systems an older Setup set up to sign in
+by themselves (SDDM's `[Autologin]`, greetd's `[initial_session]`) ask for
+the password again after their next update, whether they use this screen or
+still SDDM (runit); the old files are kept in
+`/var/lib/seglinux/autologin-backup`. This happens once. (Only the live USB
+session signs in by itself.) Anyone who still wants it can add greetd's `[initial_session]`
 to `/etc/greetd/config.toml` by hand:
 
 ```toml
@@ -161,8 +165,8 @@ Try it without signing out: `seglinux-greeter --demo` opens it in a window
 **Systems installed from an older ISO** keep SDDM until `sudo
 seglinux-upgrade` has brought a SegLinux with the greeter (see
 [updating.md](updating.md)): it then asks once whether to switch (OpenRC and
-dinit), and the new sign-in screen appears at the next restart, keeping
-SDDM's automatic sign-in if there was one. To switch by hand instead (OpenRC; for runit or dinit install `greetd-runit` or
+dinit), and the new sign-in screen appears at the next restart, asking for the
+password. To switch by hand instead (OpenRC; for runit or dinit install `greetd-runit` or
 `greetd-dinit` and switch the services with their own tools):
 
 ```sh
