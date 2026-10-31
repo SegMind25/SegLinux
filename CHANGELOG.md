@@ -9,6 +9,12 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Steadier Wi-Fi**: power saving is off (NetworkManager and the Intel,
+  Realtek and MediaTek drivers), which made the speed and the ping jump
+  around and Realtek cards drop the connection; larger TCP buffers for fast
+  downloads from far away. Applied by the update (the driver options after
+  a restart).
+
 - **The password is asked at startup again on older systems**: an earlier
   Setup could sign in by itself (SDDM's or greetd's automatic sign-in). The
   next update turns that off once, on SDDM (runit systems) and on the
