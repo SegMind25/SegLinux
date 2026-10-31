@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=SegLinux (labwc)
+Comment=The same SegLinux desktop on the labwc compositor, as before SegLinux had its own
+Exec=seglinux-session --labwc
+TryExec=labwc
+Type=Application

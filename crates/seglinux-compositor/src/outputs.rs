@@ -1,6 +1,8 @@
 //! Display settings (wlr-output-management v4: wdisplays, kanshi,
 //! wlr-randr): the screens, their modes, place and scale go out; a new
 //! resolution, refresh rate, scale or arrangement comes back and is applied.
+//! A screen can be turned off (it leaves the arrangement; its windows move
+//! to the others) and adaptive sync set per screen.
 
 use std::sync::Mutex;
 
@@ -30,6 +32,9 @@ use crate::state::State;
 #[derive(Clone, PartialEq)]
 struct Snapshot {
     output: Output,
+    enabled: bool,
+    /// None: the screen cannot; else whether it is on now.
+    adaptive_sync: Option<bool>,
     modes: Vec<Mode>,
     current: Option<Mode>,
     position: Point<i32, Logical>,
@@ -69,6 +74,7 @@ pub struct HeadWish {
     custom: Option<(i32, i32, i32)>,
     position: Option<Point<i32, Logical>>,
     scale: Option<f64>,
+    adaptive_sync: Option<bool>,
 }
 
 /// Each screen a configuration names: on or off, and what it asks.
@@ -80,18 +86,23 @@ pub struct ConfigData {
 }
 
 fn snapshot(state: &State) -> Vec<Snapshot> {
-    state
-        .space
-        .outputs()
-        .map(|o| Snapshot {
+    let on = state.space.outputs().map(|o| {
+        let position = state
+            .space
+            .output_geometry(o)
+            .map(|g| g.loc)
+            .unwrap_or_default();
+        (o, true, position)
+    });
+    let off = state.disabled_outputs.iter().map(|(o, p)| (o, false, *p));
+    on.chain(off)
+        .map(|(o, enabled, position)| Snapshot {
             output: o.clone(),
+            enabled,
+            adaptive_sync: state.backend.adaptive_sync(o),
             modes: state.backend.output_modes(o),
             current: o.current_mode(),
-            position: state
-                .space
-                .output_geometry(o)
-                .map(|g| g.loc)
-                .unwrap_or_default(),
+            position,
             scale: o.current_scale().fractional_scale(),
         })
         .collect()
@@ -135,9 +146,6 @@ fn announce(dh: &DisplayHandle, m: &mut Manager, s: &Snapshot) {
         head.make(phys.make.clone());
         head.model(phys.model.clone());
     }
-    if head.version() >= 4 {
-        head.adaptive_sync(head::AdaptiveSyncState::Disabled);
-    }
     m.heads.push(Head {
         output: s.output.clone(),
         head,
@@ -146,7 +154,18 @@ fn announce(dh: &DisplayHandle, m: &mut Manager, s: &Snapshot) {
 }
 
 fn send_state(head: &ZwlrOutputHeadV1, modes: &[(ZwlrOutputModeV1, Mode)], s: &Snapshot) {
-    head.enabled(1);
+    head.enabled(i32::from(s.enabled));
+    if head.version() >= 4 {
+        head.adaptive_sync(if s.adaptive_sync == Some(true) {
+            head::AdaptiveSyncState::Enabled
+        } else {
+            head::AdaptiveSyncState::Disabled
+        });
+    }
+    // An off screen has no mode, place or scale.
+    if !s.enabled {
+        return;
+    }
     if let Some((res, _)) = modes.iter().find(|(_, m)| Some(*m) == s.current) {
         head.current_mode(res);
     }
@@ -193,10 +212,49 @@ impl State {
         wishes: &[(Output, bool, std::sync::Arc<Mutex<HeadWish>>)],
         test: bool,
     ) -> bool {
+        // At least one screen stays on.
+        let all: Vec<Output> = self
+            .space
+            .outputs()
+            .chain(self.disabled_outputs.iter().map(|(o, _)| o))
+            .cloned()
+            .collect();
+        let stays_on = all
+            .iter()
+            .any(|o| match wishes.iter().find(|(w, _, _)| w == o) {
+                Some((_, enabled, _)) => *enabled,
+                None => self.space.outputs().any(|s| s == o),
+            });
+        if !stays_on {
+            return false;
+        }
         for (output, enabled, wish) in wishes {
+            let is_on = self.space.outputs().any(|o| o == output);
             if !enabled {
-                // Turning screens off is not offered yet.
-                return false;
+                if !test && is_on {
+                    let pos = self
+                        .space
+                        .output_geometry(output)
+                        .map(|g| g.loc)
+                        .unwrap_or_default();
+                    self.space.unmap_output(output);
+                    self.disabled_outputs.push((output.clone(), pos));
+                    crate::screens::prefs(output).power = false;
+                    self.backend.set_power(output, false);
+                }
+                continue;
+            }
+            if !test && !is_on {
+                let pos = self
+                    .disabled_outputs
+                    .iter()
+                    .find(|(o, _)| o == output)
+                    .map(|(_, p)| *p)
+                    .unwrap_or_default();
+                self.disabled_outputs.retain(|(o, _)| o != output);
+                self.space.map_output(output, pos);
+                crate::screens::prefs(output).power = false;
+                self.set_power(output, true);
             }
             let wish = wish.lock().unwrap();
             let target = wish.mode.or_else(|| {
@@ -222,6 +280,10 @@ impl State {
             {
                 return false;
             }
+            // Adaptive sync only where the screen has it.
+            if wish.adaptive_sync == Some(true) && self.backend.adaptive_sync(output).is_none() {
+                return false;
+            }
             if test {
                 continue;
             }
@@ -231,6 +293,14 @@ impl State {
             if let Some(pos) = wish.position {
                 output.change_current_state(None, None, None, Some(pos));
                 self.space.map_output(output, pos);
+            }
+            if let Some(on) = wish.adaptive_sync {
+                use crate::config::AdaptiveSync;
+                crate::screens::prefs(output).adaptive_sync = Some(if on {
+                    AdaptiveSync::On
+                } else {
+                    AdaptiveSync::Off
+                });
             }
         }
         if !test {
@@ -390,6 +460,14 @@ impl Dispatch<ZwlrOutputConfigurationHeadV1, std::sync::Arc<Mutex<HeadWish>>> fo
             } => w.custom = Some((width, height, refresh)),
             config_head::Request::SetPosition { x, y } => w.position = Some((x, y).into()),
             config_head::Request::SetScale { scale } => w.scale = Some(scale),
+            config_head::Request::SetAdaptiveSync { state } => {
+                w.adaptive_sync = match state {
+                    smithay::reexports::wayland_server::WEnum::Value(
+                        head::AdaptiveSyncState::Enabled,
+                    ) => Some(true),
+                    _ => Some(false),
+                };
+            }
             _ => {}
         }
         let _ = &w.output;

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=SegLinux
-Comment=The SegLinux desktop: Rust shell with a floating dock and desktop icons, on labwc
+Comment=The SegLinux desktop: Rust shell with a floating dock and desktop icons, on SegLinux's own Rust compositor
 Exec=seglinux-session
 TryExec=seglinux-session
 Type=Application

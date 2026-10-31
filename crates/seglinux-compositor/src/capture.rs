@@ -285,7 +285,10 @@ pub fn fulfill(
             p.frame.failed();
             continue;
         };
-        match copy(renderer, image, data.region, &p.buffer) {
+        // A buffer is in the screen's own orientation: upright, except
+        // the test window's (flipped, as it reports).
+        let flipped = output.current_transform() == Transform::Flipped180;
+        match copy(renderer, image, data.region, flipped, &p.buffer) {
             Ok(()) => {
                 p.frame.flags(frame::Flags::empty());
                 if p.with_damage {
@@ -369,15 +372,22 @@ fn copy(
     renderer: &mut GlesRenderer,
     image: &mut Image,
     region: Rectangle<i32, Physical>,
+    flipped: bool,
     buffer: &WlBuffer,
 ) -> Result<(), String> {
     let size = image.size;
     let fb = renderer
         .bind(&mut image.texture)
         .map_err(|e| e.to_string())?;
-    // The texture holds the image bottom row first: read the matching rows.
+    // The texture reads top row first; a flipped screen wants the region
+    // mirrored from the bottom, its rows reversed.
+    let y = if flipped {
+        size.h - region.loc.y - region.size.h
+    } else {
+        region.loc.y
+    };
     let area = Rectangle::new(
-        (region.loc.x, size.h - region.loc.y - region.size.h).into(),
+        (region.loc.x, y).into(),
         (region.size.w, region.size.h).into(),
     );
     let mapping = renderer
@@ -400,10 +410,15 @@ fn copy(
             return Err("buffer too small".to_string());
         }
         for y in 0..data.height as usize {
+            let source = if flipped {
+                data.height as usize - 1 - y
+            } else {
+                y
+            };
             // Safety: bounds checked above against the pool's length.
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    pixels.as_ptr().add((data.height as usize - 1 - y) * row),
+                    pixels.as_ptr().add(source * row),
                     ptr.add(offset + y * stride),
                     row,
                 );

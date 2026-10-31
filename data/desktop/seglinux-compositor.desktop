@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=SegLinux (new compositor, preview)
-Comment=The SegLinux desktop on SegLinux's own Rust compositor instead of labwc
-Exec=seglinux-compositor-session
-TryExec=seglinux-compositor
-Type=Application

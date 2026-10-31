@@ -5,11 +5,11 @@ description: Develop, test and screenshot seglinux-compositor, SegLinux's own Wa
 
 # seglinux-compositor
 
-SegLinux's compositor, meant to replace labwc under the SegLinux desktop
-(seglinux-shell: wallpaper, dock, Start menu, tray). Until it does all labwc
-does it is a preview session: `data/desktop/seglinux-compositor-session`,
-`seglinux-compositor.desktop` on the sign-in screen. labwc stays the default
-until the user has tried it on real hardware and says so.
+SegLinux's compositor under the SegLinux desktop (seglinux-shell:
+wallpaper, dock, Start menu, tray). `data/desktop/seglinux-session` runs it
+and falls back to labwc if it exits with an error within 15 s;
+`seglinux-session --labwc` (`seglinux-labwc.desktop`, "SegLinux (labwc)")
+always uses labwc. Keep labwc working: it is the fallback.
 
 ## Map
 
@@ -25,6 +25,8 @@ until the user has tried it on real hardware and says so.
 | `focus.rs` | keyboard focus: Wayland surface or X11 window |
 | `xwayland.rs` | XWayland, X11 window management |
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
+| `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
+| `screens.rs` | screen power (wlr-output-power-management), adaptive sync policy, idle notify/inhibit; per-screen `Prefs` on the Output |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 
 ## Build
@@ -40,6 +42,18 @@ cargo fmt --all && cargo clippy -p seglinux-compositor --all-targets -- -D warni
 
 Run `cargo fmt` again after `cargo clippy --fix`. CI's clippy can be newer than
 the local one (it flagged `chunks_exact` once): read CI's log, apply its hint.
+
+## Test on a real DRM device (vkms in a VM)
+
+`crates/seglinux-compositor/tests/drm-vm.sh OUT_DIR` boots this system's own
+files in QEMU (virtme-ng) with the kernel's vkms display driver and runs the
+compositor with `--tty` through seatd, as a sign-in does: screen setup,
+wlr-randr, wlopm off/on, a Wayland and an X11 terminal, grim. CI runs it
+(`compositor-drm`, screenshots as an artifact). Here: `apt-get install
+qemu-system-x86 linux-image-virtual linux-modules-extra-<version> seatd
+busybox-static zstd` and `pip install virtme-ng`; without KVM it takes ~3 min.
+It caught screenshots upside down on real screens that `--winit` hid (that
+output reports Flipped180).
 
 ## Test with screenshots (no GPU needed)
 
@@ -61,6 +75,13 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
   xdg-desktop-portal-wlr): a still screen gives one frame. Its video is upside
   down under `--winit` only (that output reports Flipped180); real screens
   are Normal.
+- `wayland-info` (wayland-utils) lists the globals: check a new protocol shows.
+- Headless Weston gives no pointer: input paths (constraints, grabs) can only
+  be checked for protocol errors here (`weston-constraints` runs clean).
+- Weston gone after a session restart (stale `wl-host` socket, winit says
+  NoCompositor): `rm /tmp/xdg/wl-host*` and start it again.
+- Screens: `wlr-randr --output winit --off` must fail (last screen),
+  `wlopm --off winit` / `--on`, `swayidle -w timeout 2 'touch /tmp/x'`.
 - Waybar needs a D-Bus session (`dbus-run-session`), as the real session has.
 - `pkill -x seglinux-compos` (process names are cut to 15 characters);
   never `pkill -f seglinux-compositor`, it kills your own shell.

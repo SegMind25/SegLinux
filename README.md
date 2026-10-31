@@ -26,7 +26,7 @@ written in Rust.
 | | |
 |---|---|
 | ![Desktop with the floating dock](docs/images/desktop.webp) | ![SegLinux Setup, choosing the disk](docs/images/setup.webp) |
-| The desktop: wallpaper, desktop icons and the floating dock (Rust, GTK 4, labwc) | Setup, the graphical installer, in the live session |
+| The desktop: wallpaper, desktop icons and the floating dock (Rust, GTK 4, on SegLinux's own Rust compositor) | Setup, the graphical installer, in the live session |
 | ![Boot menu of the install media](docs/images/boot-menu.webp) | ![Boot menu of an installed system](docs/images/boot-menu-installed.webp) |
 | The boot menu of the DVD / USB stick | The boot menu of an installed system, next to Windows |
 
@@ -78,7 +78,8 @@ published.
   (a text-mode one is in the menu too).
 * **Lightweight, Plasma-like desktop in Rust.** Wallpaper and desktop icons,
   a floating dock with Start menu, one icon per application, tray and clock,
-  written in Rust (GTK 4) on the labwc Wayland compositor: the only desktop,
+  written in Rust (GTK 4) on SegLinux's own Rust Wayland compositor
+  (labwc stays as a fallback and a choice at sign-in): the only desktop,
   with no second one in the background. Like Plasma it shows
   notifications (pop-ups, history, Do Not Disturb), other applications'
   tray icons and menus (Steam, Discord...) and a volume and brightness

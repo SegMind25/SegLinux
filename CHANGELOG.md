@@ -33,16 +33,20 @@ Measurements and the reasons behind each removal are in
 
 ### Added
 
-- **SegLinux's own compositor (preview)**: `seglinux-compositor`, written in
-  Rust on Smithay, as an extra choice on the sign-in screen beside the labwc
-  session, which stays the default. Windows, the dock and its menus, the
+- **SegLinux's own compositor, now the desktop's**: `seglinux-compositor`, written in
+  Rust on Smithay, runs the **SegLinux** session; if it cannot start, the
+  same desktop comes up on labwc, and **SegLinux (labwc)** on the sign-in
+  screen always uses labwc. Windows, the dock and its menus, the
   same keys as on labwc, a settings file for keys, start-up and keyboard,
   GPU buffers for games, several screens, the dock's list of open
   windows, title bars with minimize, maximize and close, panels that take
   the keyboard (Start menu search), X11 applications through XWayland, copy and paste
   between X11 and Wayland, screenshots, the lock screen, workspaces, display
   settings (resolution, refresh rate, scale, arrangement), screen sharing
-  (only what changed is copied), and the Settings
+  (only what changed is copied), mouse look in games (relative and locked
+  pointers), focus requests, sharp fractional scaling, screens turned off and power
+  management, adaptive sync for fullscreen games, idle and idle-inhibit,
+  touch screens, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
