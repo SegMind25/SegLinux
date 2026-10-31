@@ -21,6 +21,12 @@ packages=(
     gtk4
     gtk4-layer-shell
     labwc
+    # seglinux-compositor (the package's dependencies, checked by makepkg)
+    libinput
+    seatd
+    mesa
+    libxkbcommon
+    xorg-xwayland
     procps-ng
     pkgconf
     squashfs-tools
