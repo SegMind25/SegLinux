@@ -125,7 +125,9 @@ Super+. emoji, the volume and brightness keys, Ctrl+Alt+Backspace quit.
 
 ## Trying it
 
-**SegLinux** on the sign-in screen. In a window of a running desktop:
+**SegLinux** on the sign-in screen. CI runs it on a real (virtual) display
+driver, vkms, in a virtual machine: `crates/seglinux-compositor/tests/drm-vm.sh`.
+In a window of a running desktop:
 `seglinux-compositor --winit`. Problems are logged with `RUST_LOG=debug`.
 Should something not work, sign in to **SegLinux (labwc)**: the same
 desktop on labwc.

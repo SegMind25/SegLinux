@@ -43,6 +43,18 @@ cargo fmt --all && cargo clippy -p seglinux-compositor --all-targets -- -D warni
 Run `cargo fmt` again after `cargo clippy --fix`. CI's clippy can be newer than
 the local one (it flagged `chunks_exact` once): read CI's log, apply its hint.
 
+## Test on a real DRM device (vkms in a VM)
+
+`crates/seglinux-compositor/tests/drm-vm.sh OUT_DIR` boots this system's own
+files in QEMU (virtme-ng) with the kernel's vkms display driver and runs the
+compositor with `--tty` through seatd, as a sign-in does: screen setup,
+wlr-randr, wlopm off/on, a Wayland and an X11 terminal, grim. CI runs it
+(`compositor-drm`, screenshots as an artifact). Here: `apt-get install
+qemu-system-x86 linux-image-virtual linux-modules-extra-<version> seatd
+busybox-static zstd` and `pip install virtme-ng`; without KVM it takes ~3 min.
+It caught screenshots upside down on real screens that `--winit` hid (that
+output reports Flipped180).
+
 ## Test with screenshots (no GPU needed)
 
 ```sh
