@@ -9,6 +9,12 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Steadier Wi-Fi**: power saving is off (NetworkManager and the Intel,
+  Realtek and MediaTek drivers), which made the speed and the ping jump
+  around and Realtek cards drop the connection; larger TCP buffers for fast
+  downloads from far away. Applied by the update (the driver options after
+  a restart).
+
 - **The password is asked at startup again on older systems**: an earlier
   Setup could sign in by itself (SDDM's or greetd's automatic sign-in). The
   next update turns that off once, on SDDM (runit systems) and on the
@@ -45,8 +51,10 @@ Measurements and the reasons behind each removal are in
   settings (resolution, refresh rate, scale, arrangement), screen sharing
   (only what changed is copied), mouse look in games (relative and locked
   pointers), focus requests, sharp fractional scaling, screens turned off and power
-  management, adaptive sync for fullscreen games, idle and idle-inhibit,
-  touch screens, and the Settings
+  management, adaptive sync and tearing for fullscreen games, idle and idle-inhibit,
+  touch screens, snapping windows to screen edges and
+  corners by dragging, double-click to maximize, resizing from borders,
+  the theme's pointer shapes, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB

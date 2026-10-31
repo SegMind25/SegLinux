@@ -6,6 +6,8 @@
 //! - fractional scales: sharp text at 125 % or 150 %
 //! - exported windows (xdg-foreign): a portal's file dialog over its
 //!   application
+//! - pointer shapes by name (cursor-shape: GTK 4), drawn from the
+//!   session's cursor theme
 
 use std::time::Duration;
 
@@ -46,6 +48,7 @@ pub struct Protocols {
     _relative_pointer: RelativePointerManagerState,
     _pointer_constraints: PointerConstraintsState,
     _fractional_scale: FractionalScaleManagerState,
+    _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
 }
 
 impl Protocols {
@@ -56,6 +59,9 @@ impl Protocols {
             _relative_pointer: RelativePointerManagerState::new::<State>(dh),
             _pointer_constraints: PointerConstraintsState::new::<State>(dh),
             _fractional_scale: FractionalScaleManagerState::new::<State>(dh),
+            _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<State>(
+                dh,
+            ),
         }
     }
 }
@@ -200,6 +206,10 @@ pub fn prefer_window_scale(window: &Window, output: &Output) {
     window.with_surfaces(|surface, data| prefer_scale(surface, data, output));
 }
 
+// Drawing tablets: nothing beyond what the seat does (cursor-shape needs it).
+impl smithay::wayland::tablet_manager::TabletSeatHandler for State {}
+
+smithay::delegate_cursor_shape!(State);
 delegate_relative_pointer!(State);
 delegate_pointer_constraints!(State);
 delegate_xdg_activation!(State);

@@ -5,6 +5,9 @@
 //!   while a window is fullscreen there (games), the default
 //! - idle (ext-idle-notify: swayidle) and what keeps a screen awake
 //!   (idle-inhibit: video players, browsers playing a video)
+//! - tearing (wp-tearing-control): a fullscreen game that asks for it gets
+//!   its frames shown at once, for the lowest latency (the Settings app's
+//!   choice, as on labwc; vendor/smithay carries the page flips)
 
 use std::sync::{Mutex, MutexGuard};
 
@@ -13,6 +16,10 @@ use smithay::{
     output::Output,
     reexports::wayland_protocols::xdg::shell::server::xdg_toplevel,
     reexports::{
+        wayland_protocols::wp::tearing_control::v1::server::{
+            wp_tearing_control_manager_v1::{self as tearing_manager, WpTearingControlManagerV1},
+            wp_tearing_control_v1::{self as tearing_control, WpTearingControlV1},
+        },
         wayland_protocols_wlr::output_power_management::v1::server::{
             zwlr_output_power_manager_v1::{self as manager, ZwlrOutputPowerManagerV1},
             zwlr_output_power_v1::{self as power, ZwlrOutputPowerV1},
@@ -68,6 +75,7 @@ impl ScreensState {
         loop_handle: smithay::reexports::calloop::LoopHandle<'static, State>,
     ) -> Self {
         dh.create_global::<State, ZwlrOutputPowerManagerV1, ()>(1, ());
+        dh.create_global::<State, WpTearingControlManagerV1, ()>(1, ());
         ScreensState {
             powers: Vec::new(),
             idle_notifier: IdleNotifierState::new(dh, loop_handle),
@@ -150,6 +158,42 @@ impl State {
             .adaptive_sync
             .or(self.config.adaptive_sync)
             .unwrap_or_else(|| self.desktop.windows.adaptive_sync())
+    }
+
+    /// Whether frames on this screen may be shown at once: a fullscreen
+    /// window there that asks for it ("yes", the default), or any
+    /// fullscreen window ("fullscreen"); never with "no".
+    pub fn wants_tearing(&self, output: &Output) -> bool {
+        let mode = self.desktop.windows.allow_tearing.as_str();
+        if mode == "no" {
+            return false;
+        }
+        self.space.elements_for_output(output).any(|w| {
+            State::is_state(w, xdg_toplevel::State::Fullscreen)
+                && (mode == "fullscreen" || {
+                    use smithay::wayland::seat::WaylandFocus;
+                    w.wl_surface().is_some_and(|s| asks_for_tearing(&s))
+                })
+        })
+    }
+
+    /// Windows and surfaces that are gone leave every list: other
+    /// workspaces, minimized, a crashed video player's screen-awake request
+    /// (else the screen never blanks again).
+    pub fn forget_dead(&mut self) {
+        use smithay::utils::IsAlive;
+        self.hidden.retain(|(w, _, _)| w.alive());
+        self.minimized.retain(|w| w.alive());
+        if self
+            .last_bar_click
+            .as_ref()
+            .is_some_and(|(w, _)| !w.alive())
+        {
+            self.last_bar_click = None;
+        }
+        if self.screens.inhibitors.iter().any(|s| !s.is_alive()) {
+            self.update_inhibit();
+        }
     }
 
     fn update_inhibit(&mut self) {
@@ -245,6 +289,85 @@ impl IdleInhibitHandler for State {
     fn uninhibit(&mut self, surface: WlSurface) {
         self.screens.inhibitors.retain(|s| s != &surface);
         self.update_inhibit();
+    }
+}
+
+/// A surface's presentation hint: true for "async" (tearing).
+struct TearingHint(Mutex<bool>);
+
+fn asks_for_tearing(surface: &WlSurface) -> bool {
+    smithay::wayland::compositor::with_states(surface, |data| {
+        data.data_map
+            .get::<TearingHint>()
+            .is_some_and(|h| *h.0.lock().unwrap())
+    })
+}
+
+fn set_tearing_hint(surface: &WlSurface, on: bool) {
+    smithay::wayland::compositor::with_states(surface, |data| {
+        data.data_map
+            .get_or_insert_threadsafe(|| TearingHint(Mutex::new(false)));
+        if let Some(h) = data.data_map.get::<TearingHint>() {
+            *h.0.lock().unwrap() = on;
+        }
+    });
+}
+
+impl GlobalDispatch<WpTearingControlManagerV1, ()> for State {
+    fn bind(
+        _: &mut State,
+        _: &DisplayHandle,
+        _: &Client,
+        resource: New<WpTearingControlManagerV1>,
+        _: &(),
+        data_init: &mut DataInit<'_, State>,
+    ) {
+        data_init.init(resource, ());
+    }
+}
+
+impl Dispatch<WpTearingControlManagerV1, ()> for State {
+    fn request(
+        _: &mut State,
+        _: &Client,
+        _: &WpTearingControlManagerV1,
+        request: tearing_manager::Request,
+        _: &(),
+        _: &DisplayHandle,
+        data_init: &mut DataInit<'_, State>,
+    ) {
+        if let tearing_manager::Request::GetTearingControl { id, surface } = request {
+            data_init.init(id, surface);
+        }
+    }
+}
+
+impl Dispatch<WpTearingControlV1, WlSurface> for State {
+    fn request(
+        _: &mut State,
+        _: &Client,
+        _: &WpTearingControlV1,
+        request: tearing_control::Request,
+        surface: &WlSurface,
+        _: &DisplayHandle,
+        _: &mut DataInit<'_, State>,
+    ) {
+        match request {
+            tearing_control::Request::SetPresentationHint { hint } if surface.is_alive() => {
+                let on = matches!(
+                    hint,
+                    smithay::reexports::wayland_server::WEnum::Value(
+                        tearing_control::PresentationHint::Async
+                    )
+                );
+                set_tearing_hint(surface, on);
+            }
+            // Gone: back to vsync.
+            tearing_control::Request::Destroy if surface.is_alive() => {
+                set_tearing_hint(surface, false);
+            }
+            _ => {}
+        }
     }
 }
 

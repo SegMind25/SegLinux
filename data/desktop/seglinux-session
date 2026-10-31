@@ -73,6 +73,9 @@ run_compositor() {
 }
 
 if ! $use_labwc; then
+    # SegLinux's own compositor: the desktop is just "SegLinux" (the
+    # portals are chosen by seglinux-portals.conf, not by "wlroots").
+    export XDG_CURRENT_DESKTOP=SegLinux
     started=$(date +%s)
     status=0
     run_compositor || status=$?
@@ -82,6 +85,7 @@ if ! $use_labwc; then
         exit "$status"
     fi
     echo "seglinux-session: seglinux-compositor could not start (exit status $status); using labwc" >&2
+    export XDG_CURRENT_DESKTOP=SegLinux:wlroots
 fi
 
 started=$(date +%s)

@@ -103,6 +103,11 @@ impl PointerGrab<State> for ResizeSurfaceGrab {
     ) {
         // While the grab is active, no client has pointer focus
         handle.motion(data, None, event);
+        // The window closed while being resized.
+        if !smithay::utils::IsAlive::alive(&self.window) {
+            handle.unset_grab(self, data, event.serial, event.time, true);
+            return;
+        }
 
         let mut delta = event.location - self.start_data.location;
 
@@ -206,6 +211,7 @@ impl PointerGrab<State> for ResizeSurfaceGrab {
         if !handle.current_pressed().contains(&BTN_LEFT) {
             // No more buttons are pressed, release the grab.
             handle.unset_grab(self, data, event.serial, event.time, true);
+            data.cursor_status = smithay::input::pointer::CursorImageStatus::default_named();
 
             let Some(xdg) = self.window.toplevel() else {
                 return;
@@ -315,7 +321,9 @@ impl PointerGrab<State> for ResizeSurfaceGrab {
         &self.start_data
     }
 
-    fn unset(&mut self, _data: &mut State) {}
+    fn unset(&mut self, data: &mut State) {
+        data.cursor_status = smithay::input::pointer::CursorImageStatus::default_named();
+    }
 }
 
 /// State of the resize operation.

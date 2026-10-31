@@ -14,6 +14,14 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
 
 ## What works
 
+- The mouse, as on Windows and KDE: a window dragged to the top edge of a
+  screen is maximized, to the left or right edge it takes that half, to a
+  corner that quarter (a blue area shows where before letting go);
+  dragging it away gives its size back under the pointer; a double click
+  on a title bar maximizes or restores; windows with SegLinux title bars
+  are resized from an invisible 8 px border, with the theme's arrows; the
+  pointer takes the shapes applications ask for (cursor-shape), sharp at
+  any scale.
 - Application windows (xdg-shell): placed in the middle of the screen,
   focus on click, move and resize from the title bar, Super+drag moves a
   window from anywhere in it; maximize, fullscreen, minimize, snap to the
@@ -83,9 +91,13 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   a tap on a title bar's buttons works. Touches land on the built-in
   screen (eDP, LVDS, DSI), else the first.
 
-Not yet: tearing (immediate frames for games, beyond adaptive sync):
-Smithay 0.7, the newest, cannot flip pages asynchronously. Games that want
-it can use **SegLinux (labwc)** or the Gaming Mode session.
+- Tearing for games (wp-tearing-control, the Settings app's choice as on
+  labwc): a fullscreen game that asks for it gets its frames shown at once.
+  Smithay cannot do this yet; `vendor/smithay` is Smithay 0.7.0 with that
+  one addition (`SEGLINUX-PATCH.md`). Where the driver refuses an immediate
+  frame, it waits for vblank as before.
+- Windows that start fullscreen (games, also X11 ones the size of the
+  screen) cover the whole screen, the dock included.
 
 ## Settings
 

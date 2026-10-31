@@ -26,6 +26,8 @@ always uses labwc. Keep labwc working: it is the fallback.
 | `xwayland.rs` | XWayland, X11 window management |
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
 | `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
+| `vendor/smithay` | Smithay 0.7.0 + tearing (async page flips), see `SEGLINUX-PATCH.md`; changes marked `SegLinux` |
+| `snap.rs` | edge/corner snapping while dragging (preview), resize borders, compositor pointer shapes, double clicks |
 | `screens.rs` | screen power (wlr-output-power-management), adaptive sync policy, idle notify/inhibit; per-screen `Prefs` on the Output |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 
@@ -52,7 +54,11 @@ wlr-randr, wlopm off/on, a Wayland and an X11 terminal, grim. CI runs it
 (`compositor-drm`, screenshots as an artifact). Here: `apt-get install
 qemu-system-x86 linux-image-virtual linux-modules-extra-<version> seatd
 busybox-static zstd` and `pip install virtme-ng`; without KVM it takes ~3 min.
-It caught screenshots upside down on real screens that `--winit` hid (that
+`tests/mouse.py` (a uinput absolute mouse; the VM runs udevd) drags,
+double-clicks and resizes and photographs each step: it found a freeze
+(maximizing asked for the pointer position inside a pointer grab, whose
+lock was held: never call `seat.get_pointer()` methods from a grab, defer
+with `loop_handle.insert_idle`). It caught screenshots upside down on real screens that `--winit` hid (that
 output reports Flipped180).
 
 ## Test with screenshots (no GPU needed)
@@ -88,8 +94,8 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
 - The real dock (seglinux-shell) needs gtk4-layer-shell, which may not be
   installable; say so instead of claiming the dock was tested.
 - Keyboard focus: run a client with `WAYLAND_DEBUG=1` and look for
-  `wl_keyboard.enter`. Input cannot be injected: clicks are covered by unit
-  tests (`deco::hit`), say they were not clicked.
+  `wl_keyboard.enter`. Under headless Weston input cannot be injected; use
+  the DRM VM test and `tests/mouse.py` for anything the mouse does.
 - Look at every screenshot before reporting it, and send them to the user.
 
 ## Rules learned
@@ -102,3 +108,35 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
   body needs `&mut self` (edition 2024 temporaries).
 - New user-visible work: update `docs/compositor.md` (What works / Not yet)
   and `CHANGELOG.md`; one PR per step, merged only when the user asks.
+- Never call `PointerHandle` methods (`current_location`, `set_grab`, ...)
+  from inside a pointer grab (`PointerGrab::*`): its lock is held and the
+  compositor freezes. `work_area()`, `toggle_maximize()` and
+  `toggle_fullscreen()` read the pointer; defer them with
+  `loop_handle.insert_idle`.
+- A grab's `unset` runs however it ends: clear what it showed there
+  (`snap_preview`, the pointer shape).
+- Every list of windows (`hidden`, `minimized`, `last_bar_click`,
+  inhibitors) must drop dead ones (`forget_dead` in the loop).
+- `--winit` reports Flipped180: anything orientation-related (screencopy,
+  transforms) must be checked on the DRM VM, where screens are Normal.
+- Run `cargo build` before the VM test: clippy and tests do not rebuild
+  the binary it runs.
+
+## Making it the best: what users notice
+
+Compare with Windows 11, KDE Plasma and labwc, in this order of weight:
+1. **It starts and shows the desktop** on any GPU (the session falls back
+   to labwc only if it exits within 15 s: a black screen is not caught).
+2. **Mouse**: edge/corner snapping with a preview, double click to
+   maximize, drag a maximized window off, resize borders with arrows, the
+   theme's pointer everywhere (never a stale shape).
+3. **Games**: fullscreen at start covers the dock; mouse lock and raw
+   motion; adaptive sync and tearing; X11 games through XWayland.
+4. **Everyday apps**: focus requests, sharp fractional scale, clipboard
+   between Wayland and X11, screen sharing, screenshots upright.
+5. **Laptop**: screens off, idle, touch, brightness keys, lid (not yet).
+
+Before calling a step done: unit tests for the geometry, the headless
+Weston screenshots for looks, the DRM VM with the mouse for behaviour,
+then a review pass for the rules above. Report what could not be tested
+(real GPUs, touch, adaptive sync, tearing) in plain words.

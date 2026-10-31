@@ -20,6 +20,7 @@ mod pointer;
 mod protocols;
 mod render;
 mod screens;
+mod snap;
 mod state;
 mod udev;
 mod winit;
@@ -109,6 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     event_loop.run(None, &mut state, |state| {
         state.space.refresh();
+        state.forget_dead();
         state.refresh_foreign_toplevels();
         state.refresh_output_management();
         state.popups.cleanup();

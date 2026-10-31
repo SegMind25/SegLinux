@@ -173,6 +173,8 @@ package() {
     install -Dm644 "$data/system/modules-ddcutil.conf" "$pkgdir/etc/modules-load.d/ddcutil.conf"
     install -Dm644 "$data/system/modprobe-nowatchdog.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nowatchdog.conf"
     install -Dm644 "$data/system/modprobe-nvidia.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-nvidia.conf"
+    install -Dm644 "$data/system/modprobe-wifi.conf" "$pkgdir/usr/lib/modprobe.d/seglinux-wifi.conf"
+    install -Dm644 "$data/system/networkmanager-wifi.conf" "$pkgdir/usr/lib/NetworkManager/conf.d/80-seglinux-wifi.conf"
     install -Dm644 "$data/system/gamemode.ini" "$pkgdir/etc/gamemode.ini"
     install -Dm644 "$data/system/profile-gaming.sh" "$pkgdir/etc/profile.d/seglinux-gaming.sh"
 

@@ -267,6 +267,10 @@ impl Handle {
         screen.dirty = false;
         // Adaptive sync as wanted (only where it needs no mode change, unless
         // it was asked for explicitly).
+        let tearing = state.wants_tearing(&output);
+        screen
+            .drm_output
+            .with_compositor(|c| c.set_tearing(tearing));
         let wanted = state.wants_adaptive_sync(&output);
         let forced = state.adaptive_sync_forced(&output);
         let connector = screen.connector;
