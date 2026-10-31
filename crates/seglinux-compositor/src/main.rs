@@ -72,7 +72,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    // On real screens the session has no terminal to read: the log goes to
+    // ~/.local/state/seglinux/compositor.log (the previous one beside it).
+    match (!nested).then(open_log).flatten() {
+        Some(file) => tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_ansi(false)
+            .with_writer(std::sync::Mutex::new(file))
+            .init(),
+        None => tracing_subscriber::fmt().with_env_filter(filter).init(),
+    }
 
     let mut event_loop: EventLoop<'static, state::State> = EventLoop::try_new()?;
     let display: Display<state::State> = Display::new()?;
@@ -121,4 +130,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn state_config_default() -> Option<PathBuf> {
     config::Config::default_path()
+}
+
+/// `compositor.log` in SegLinux's state folder, the last one kept as
+/// `compositor-previous.log`.
+fn open_log() -> Option<std::fs::File> {
+    let dir = std::env::var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?
+        .join("seglinux");
+    std::fs::create_dir_all(&dir).ok()?;
+    let log = dir.join("compositor.log");
+    let _ = std::fs::rename(&log, dir.join("compositor-previous.log"));
+    std::fs::File::create(log).ok()
 }

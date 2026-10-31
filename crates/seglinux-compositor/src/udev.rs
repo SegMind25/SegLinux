@@ -44,10 +44,13 @@ use crate::{
     state::{Backend, State},
 };
 
+/// Sent once the frame is on the screen (presentation-time).
+type Feedback = Option<smithay::desktop::utils::OutputPresentationFeedback>;
+
 type Manager = DrmOutputManager<
     GbmAllocator<DrmDeviceFd>,
     GbmFramebufferExporter<DrmDeviceFd>,
-    (),
+    Feedback,
     DrmDeviceFd,
 >;
 type Element = OutputElement<GlesRenderer>;
@@ -55,15 +58,21 @@ type Element = OutputElement<GlesRenderer>;
 struct Screen {
     output: Output,
     global: GlobalId,
-    drm_output:
-        DrmOutput<GbmAllocator<DrmDeviceFd>, GbmFramebufferExporter<DrmDeviceFd>, (), DrmDeviceFd>,
+    drm_output: DrmOutput<
+        GbmAllocator<DrmDeviceFd>,
+        GbmFramebufferExporter<DrmDeviceFd>,
+        Feedback,
+        DrmDeviceFd,
+    >,
     /// A frame is on its way to the screen: wait for its vblank.
     queued: bool,
     /// Something changed: draw again at the next chance.
     dirty: bool,
     /// Every mode the screen offers.
     modes: Vec<smithay::reexports::drm::control::Mode>,
-    connector: connector::Handle,
+    /// Adaptive sync: none if the screen cannot, else whether it needs a
+    /// mode change (asked once: the answer costs several kernel calls).
+    vrr: Option<bool>,
 }
 
 struct Udev {
@@ -213,15 +222,10 @@ impl Backend for Handle {
     }
 
     fn adaptive_sync(&self, output: &Output) -> Option<bool> {
-        use smithay::backend::drm::VrrSupport;
         let udev = self.0.borrow();
         let screen = udev.screens.values().find(|s| &s.output == output)?;
-        screen
-            .drm_output
-            .with_compositor(|c| match c.vrr_supported(screen.connector) {
-                Ok(VrrSupport::Supported | VrrSupport::RequiresModeset) => Some(c.vrr_enabled()),
-                _ => None,
-            })
+        screen.vrr?;
+        Some(screen.drm_output.with_compositor(|c| c.vrr_enabled()))
     }
 
     fn configure_input(&mut self, input: &crate::desktop::Input) {
@@ -273,16 +277,13 @@ impl Handle {
             .with_compositor(|c| c.set_tearing(tearing));
         let wanted = state.wants_adaptive_sync(&output);
         let forced = state.adaptive_sync_forced(&output);
-        let connector = screen.connector;
+        let vrr = screen.vrr;
         screen.drm_output.with_compositor(|c| {
-            use smithay::backend::drm::VrrSupport;
-            if c.vrr_enabled() == wanted {
-                return;
-            }
-            let ok = match c.vrr_supported(connector) {
-                Ok(VrrSupport::Supported) => true,
-                Ok(VrrSupport::RequiresModeset) => forced || !wanted,
-                _ => false,
+            let ok = match vrr {
+                _ if c.vrr_enabled() == wanted => false,
+                Some(false) => true,
+                Some(true) => forced || !wanted,
+                None => false,
             };
             if ok && let Err(e) = c.use_vrr(wanted) {
                 tracing::warn!("{}: adaptive sync: {e}", output.name());
@@ -302,10 +303,18 @@ impl Handle {
             },
             FrameFlags::DEFAULT,
         ) {
-            Ok(result) if !result.is_empty => match screen.drm_output.queue_frame(()) {
-                Ok(()) => screen.queued = true,
-                Err(e) => tracing::warn!("cannot show a frame: {e}"),
-            },
+            Ok(result) if !result.is_empty => {
+                match screen
+                    .drm_output
+                    .queue_frame(Some(crate::protocols::presentation_feedback(
+                        state,
+                        &output,
+                        &result.states,
+                    ))) {
+                    Ok(()) => screen.queued = true,
+                    Err(e) => tracing::warn!("cannot show a frame: {e}"),
+                }
+            }
             Ok(_) => {
                 // Nothing changed on this screen: let the applications
                 // draw again after about one refresh.
@@ -329,14 +338,45 @@ impl Handle {
         send_frames(state, &output);
     }
 
-    fn vblank(&self, state: &mut State, crtc: crtc::Handle) {
+    fn vblank(
+        &self,
+        state: &mut State,
+        crtc: crtc::Handle,
+        when: Option<smithay::backend::drm::DrmEventMetadata>,
+    ) {
         {
             let mut udev = self.0.borrow_mut();
             let Some(screen) = udev.screens.get_mut(&crtc) else {
                 return;
             };
-            if let Err(e) = screen.drm_output.frame_submitted() {
-                tracing::warn!("frame not shown: {e}");
+            match screen.drm_output.frame_submitted() {
+                // On the screen now: tell the applications when.
+                Ok(Some(Some(mut feedback))) => {
+                    use smithay::reexports::wayland_protocols::wp::presentation_time::server::wp_presentation_feedback::Kind;
+                    let time = match when.map(|m| m.time) {
+                        Some(smithay::backend::drm::DrmEventTime::Monotonic(t)) => t,
+                        _ => smithay::utils::Clock::<smithay::utils::Monotonic>::new()
+                            .now()
+                            .into(),
+                    };
+                    let refresh = screen
+                        .output
+                        .current_mode()
+                        .map(|m| {
+                            smithay::wayland::presentation::Refresh::fixed(Duration::from_secs_f64(
+                                1000.0 / m.refresh.max(1) as f64,
+                            ))
+                        })
+                        .unwrap_or(smithay::wayland::presentation::Refresh::Unknown);
+                    feedback.presented::<_, smithay::utils::Monotonic>(
+                        time,
+                        refresh,
+                        when.map(|m| m.sequence as u64).unwrap_or(0),
+                        Kind::Vsync | Kind::HwClock | Kind::HwCompletion,
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => tracing::warn!("frame not shown: {e}"),
             }
             screen.queued = false;
         }
@@ -446,6 +486,14 @@ impl Handle {
                     continue;
                 }
             };
+            let vrr = drm_output.with_compositor(|c| {
+                use smithay::backend::drm::VrrSupport;
+                match c.vrr_supported(info.handle()) {
+                    Ok(VrrSupport::Supported) => Some(false),
+                    Ok(VrrSupport::RequiresModeset) => Some(true),
+                    _ => None,
+                }
+            });
             tracing::info!(
                 "screen {} at {}x{}",
                 output.name(),
@@ -461,7 +509,7 @@ impl Handle {
                     queued: false,
                     dirty: true,
                     modes: info.modes().to_vec(),
-                    connector: info.handle(),
+                    vrr,
                 },
             );
         }
@@ -537,8 +585,8 @@ pub fn init(
     let h = handle.clone();
     event_loop
         .handle()
-        .insert_source(drm_notifier, move |event, _, state| match event {
-            DrmEvent::VBlank(crtc) => h.vblank(state, crtc),
+        .insert_source(drm_notifier, move |event, metadata, state| match event {
+            DrmEvent::VBlank(crtc) => h.vblank(state, crtc, *metadata),
             DrmEvent::Error(e) => tracing::warn!("graphics card: {e}"),
         })?;
 
