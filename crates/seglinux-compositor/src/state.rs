@@ -138,6 +138,7 @@ pub struct State {
     pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
     pub lock: crate::lock::Lock,
     pub capture: crate::capture::CaptureState,
+    pub protocols: crate::protocols::Protocols,
     pub output_management: crate::outputs::OutputManagementState,
 
     pub config: Config,
@@ -243,6 +244,7 @@ impl State {
             >(&dh, |_| true),
             lock: crate::lock::Lock::default(),
             capture: crate::capture::CaptureState::new(&dh),
+            protocols: crate::protocols::Protocols::new(&dh),
             output_management: crate::outputs::OutputManagementState::new(&dh),
             seat_state,
             seat,

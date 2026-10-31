@@ -25,6 +25,7 @@ until the user has tried it on real hardware and says so.
 | `focus.rs` | keyboard focus: Wayland surface or X11 window |
 | `xwayland.rs` | XWayland, X11 window management |
 | `udev.rs` / `winit.rs` | real screens (libseat, DRM, libinput) / a window for testing |
+| `protocols.rs` | relative-pointer + pointer-constraints (games), xdg-activation, fractional scale, xdg-foreign |
 | `examples/windows.rs` | a dock stand-in: list, minimize, restore, maximize, activate, close |
 
 ## Build
@@ -61,6 +62,11 @@ WAYLAND_DISPLAY=wayland-1 target/debug/examples/windows minimize foot
   xdg-desktop-portal-wlr): a still screen gives one frame. Its video is upside
   down under `--winit` only (that output reports Flipped180); real screens
   are Normal.
+- `wayland-info` (wayland-utils) lists the globals: check a new protocol shows.
+- Headless Weston gives no pointer: input paths (constraints, grabs) can only
+  be checked for protocol errors here (`weston-constraints` runs clean).
+- Weston gone after a session restart (stale `wl-host` socket, winit says
+  NoCompositor): `rm /tmp/xdg/wl-host*` and start it again.
 - Waybar needs a D-Bus session (`dbus-run-session`), as the real session has.
 - `pkill -x seglinux-compos` (process names are cut to 15 characters);
   never `pkill -f seglinux-compositor`, it kills your own shell.

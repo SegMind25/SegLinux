@@ -39,6 +39,11 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   area) and the lock screen (ext-session-lock: swaylock, Super+L); while
   locked only the lock screen is shown and no key combination works except
   switching terminals.
+- Games and applications: the pointer is held by games for mouse look
+  (relative-pointer, pointer-constraints; Wayland games and X11 ones
+  through XWayland), focus requests (xdg-activation: a link from a chat
+  brings the browser forward), sharp text at 125 % or 150 % (fractional
+  scale), portal dialogs over their application (xdg-foreign).
 - Screen sharing (xdg-desktop-portal-wlr: Discord/Vesktop, OBS, browsers,
   wf-recorder): a shared screen is only copied again where it changed, and
   not at all while nothing moves.

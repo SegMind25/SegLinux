@@ -19,6 +19,7 @@ use crate::{
     config::{Action, Combo, Mods, normalize_key},
     deco::Hit,
     grabs::MoveSurfaceGrab,
+    protocols::Constraint,
     state::State,
 };
 
@@ -86,8 +87,36 @@ impl State {
                 let Some(pointer) = self.seat.get_pointer() else {
                     return;
                 };
-                let pos = self.clamp(pointer.current_location() + event.delta());
-                let under = self.surface_under(pos);
+                let old = pointer.current_location();
+                let focus = pointer
+                    .current_focus()
+                    .and_then(|s| self.surface_under(old).filter(|(u, _)| *u == s));
+                let constraint = focus.as_ref().map_or(Constraint::None, |(s, origin)| {
+                    self.constraint(&pointer, s, *origin, old)
+                });
+                let relative = RelativeMotionEvent {
+                    delta: event.delta(),
+                    delta_unaccel: event.delta_unaccel(),
+                    utime: event.time(),
+                };
+                // A game holding the pointer: raw motion only, the pointer stays.
+                if matches!(constraint, Constraint::Locked) {
+                    pointer.relative_motion(self, focus, &relative);
+                    pointer.frame(self);
+                    return;
+                }
+                let mut pos = self.clamp(old + event.delta());
+                let mut under = self.surface_under(pos);
+                // Confined: it does not leave the surface (or its region).
+                if let (Constraint::Confined, Some((s, origin))) = (&constraint, &focus) {
+                    let same = under.as_ref().is_some_and(|(u, _)| u == s);
+                    if !same
+                        || matches!(self.constraint(&pointer, s, *origin, pos), Constraint::None)
+                    {
+                        pos = old;
+                        under = focus.clone();
+                    }
+                }
                 pointer.motion(
                     self,
                     under.clone(),
@@ -97,16 +126,11 @@ impl State {
                         time: event.time_msec(),
                     },
                 );
-                pointer.relative_motion(
-                    self,
-                    under,
-                    &RelativeMotionEvent {
-                        delta: event.delta(),
-                        delta_unaccel: event.delta_unaccel(),
-                        utime: event.time(),
-                    },
-                );
+                pointer.relative_motion(self, under.clone(), &relative);
                 pointer.frame(self);
+                if let Some((s, origin)) = &under {
+                    self.activate_constraint(&pointer, s, *origin);
+                }
                 self.after_motion(pos);
             }
             InputEvent::PointerMotionAbsolute { event } => {

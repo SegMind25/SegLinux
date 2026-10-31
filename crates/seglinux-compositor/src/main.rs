@@ -17,6 +17,7 @@ mod input;
 mod lock;
 mod outputs;
 mod pointer;
+mod protocols;
 mod render;
 mod state;
 mod udev;
