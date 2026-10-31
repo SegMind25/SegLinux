@@ -1,10 +1,10 @@
-# seglinux-compositor (preview)
+# seglinux-compositor
 
 SegLinux's own Wayland compositor, written in Rust on
 [Smithay](https://github.com/Smithay/smithay) (`crates/seglinux-compositor`).
-It is meant to replace labwc. Until it does everything labwc does, labwc
-stays the default and this is an extra choice on the sign-in screen:
-**SegLinux (new compositor, preview)**.
+The **SegLinux** session runs on it. If it cannot start (an error within
+its first seconds), the same desktop comes up on labwc; **SegLinux (labwc)**
+on the sign-in screen always uses labwc.
 
 ![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
 
@@ -83,9 +83,9 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   a tap on a title bar's buttons works. Touches land on the built-in
   screen (eDP, LVDS, DSI), else the first.
 
-Not yet: tearing (immediate frames for games, beyond adaptive sync). labwc
-remains the default session until this one has been tried on real
-computers.
+Not yet: tearing (immediate frames for games, beyond adaptive sync):
+Smithay 0.7, the newest, cannot flip pages asynchronously. Games that want
+it can use **SegLinux (labwc)** or the Gaming Mode session.
 
 ## Settings
 
@@ -125,7 +125,7 @@ Super+. emoji, the volume and brightness keys, Ctrl+Alt+Backspace quit.
 
 ## Trying it
 
-From the sign-in screen: choose **SegLinux (new compositor, preview)**. In
-a window of a running desktop: `seglinux-compositor --winit`. Problems are
-logged with `RUST_LOG=debug`. If the session does not start, sign in to
-**SegLinux** as before: nothing of labwc's session was changed.
+**SegLinux** on the sign-in screen. In a window of a running desktop:
+`seglinux-compositor --winit`. Problems are logged with `RUST_LOG=debug`.
+Should something not work, sign in to **SegLinux (labwc)**: the same
+desktop on labwc.

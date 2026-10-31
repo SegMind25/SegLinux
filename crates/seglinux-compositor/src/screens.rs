@@ -128,10 +128,7 @@ impl State {
 
     /// Whether adaptive sync should be on for this screen now.
     pub fn wants_adaptive_sync(&self, output: &Output) -> bool {
-        let mode = prefs(output)
-            .adaptive_sync
-            .unwrap_or(self.config.adaptive_sync);
-        match mode {
+        match self.adaptive_sync_mode(output) {
             AdaptiveSync::Off => false,
             AdaptiveSync::On => true,
             AdaptiveSync::Fullscreen => self
@@ -143,10 +140,16 @@ impl State {
 
     /// Adaptive sync was asked for explicitly (may flicker once to turn on).
     pub fn adaptive_sync_forced(&self, output: &Output) -> bool {
+        self.adaptive_sync_mode(output) == AdaptiveSync::On
+    }
+
+    /// The display settings' choice for this screen, else compositor.toml's,
+    /// else the Settings app's.
+    fn adaptive_sync_mode(&self, output: &Output) -> AdaptiveSync {
         prefs(output)
             .adaptive_sync
-            .unwrap_or(self.config.adaptive_sync)
-            == AdaptiveSync::On
+            .or(self.config.adaptive_sync)
+            .unwrap_or_else(|| self.desktop.windows.adaptive_sync())
     }
 
     fn update_inhibit(&mut self) {

@@ -115,7 +115,7 @@ jobs:
             data/system/fastfetch.bashrc data/system/rust-tools.bashrc
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
-            data/desktop/seglinux-session data/desktop/seglinux-gaming-session data/desktop/seglinux-compositor-session \
+            data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
             data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
             data/system/profile-gaming.sh data/greeter/seglinux-greeter-session data/system/zram-setup \
             tools/seg/dist/fstrim-weekly tools/seg/dist/runit/*/run tools/seg/dist/runit/seg-zram/finish \

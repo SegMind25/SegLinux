@@ -64,6 +64,8 @@ impl Input {
 pub struct Windows {
     pub focus_follows_mouse: bool,
     pub workspaces: u32,
+    /// "no", "fullscreen" or "yes" (Settings, Gaming).
+    pub adaptive_sync: String,
 }
 
 impl Default for Windows {
@@ -71,6 +73,18 @@ impl Default for Windows {
         Windows {
             focus_follows_mouse: false,
             workspaces: 1,
+            adaptive_sync: "fullscreen".into(),
+        }
+    }
+}
+
+impl Windows {
+    pub fn adaptive_sync(&self) -> crate::config::AdaptiveSync {
+        use crate::config::AdaptiveSync;
+        match self.adaptive_sync.as_str() {
+            "no" => AdaptiveSync::Off,
+            "yes" => AdaptiveSync::On,
+            _ => AdaptiveSync::Fullscreen,
         }
     }
 }
@@ -127,6 +141,12 @@ tap_to_click = false
         );
         assert!(d.windows.focus_follows_mouse);
         assert_eq!(d.windows.workspaces, 4);
+        assert_eq!(
+            d.windows.adaptive_sync(),
+            crate::config::AdaptiveSync::Fullscreen
+        );
+        let yes = Desktop::parse("[windows]\nadaptive_sync = \"yes\"\n");
+        assert_eq!(yes.windows.adaptive_sync(), crate::config::AdaptiveSync::On);
         assert_eq!(d.input.pointer_speed, -30);
         assert!(!d.input.tap_to_click);
         assert_eq!(

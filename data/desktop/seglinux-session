@@ -1,6 +1,14 @@
 #!/bin/sh
-# A distinct desktop session: do not alter the user's Plasma configuration.
+# The SegLinux desktop: the Rust shell (dock, desktop icons, Start menu) on
+# seglinux-compositor, SegLinux's own Rust compositor. Should it not start
+# at all (an error within its first seconds), the same desktop comes up on
+# labwc instead; `seglinux-session --labwc` ("SegLinux (labwc)" on the
+# sign-in screen) always uses labwc.
 set -eu
+use_labwc=false
+if [ "${1:-}" = --labwc ] || ! command -v seglinux-compositor >/dev/null 2>&1; then
+    use_labwc=true
+fi
 export XDG_CURRENT_DESKTOP=SegLinux:wlroots
 export XDG_SESSION_DESKTOP=seglinux
 export XDG_SESSION_TYPE=wayland
@@ -55,6 +63,26 @@ run_labwc() {
         labwc -C "$labwc_dir"
     fi
 }
+
+run_compositor() {
+    if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        dbus-run-session -- seglinux-compositor --tty
+    else
+        seglinux-compositor --tty
+    fi
+}
+
+if ! $use_labwc; then
+    started=$(date +%s)
+    status=0
+    run_compositor || status=$?
+    # Signed out (0), or it ran a while and then failed: back to the
+    # sign-in screen, as with labwc.
+    if [ "$status" -eq 0 ] || [ $(($(date +%s) - started)) -ge 15 ]; then
+        exit "$status"
+    fi
+    echo "seglinux-session: seglinux-compositor could not start (exit status $status); using labwc" >&2
+fi
 
 started=$(date +%s)
 status=0

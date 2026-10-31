@@ -33,9 +33,10 @@ Measurements and the reasons behind each removal are in
 
 ### Added
 
-- **SegLinux's own compositor (preview)**: `seglinux-compositor`, written in
-  Rust on Smithay, as an extra choice on the sign-in screen beside the labwc
-  session, which stays the default. Windows, the dock and its menus, the
+- **SegLinux's own compositor, now the desktop's**: `seglinux-compositor`, written in
+  Rust on Smithay, runs the **SegLinux** session; if it cannot start, the
+  same desktop comes up on labwc, and **SegLinux (labwc)** on the sign-in
+  screen always uses labwc. Windows, the dock and its menus, the
   same keys as on labwc, a settings file for keys, start-up and keyboard,
   GPU buffers for games, several screens, the dock's list of open
   windows, title bars with minimize, maximize and close, panels that take

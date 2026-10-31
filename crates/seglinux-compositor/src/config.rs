@@ -7,7 +7,7 @@
 //! autostart = ["sh /usr/share/seglinux/labwc/autostart", "nm-applet"]
 //! background = "#0b1220"
 //! focus_follows_mouse = false
-//! adaptive_sync = "fullscreen"   # "on", "off"; per screen: display settings
+//! adaptive_sync = "fullscreen"   # "on", "off"; unset: the Settings app's
 //!
 //! [keyboard]
 //! layout = "us,ara"
@@ -194,7 +194,8 @@ pub struct Config {
     /// Behind every window, where no wallpaper (layer surface) covers it.
     pub background: [f32; 4],
     pub focus_follows_mouse: bool,
-    pub adaptive_sync: AdaptiveSync,
+    /// None: the Settings app's choice (Settings, Gaming).
+    pub adaptive_sync: Option<AdaptiveSync>,
     pub keyboard: Keyboard,
     pub binds: BTreeMap<Combo, Action>,
 }
@@ -260,7 +261,7 @@ impl Default for Config {
             autostart: vec!["sh /usr/share/seglinux/labwc/autostart".into()],
             background: [0.043, 0.071, 0.125, 1.0],
             focus_follows_mouse: false,
-            adaptive_sync: AdaptiveSync::default(),
+            adaptive_sync: None,
             keyboard: Keyboard::default(),
             binds,
         }
@@ -306,7 +307,7 @@ impl Config {
         }
         if let Some(a) = file.adaptive_sync {
             match AdaptiveSync::parse(&a) {
-                Some(a) => config.adaptive_sync = a,
+                Some(a) => config.adaptive_sync = Some(a),
                 None => problems.push(format!(
                     "adaptive_sync: `{a}` is not \"fullscreen\", \"on\" or \"off\""
                 )),
@@ -481,12 +482,12 @@ options = "grp:alt_shift_toggle"
 
     #[test]
     fn adaptive_sync() {
-        assert_eq!(Config::default().adaptive_sync, AdaptiveSync::Fullscreen);
+        assert_eq!(Config::default().adaptive_sync, None);
         let (c, p) = Config::parse("adaptive_sync = \"on\"\n");
-        assert_eq!(c.adaptive_sync, AdaptiveSync::On);
+        assert_eq!(c.adaptive_sync, Some(AdaptiveSync::On));
         assert!(p.is_empty());
         let (c, p) = Config::parse("adaptive_sync = \"always\"\n");
-        assert_eq!(c.adaptive_sync, AdaptiveSync::Fullscreen);
+        assert_eq!(c.adaptive_sync, None);
         assert_eq!(p.len(), 1);
     }
 }

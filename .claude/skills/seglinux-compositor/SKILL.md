@@ -5,11 +5,11 @@ description: Develop, test and screenshot seglinux-compositor, SegLinux's own Wa
 
 # seglinux-compositor
 
-SegLinux's compositor, meant to replace labwc under the SegLinux desktop
-(seglinux-shell: wallpaper, dock, Start menu, tray). Until it does all labwc
-does it is a preview session: `data/desktop/seglinux-compositor-session`,
-`seglinux-compositor.desktop` on the sign-in screen. labwc stays the default
-until the user has tried it on real hardware and says so.
+SegLinux's compositor under the SegLinux desktop (seglinux-shell:
+wallpaper, dock, Start menu, tray). `data/desktop/seglinux-session` runs it
+and falls back to labwc if it exits with an error within 15 s;
+`seglinux-session --labwc` (`seglinux-labwc.desktop`, "SegLinux (labwc)")
+always uses labwc. Keep labwc working: it is the fallback.
 
 ## Map
 
