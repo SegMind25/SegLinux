@@ -89,6 +89,14 @@ pub trait Backend {
     ) -> bool {
         false
     }
+    /// Turn a screen's picture on or off; false if it could not.
+    fn set_power(&mut self, _output: &smithay::output::Output, _on: bool) -> bool {
+        true
+    }
+    /// Adaptive sync on this screen: none if it cannot, else whether it is on.
+    fn adaptive_sync(&self, _output: &smithay::output::Output) -> Option<bool> {
+        None
+    }
     /// Apply the mouse and touchpad settings to the input devices.
     fn configure_input(&mut self, _input: &crate::desktop::Input) {}
     /// Hand a client's GPU buffer to the renderer.
@@ -138,6 +146,10 @@ pub struct State {
     pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
     pub lock: crate::lock::Lock,
     pub capture: crate::capture::CaptureState,
+    pub protocols: crate::protocols::Protocols,
+    pub screens: crate::screens::ScreensState,
+    /// Screens turned off in the display settings, and where they were.
+    pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
     pub output_management: crate::outputs::OutputManagementState,
 
     pub config: Config,
@@ -182,6 +194,7 @@ impl State {
                 .expect("the default keyboard layout");
         }
         seat.add_pointer();
+        seat.add_touch();
 
         // The socket clients connect to, and the clients' messages.
         let socket = ListeningSocketSource::new_auto().expect("a Wayland socket");
@@ -243,6 +256,9 @@ impl State {
             >(&dh, |_| true),
             lock: crate::lock::Lock::default(),
             capture: crate::capture::CaptureState::new(&dh),
+            protocols: crate::protocols::Protocols::new(&dh),
+            screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
+            disabled_outputs: Vec::new(),
             output_management: crate::outputs::OutputManagementState::new(&dh),
             seat_state,
             seat,

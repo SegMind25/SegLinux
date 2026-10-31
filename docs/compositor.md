@@ -1,10 +1,10 @@
-# seglinux-compositor (preview)
+# seglinux-compositor
 
 SegLinux's own Wayland compositor, written in Rust on
 [Smithay](https://github.com/Smithay/smithay) (`crates/seglinux-compositor`).
-It is meant to replace labwc. Until it does everything labwc does, labwc
-stays the default and this is an extra choice on the sign-in screen:
-**SegLinux (new compositor, preview)**.
+The **SegLinux** session runs on it. If it cannot start (an error within
+its first seconds), the same desktop comes up on labwc; **SegLinux (labwc)**
+on the sign-in screen always uses labwc.
 
 ![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
 
@@ -39,6 +39,11 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   area) and the lock screen (ext-session-lock: swaylock, Super+L); while
   locked only the lock screen is shown and no key combination works except
   switching terminals.
+- Games and applications: the pointer is held by games for mouse look
+  (relative-pointer, pointer-constraints; Wayland games and X11 ones
+  through XWayland), focus requests (xdg-activation: a link from a chat
+  brings the browser forward), sharp text at 125 % or 150 % (fractional
+  scale), portal dialogs over their application (xdg-foreign).
 - Screen sharing (xdg-desktop-portal-wlr: Discord/Vesktop, OBS, browsers,
   wf-recorder): a shared screen is only copied again where it changed, and
   not at all while nothing moves.
@@ -64,9 +69,23 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   session runs `/usr/share/seglinux/labwc/autostart` (sound, the password
   agent, the desktop).
 
-Not yet: turning a screen off from the display settings,
-tearing for games, touch. These come in the next steps; labwc
-remains the default until they are done.
+- Screens: turned off and on from the display settings (the windows move
+  to the other screens; the last one stays on), their picture switched off
+  by power management (wlopm, swayidle; any key or mouse movement brings it
+  back), adaptive sync (FreeSync, G-Sync Compatible) while a game or video
+  is fullscreen, or always, or never (`adaptive_sync`, or per screen in the
+  display settings).
+- Idle: swayidle and other idle tools are told when nobody uses the
+  computer (ext-idle-notify); video players and browsers playing a video
+  keep it awake (idle-inhibit). The SegLinux session itself turns nothing
+  off, as on labwc.
+- Touch screens: taps, swipes and several fingers go to the application;
+  a tap on a title bar's buttons works. Touches land on the built-in
+  screen (eDP, LVDS, DSI), else the first.
+
+Not yet: tearing (immediate frames for games, beyond adaptive sync):
+Smithay 0.7, the newest, cannot flip pages asynchronously. Games that want
+it can use **SegLinux (labwc)** or the Gaming Mode session.
 
 ## Settings
 
@@ -78,6 +97,7 @@ reads it again.
 autostart = ["sh /usr/share/seglinux/labwc/autostart", "nm-applet"]
 background = "#0b1220"
 focus_follows_mouse = false
+adaptive_sync = "fullscreen"   # "on", "off"
 
 [keyboard]
 layout = "us,ara"
@@ -105,7 +125,9 @@ Super+. emoji, the volume and brightness keys, Ctrl+Alt+Backspace quit.
 
 ## Trying it
 
-From the sign-in screen: choose **SegLinux (new compositor, preview)**. In
-a window of a running desktop: `seglinux-compositor --winit`. Problems are
-logged with `RUST_LOG=debug`. If the session does not start, sign in to
-**SegLinux** as before: nothing of labwc's session was changed.
+**SegLinux** on the sign-in screen. CI runs it on a real (virtual) display
+driver, vkms, in a virtual machine: `crates/seglinux-compositor/tests/drm-vm.sh`.
+In a window of a running desktop:
+`seglinux-compositor --winit`. Problems are logged with `RUST_LOG=debug`.
+Should something not work, sign in to **SegLinux (labwc)**: the same
+desktop on labwc.

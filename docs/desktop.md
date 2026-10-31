@@ -2,10 +2,11 @@
 
 This is the first implementation of SegLinux's own desktop shell. The shell
 is Rust with GTK4 Rust bindings; it is not a rewrite of the entire desktop
-stack in Rust. GTK, labwc, greetd and the bundled applications retain their
-upstream implementations. labwc handles composition, decorations, snapping,
-Alt+Tab and workspaces ([SegLinux's own compositor](compositor.md) is in
-preview to replace it). Since October 2026 it is the only desktop: the
+stack in Rust. GTK, greetd and the bundled applications retain their
+upstream implementations. [SegLinux's own compositor](compositor.md), in
+Rust, handles composition, decorations, snapping, Alt+Tab and workspaces;
+labwc takes over if it cannot start, and **SegLinux (labwc)** on the
+sign-in screen always uses labwc. Since October 2026 it is the only desktop: the
 Plasma session was removed (about 500 MiB).
 
 ## Implemented
@@ -106,11 +107,13 @@ Laid out like a Plasma desktop with a floating panel:
   desktop to start, preselecting the SegLinux desktop and the last account
   (see [below](#sign-in-screen)); the Lite live session starts the desktop
   directly.
-- labwc manages windows (decorations, snapping, Alt+Tab), like KWin under
-  Plasma; without a usable GPU driver the session falls back to software
-  rendering, then to wlroots' CPU renderer.
-- Gaming: variable refresh rate and tearing for fullscreen games in labwc
-  (`adaptiveSync`, `allowTearing`), and a separate **SegLinux Gaming Mode**
+- seglinux-compositor manages windows (decorations, snapping, Alt+Tab), like
+  KWin under Plasma. If it cannot start (no usable GPU driver), the same
+  desktop comes up on labwc, which falls back to software rendering, then
+  to wlroots' CPU renderer.
+- Gaming: variable refresh rate for fullscreen games (Settings' adaptive
+  sync; labwc also tears when a game asks, `allowTearing`, which
+  seglinux-compositor cannot yet), and a separate **SegLinux Gaming Mode**
   session (Steam Big Picture in gamescope). See [gaming.md](gaming.md).
 
 ## Sign-in screen

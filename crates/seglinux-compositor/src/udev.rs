@@ -63,6 +63,7 @@ struct Screen {
     dirty: bool,
     /// Every mode the screen offers.
     modes: Vec<smithay::reexports::drm::control::Mode>,
+    connector: connector::Handle,
 }
 
 struct Udev {
@@ -187,6 +188,42 @@ impl Backend for Handle {
         }
     }
 
+    fn set_power(&mut self, output: &Output, on: bool) -> bool {
+        let mut udev = self.0.borrow_mut();
+        let Some(screen) = udev.screens.values_mut().find(|s| &s.output == output) else {
+            return false;
+        };
+        if on {
+            // The next frame turns it back on.
+            screen.dirty = true;
+            drop(udev);
+            self.schedule_render();
+            return true;
+        }
+        match screen.drm_output.with_compositor(|c| c.clear()) {
+            Ok(()) => {
+                screen.queued = false;
+                true
+            }
+            Err(e) => {
+                tracing::warn!("{}: cannot turn off: {e}", output.name());
+                false
+            }
+        }
+    }
+
+    fn adaptive_sync(&self, output: &Output) -> Option<bool> {
+        use smithay::backend::drm::VrrSupport;
+        let udev = self.0.borrow();
+        let screen = udev.screens.values().find(|s| &s.output == output)?;
+        screen
+            .drm_output
+            .with_compositor(|c| match c.vrr_supported(screen.connector) {
+                Ok(VrrSupport::Supported | VrrSupport::RequiresModeset) => Some(c.vrr_enabled()),
+                _ => None,
+            })
+    }
+
     fn configure_input(&mut self, input: &crate::desktop::Input) {
         for device in self.0.borrow_mut().devices.iter_mut() {
             configure(device, input);
@@ -222,8 +259,31 @@ impl Handle {
         if screen.queued || !screen.dirty {
             return;
         }
-        screen.dirty = false;
         let output = screen.output.clone();
+        // Turned off: nothing is drawn until it is on again.
+        if !crate::screens::prefs(&output).power {
+            return;
+        }
+        screen.dirty = false;
+        // Adaptive sync as wanted (only where it needs no mode change, unless
+        // it was asked for explicitly).
+        let wanted = state.wants_adaptive_sync(&output);
+        let forced = state.adaptive_sync_forced(&output);
+        let connector = screen.connector;
+        screen.drm_output.with_compositor(|c| {
+            use smithay::backend::drm::VrrSupport;
+            if c.vrr_enabled() == wanted {
+                return;
+            }
+            let ok = match c.vrr_supported(connector) {
+                Ok(VrrSupport::Supported) => true,
+                Ok(VrrSupport::RequiresModeset) => forced || !wanted,
+                _ => false,
+            };
+            if ok && let Err(e) = c.use_vrr(wanted) {
+                tracing::warn!("{}: adaptive sync: {e}", output.name());
+            }
+        });
         crate::capture::fulfill(state, &mut udev.renderer, &output, &mut udev.pointer);
         let elements: Vec<Element> =
             output_elements(state, &mut udev.renderer, &output, &mut udev.pointer);
@@ -327,6 +387,7 @@ impl Handle {
         for crtc in gone {
             if let Some(screen) = udev.screens.remove(&crtc) {
                 state.space.unmap_output(&screen.output);
+                state.disabled_outputs.retain(|(o, _)| o != &screen.output);
                 state.display_handle.remove_global::<State>(screen.global);
             }
         }
@@ -396,6 +457,7 @@ impl Handle {
                     queued: false,
                     dirty: true,
                     modes: info.modes().to_vec(),
+                    connector: info.handle(),
                 },
             );
         }
@@ -525,6 +587,10 @@ pub fn init(
                     }
                     for screen in udev.screens.values_mut() {
                         screen.queued = false;
+                        // Screens turned off stay off.
+                        if !crate::screens::prefs(&screen.output).power {
+                            let _ = screen.drm_output.with_compositor(|c| c.clear());
+                        }
                     }
                 }
                 h.scan(state);

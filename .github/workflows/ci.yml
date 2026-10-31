@@ -60,6 +60,36 @@ jobs:
         run: cargo run --locked -q -p segrun -- --config data/seglinux/segrun.toml config
 
   # seg (tools/seg) is a workspace of its own with its own release profile.
+  compositor-drm:
+    name: seglinux-compositor on a DRM device (vkms in a VM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build and test tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwayland-dev libxkbcommon-dev libinput-dev libseat-dev libudev-dev \
+            libgbm-dev libdrm-dev libegl-dev libgles-dev libgl1-mesa-dri qemu-system-x86 busybox-static zstd \
+            seatd foot swaybg grim wlr-randr wlopm xwayland xterm python3-pip > /dev/null
+          # Ubuntu's generic kernel: vkms is among its extra modules.
+          version=$(apt-cache depends linux-image-virtual | sed -n 's/.*linux-image-\([0-9][^ ]*\)$/\1/p' | head -n 1)
+          sudo apt-get install -y -qq --no-install-recommends "linux-image-$version" "linux-modules-extra-$version" > /dev/null
+          echo "KERNEL=/boot/vmlinuz-$version" >> "$GITHUB_ENV"
+          sudo pip3 install -q --break-system-packages virtme-ng
+          # KVM when the runner offers it.
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --locked -p seglinux-compositor
+      - name: The compositor shows windows on a real KMS device
+        run: sudo --preserve-env=KERNEL crates/seglinux-compositor/tests/drm-vm.sh "$RUNNER_TEMP/drm"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compositor-drm
+          path: ${{ runner.temp }}/drm
+
   seg:
     name: seg (fmt, clippy, tests, size)
     runs-on: ubuntu-latest
@@ -111,11 +141,11 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-upgrade data/system/seglinux-update \
-            packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh \
+            packaging/make-signing-key.sh crates/seglinux-shell/tests/desktop-services.sh crates/seglinux-compositor/tests/drm-vm.sh \
             data/system/fastfetch.bashrc data/system/rust-tools.bashrc
           shellcheck -s sh data/system/apply-branding data/system/pipewire-session \
             iso/iso-profiles/seglinux/live-overlay/usr/lib/seglinux/live-autostart \
-            data/desktop/seglinux-session data/desktop/seglinux-gaming-session data/desktop/seglinux-compositor-session \
+            data/desktop/seglinux-session data/desktop/seglinux-gaming-session \
             data/desktop/labwc/autostart data/system/seglinux-terminal data/system/restore-trimmed-files \
             data/system/profile-gaming.sh data/greeter/seglinux-greeter-session data/system/zram-setup \
             tools/seg/dist/fstrim-weekly tools/seg/dist/runit/*/run tools/seg/dist/runit/seg-zram/finish \

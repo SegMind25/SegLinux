@@ -215,12 +215,14 @@ pub fn send_frames(state: &State, output: &Output) {
         );
     }
     for window in state.space.elements_for_output(output) {
+        crate::protocols::prefer_window_scale(window, output);
         window.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| {
             Some(output.clone())
         });
     }
     let map = smithay::desktop::layer_map_for_output(output);
     for layer in map.layers() {
+        layer.with_surfaces(|surface, data| crate::protocols::prefer_scale(surface, data, output));
         layer.send_frame(output, time, Some(std::time::Duration::ZERO), |_, _| {
             Some(output.clone())
         });
