@@ -28,7 +28,7 @@ use std::{
 use crate::{apps, config::Discord, tasks::Task};
 
 /// SegLinux's Discord application: what Discord shows the activity under.
-const SEGLINUX_APP_ID: &str = "";
+const SEGLINUX_APP_ID: &str = "1290295496077738019";
 const LOGO: &str = "https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/grub/seglinux/icons/seglinux.png";
 /// Discord takes 5 updates per 20 seconds.
 const MIN_GAP: Duration = Duration::from_secs(4);
