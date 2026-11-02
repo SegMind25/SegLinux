@@ -148,6 +148,8 @@ pub struct State {
     pub capture: crate::capture::CaptureState,
     pub protocols: crate::protocols::Protocols,
     pub clipboard: crate::clipboard::Clipboard,
+    /// Where each application's windows were last closed.
+    pub places: crate::places::Places,
     pub screens: crate::screens::ScreensState,
     /// Screens turned off in the display settings, and where they were.
     pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
@@ -263,6 +265,7 @@ impl State {
             capture: crate::capture::CaptureState::new(&dh),
             protocols: crate::protocols::Protocols::new(&dh),
             clipboard: Default::default(),
+            places: crate::places::Places::load(),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),
             snap_preview: None,
@@ -829,6 +832,31 @@ impl State {
             return;
         }
         let maximized = Self::is_state(&window, xdg_toplevel::State::Maximized);
+        // Where it was last closed (another of its windows there: a step
+        // further).
+        if !maximized && let Some(place) = self.saved_place(&window) {
+            let mut loc = place.rect.loc;
+            for _ in 0..8 {
+                if !self
+                    .space
+                    .elements()
+                    .any(|e| self.space.element_location(e) == Some(loc))
+                {
+                    break;
+                }
+                loc += (32, 32).into();
+            }
+            if let Some(x) = window.x11_surface() {
+                let _ = x.configure(Rectangle::new(loc, place.rect.size));
+            }
+            tracing::info!(x = loc.x, y = loc.y, "window shown where it was");
+            self.space.map_element(window.clone(), loc, true);
+            if place.maximized {
+                self.toggle_maximize(&window);
+            }
+            self.focus(Some(window));
+            return;
+        }
         let w = if size.w > 0 {
             size.w
         } else {
@@ -1010,6 +1038,7 @@ impl CompositorHandler for State {
             }
             if let Some(window) = self.window_for_surface(&root) {
                 window.on_commit();
+                crate::places::note_size(&window);
             }
         }
 
@@ -1036,6 +1065,10 @@ impl CompositorHandler for State {
             });
             if !initial_sent {
                 if let Some(t) = window.toplevel() {
+                    // Its size when it was last closed.
+                    if let Some(place) = self.saved_place(&window) {
+                        t.with_pending_state(|s| s.size = Some(place.rect.size));
+                    }
                     t.send_configure();
                 }
             } else {
@@ -1269,6 +1302,7 @@ impl XdgShellHandler for State {
             .retain(|w| w.toplevel().is_some_and(|t| t != &surface));
         let gone = self.window_for_surface(surface.wl_surface());
         if let Some(window) = gone {
+            self.remember_place(&window);
             self.space.unmap_elem(&window);
             let next = self.space.elements().last().cloned();
             self.focus(next);

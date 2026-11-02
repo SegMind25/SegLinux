@@ -9,6 +9,9 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Windows remember their place**: each application's window opens where
+  and as big as it was last closed (maximized again if it was), also after
+  a restart; Wayland and X11 applications alike.
 - **Discord activity**: the app or game in use shows on the Discord
   profile (Settings, Gaming, Discord activity: a Discord application's ID).
   Window titles stay private unless turned on.

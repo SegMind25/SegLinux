@@ -137,6 +137,9 @@ impl XwmHandler for State {
             .focused_window()
             .is_some_and(|w| w.x11_surface() == Some(&surface));
         if let Some(window) = self.x11_window(&surface) {
+            if !surface.is_override_redirect() {
+                self.remember_place(&window);
+            }
             self.space.unmap_elem(&window);
             self.minimized.retain(|w| w != &window);
         }

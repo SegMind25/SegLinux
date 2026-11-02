@@ -17,6 +17,7 @@ mod grabs;
 mod input;
 mod lock;
 mod outputs;
+mod places;
 mod pointer;
 mod protocols;
 mod render;
