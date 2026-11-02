@@ -9,6 +9,10 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Sharp X11 applications on scaled screens** (125 %, 150 %, 200 %):
+  XWayland draws at the screen's full resolution and X11 applications
+  (Discord, Steam, Chromium, Qt) scale themselves by Xft.dpi instead of
+  being stretched and blurred.
 - **Discord push-to-talk works in every window**: the keys shortcuts use
   (Ctrl, Alt, Shift, Super, F1-F24, any key with Ctrl/Alt/Super, mouse
   side buttons) reach X11 applications such as Discord while a Wayland

@@ -125,6 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         state.forget_dead();
         state.refresh_foreign_toplevels();
         state.refresh_output_management();
+        state.update_xwayland_scale();
         state.popups.cleanup();
         let _ = state.display_handle.flush_clients();
     })?;

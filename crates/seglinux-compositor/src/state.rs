@@ -143,6 +143,9 @@ pub struct State {
     pub foreign_toplevel: crate::foreign_toplevel::ForeignToplevelState,
     pub xwayland_shell_state: smithay::wayland::xwayland_shell::XWaylandShellState,
     pub xwm: Option<smithay::xwayland::X11Wm>,
+    /// XWayland's client and display (":0"), and the scale it draws at.
+    pub xwayland: Option<(smithay::reexports::wayland_server::Client, String)>,
+    pub xwayland_scale: f64,
     pub session_lock_state: smithay::wayland::session_lock::SessionLockManagerState,
     pub lock: crate::lock::Lock,
     pub capture: crate::capture::CaptureState,
@@ -259,6 +262,8 @@ impl State {
                 &dh,
             ),
             xwm: None,
+            xwayland: None,
+            xwayland_scale: 1.0,
             session_lock_state: smithay::wayland::session_lock::SessionLockManagerState::new::<
                 Self,
                 _,

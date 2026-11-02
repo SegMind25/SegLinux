@@ -34,6 +34,88 @@ use smithay::wayland::selection::{
 use crate::state::State;
 
 impl State {
+    /// X11 applications sharp on scaled screens (125 %, 150 %, 200 %):
+    /// XWayland sees the screens at their full resolution, one X11 pixel
+    /// per screen pixel, and X11 applications scale themselves by Xft.dpi
+    /// (Chromium and Electron: Discord, Steam; Qt; GTK's text) instead of
+    /// being stretched, which blurs them. The largest scale of the screens
+    /// counts; windows opened before a change keep their size until
+    /// reopened.
+    pub fn update_xwayland_scale(&mut self) {
+        let Some((client, display)) = self.xwayland.clone() else {
+            return;
+        };
+        let scale = self
+            .space
+            .outputs()
+            .map(|o| o.current_scale().fractional_scale())
+            .fold(1.0, f64::max);
+        if scale == self.xwayland_scale {
+            return;
+        }
+        self.xwayland_scale = scale;
+        self.client_compositor_state(&client)
+            .set_client_scale(scale);
+        // XWayland hears of the screens' new size.
+        for output in self.space.outputs() {
+            output.change_current_state(
+                output.current_mode(),
+                None,
+                None,
+                Some(output.current_location()),
+            );
+        }
+        tracing::info!(scale, "X11 applications drawn at full resolution");
+        std::thread::spawn(move || set_x11_dpi(&display, scale));
+    }
+}
+
+/// Xft.dpi and Xcursor.size for X11 applications (as xrdb would set them).
+fn set_x11_dpi(display: &str, scale: f64) {
+    use x11rb::{
+        connection::Connection,
+        protocol::xproto::{AtomEnum, ConnectionExt, PropMode},
+        wrapper::ConnectionExt as _,
+    };
+    let set = || -> Result<(), Box<dyn std::error::Error>> {
+        let (conn, screen) = x11rb::connect(Some(display))?;
+        let root = conn.setup().roots[screen].root;
+        let atom = conn.intern_atom(false, b"RESOURCE_MANAGER")?.reply()?.atom;
+        let old = conn
+            .get_property(false, root, atom, AtomEnum::STRING, 0, 1 << 20)?
+            .reply()?
+            .value;
+        let cursor: f64 = std::env::var("XCURSOR_SIZE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(24.0);
+        let mut text: String = String::from_utf8_lossy(&old)
+            .lines()
+            .filter(|l| !l.starts_with("Xft.dpi:") && !l.starts_with("Xcursor.size:"))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        text += &format!(
+            "Xft.dpi:\t{}\nXcursor.size:\t{}\n",
+            (96.0 * scale).round(),
+            (cursor * scale).round()
+        );
+        conn.change_property8(
+            PropMode::REPLACE,
+            root,
+            atom,
+            AtomEnum::STRING,
+            text.as_bytes(),
+        )?
+        .check()?;
+        tracing::info!("X11 applications: {}", text.trim().replace('\n', ", "));
+        Ok(())
+    };
+    if let Err(e) = set() {
+        tracing::warn!("Xft.dpi for X11 applications: {e}");
+    }
+}
+
+impl State {
     /// Start XWayland; the autostart runs once it is ready (or failed), so
     /// that everything started from the desktop finds it ($DISPLAY).
     pub fn start_xwayland(&mut self) {
@@ -77,6 +159,8 @@ impl State {
                         std::env::set_var("DISPLAY", format!(":{display_number}"));
                     }
                     tracing::info!("XWayland on :{display_number}");
+                    state.xwayland = Some((client.clone(), format!(":{display_number}")));
+                    state.update_xwayland_scale();
                     state.x11keys.start(format!(":{display_number}"));
                     state.autostart();
                 }
