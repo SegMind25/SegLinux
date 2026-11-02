@@ -269,14 +269,25 @@ pub enum OverlayDetail {
 }
 
 /// The application in use on the Discord profile (presence.rs).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Discord {
-    /// A Discord application's ID (discord.com/developers/applications),
-    /// named as Discord should show it; empty: off.
+    /// Show it at all (on by default).
+    pub activity: bool,
+    /// Another Discord application's ID to show it under; empty:
+    /// SegLinux's own.
     pub client_id: String,
     /// Also each window's title (web pages, documents): off, for privacy.
     pub show_titles: bool,
+}
+impl Default for Discord {
+    fn default() -> Self {
+        Self {
+            activity: true,
+            client_id: String::new(),
+            show_titles: false,
+        }
+    }
 }
 
 /// The "SegLinux Gaming Mode" session: Steam Big Picture in gamescope.

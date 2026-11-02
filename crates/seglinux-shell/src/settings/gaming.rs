@@ -137,6 +137,7 @@ pub struct Gaming {
     mode_adaptive: gtk::Switch,
     mode_hdr: gtk::Switch,
     mode_overlay: gtk::Switch,
+    discord_on: gtk::Switch,
     discord_id: gtk::Entry,
     discord_titles: gtk::Switch,
     env: gtk::TextView,
@@ -384,11 +385,15 @@ impl Gaming {
         let discord = widgets::section(
             &page,
             "Discord activity",
-            Some(
-                "The app or game in use shows on your Discord profile. Make an application named as it should read (such as SegLinux) at discord.com/developers/applications and paste its Application ID here.",
-            ),
+            Some("The app or game in use shows on your Discord profile, found automatically."),
         );
-        let discord_id = widgets::entry(&discord, "Application ID", None, "off");
+        let discord_on = widgets::switch(&discord, "Show my activity", None);
+        let discord_id = widgets::entry(
+            &discord,
+            "Application ID",
+            Some("Optional: another Discord application to show it under."),
+            "SegLinux",
+        );
         let discord_titles = widgets::switch(
             &discord,
             "Show window titles",
@@ -589,6 +594,7 @@ impl Gaming {
             mode_adaptive,
             mode_hdr,
             mode_overlay,
+            discord_on,
             discord_id,
             discord_titles,
             env,
@@ -632,6 +638,7 @@ impl Page for Gaming {
         self.mode_adaptive.set_active(m.adaptive_sync);
         self.mode_hdr.set_active(m.hdr);
         self.mode_overlay.set_active(m.performance_overlay);
+        self.discord_on.set_active(shell.discord.activity);
         self.discord_id.set_text(&shell.discord.client_id);
         self.discord_titles.set_active(shell.discord.show_titles);
 
@@ -688,6 +695,7 @@ impl Page for Gaming {
         m.adaptive_sync = self.mode_adaptive.is_active();
         m.hdr = self.mode_hdr.is_active();
         m.performance_overlay = self.mode_overlay.is_active();
+        shell.discord.activity = self.discord_on.is_active();
         shell.discord.client_id = self.discord_id.text().trim().to_string();
         shell.discord.show_titles = self.discord_titles.is_active();
 

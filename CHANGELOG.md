@@ -22,7 +22,7 @@ Measurements and the reasons behind each removal are in
   and as big as it was last closed (maximized again if it was), also after
   a restart; Wayland and X11 applications alike.
 - **Discord activity**: the app or game in use shows on the Discord
-  profile (Settings, Gaming, Discord activity: a Discord application's ID).
+  profile, automatically (on by default; Settings, Gaming).
   Window titles stay private unless turned on.
 - **Graphics drivers for this computer only**: Setup and `seglinux-upgrade`
   detect the GPU (Intel, AMD, NVIDIA) and keep its drivers and firmware,

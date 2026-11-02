@@ -1,12 +1,12 @@
 //! Discord Rich Presence for the whole desktop: the application in use
 //! shows on the Discord profile ("Firefox, for 12 minutes"; a game by its
-//! name), as games do on Windows. Discord shows it under the name of a
-//! Discord application, made once at discord.com/developers/applications
-//! and named as it should read ("SegLinux"); its ID goes in shell.toml:
+//! name), as games do on Windows: on by default, shown under SegLinux's
+//! Discord application. In shell.toml (Settings, Gaming):
 //!
 //! ```toml
 //! [discord]
-//! client_id = "123456789012345678"
+//! activity = true
+//! client_id = ""        # another Discord application's ID to show it under
 //! show_titles = false   # window titles (web pages, documents): private
 //! ```
 //!
@@ -27,6 +27,8 @@ use std::{
 
 use crate::{apps, config::Discord, tasks::Task};
 
+/// SegLinux's Discord application: what Discord shows the activity under.
+const SEGLINUX_APP_ID: &str = "";
 const LOGO: &str = "https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/grub/seglinux/icons/seglinux.png";
 /// Discord takes 5 updates per 20 seconds.
 const MIN_GAP: Duration = Duration::from_secs(4);
@@ -51,8 +53,11 @@ thread_local! {
 
 /// The windows changed: show the active one's application on Discord.
 pub fn update(tasks: &[Task], discord: &Discord) {
-    let client_id = discord.client_id.trim();
-    if client_id.is_empty() {
+    let client_id = match discord.client_id.trim() {
+        "" => SEGLINUX_APP_ID,
+        id => id,
+    };
+    if !discord.activity || client_id.is_empty() {
         send(None);
         return;
     }
