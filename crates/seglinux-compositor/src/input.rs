@@ -77,9 +77,12 @@ impl State {
                     event.state(),
                     serial,
                     time,
-                    |_, mods, handle| {
+                    |state, mods, handle| {
                         if !pressed {
                             return FilterResult::Forward;
+                        }
+                        if state.switcher.is_some() && handle.modified_sym() == Keysym::Escape {
+                            return FilterResult::Intercept(Action::SwitcherCancel);
                         }
                         // The key as printed without Shift (Super+Shift+S is `s`),
                         // and the key as typed (XF86Switch_VT_1 from Ctrl+Alt+F1).
@@ -103,6 +106,13 @@ impl State {
                 );
                 if let Some(action) = action {
                     self.run(action);
+                }
+                // Alt let go: Alt+Tab's choice.
+                if self.switcher.is_some() {
+                    let m = keyboard.modifier_state();
+                    if !(m.alt || m.ctrl || m.logo) {
+                        self.finish_switcher();
+                    }
                 }
             }
             InputEvent::PointerMotion { event } => {
@@ -573,7 +583,9 @@ impl State {
                     self.snap(&w, action == Action::SnapLeft);
                 }
             }
-            Action::CycleWindows => self.cycle_windows(),
+            Action::CycleWindows => self.switch_windows(false),
+            Action::CycleWindowsBack => self.switch_windows(true),
+            Action::SwitcherCancel => self.cancel_switcher(),
             Action::ShowDesktop => self.show_desktop(),
             Action::ReloadConfig => self.reload_config(),
             Action::Quit => self.loop_signal.stop(),

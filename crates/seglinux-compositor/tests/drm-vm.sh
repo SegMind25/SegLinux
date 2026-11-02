@@ -89,7 +89,7 @@ grep -- '-ok' "$out/probe.log" 2>/dev/null || true
 failed=0
 for check in randr-ok power-off-ok power-on-ok grim-ok region-ok fullscreen-ok \
     mouse-preview-ok mouse-maximized-ok mouse-restored-ok mouse-quarter-ok mouse-border-ok \
-    mouse-resized-ok presentation-ok menu-open-ok menu-closed-ok; do
+    mouse-resized-ok presentation-ok menu-open-ok menu-closed-ok switcher-ok switched-ok; do
     grep -qx "$check" "$out/probe.log" 2>/dev/null || { echo "missing: $check" >&2; failed=1; }
 done
 grep -q 'screen .* at ' "$out/compositor.log" 2>/dev/null || { echo "no screen was set up" >&2; failed=1; }

@@ -155,6 +155,8 @@ pub struct State {
     pub places: crate::places::Places,
     /// A touchpad swipe under way: how far the fingers went.
     pub swipe: Option<Point<f64, Logical>>,
+    /// Alt+Tab's list, while Alt is held.
+    pub switcher: Option<crate::switcher::Switcher>,
     /// Screens the closed lid turned off.
     pub lid_off: Vec<smithay::output::Output>,
     /// Shortcut keys passed on to X11 applications (Discord push-to-talk).
@@ -278,6 +280,7 @@ impl State {
             clipboard: Default::default(),
             places: crate::places::Places::load(),
             swipe: None,
+            switcher: None,
             lid_off: Vec::new(),
             x11keys: Default::default(),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
@@ -785,14 +788,6 @@ impl State {
             self.minimized.push(w);
         }
         self.focus(None);
-    }
-
-    /// Alt+Tab: the window at the bottom of the stack comes to the top.
-    pub fn cycle_windows(&mut self) {
-        let first = self.space.elements().next().cloned();
-        if first.is_some() {
-            self.focus(first);
-        }
     }
 
     /// A new window: centred in the work area, a little lower and to the

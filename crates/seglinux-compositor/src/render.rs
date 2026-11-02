@@ -177,6 +177,34 @@ where
             );
         }
     };
+    // Alt+Tab's list, over everything but the pointer.
+    if let Some(s) = &state.switcher
+        && s.output == *output
+    {
+        let (panel, chosen, titles) = s.layout();
+        for (at, buffer) in titles {
+            if let Ok(e) = MemoryRenderBufferRenderElement::from_buffer(
+                renderer,
+                at.to_f64().to_physical(scale),
+                buffer,
+                None,
+                None,
+                None,
+                Kind::Unspecified,
+            ) {
+                elements.push(OutputElement::Memory(e));
+            }
+        }
+        for (buffer, at) in [(&s.chosen, chosen), (&s.panel, panel.loc)] {
+            elements.push(OutputElement::Solid(SolidColorRenderElement::from_buffer(
+                buffer,
+                at.to_physical_precise_round(scale),
+                scale,
+                1.0,
+                Kind::Unspecified,
+            )));
+        }
+    }
     layer(Layer::Overlay, &mut elements, renderer);
     // A fullscreen window (a game, a video) covers the top panels (the dock).
     let covered = state.fullscreen_on(output);

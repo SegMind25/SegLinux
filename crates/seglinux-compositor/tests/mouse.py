@@ -9,7 +9,7 @@ title bar): drag it by its title bar to the top edge (a photo of the snap
 preview), let go (maximized), double-click its title bar (its size back),
 drag it into the top-left corner (a quarter), then pull its right border
 (wider), then open a terminal's right-click menu and click elsewhere to
-close it. Each photo includes the pointer.
+close it, then Alt+Tab with a virtual keyboard. Each photo includes the pointer.
 """
 import fcntl
 import os
@@ -136,6 +136,37 @@ button(True)
 button(False)
 photo("menu-closed")
 terminal.terminate()
+
+# Alt+Tab with a second window open: the list while Alt is held, then the
+# other window in front once it is let go.
+KEY_TAB, KEY_LEFTALT = 15, 56
+kbd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
+fcntl.ioctl(kbd, UI_SET_EVBIT, EV_KEY)
+fcntl.ioctl(kbd, UI_SET_EVBIT, EV_SYN)
+for key in (KEY_TAB, KEY_LEFTALT):
+    fcntl.ioctl(kbd, UI_SET_KEYBIT, key)
+os.write(kbd, struct.pack("80sHHHHi" + "64i" * 4, b"SegLinux test keyboard",
+                          0x03, 0x1234, 0x5679, 1, 0, *([0] * 256)))
+fcntl.ioctl(kbd, UI_DEV_CREATE)
+second = subprocess.Popen(["foot", "--title", "second"])
+time.sleep(12)
+
+
+def key(code, down):
+    os.write(kbd, struct.pack("qqHHi", 0, 0, EV_KEY, code, 1 if down else 0))
+    os.write(kbd, struct.pack("qqHHi", 0, 0, EV_SYN, SYN_REPORT, 0))
+    time.sleep(0.2)
+
+
+key(KEY_LEFTALT, True)
+key(KEY_TAB, True)
+key(KEY_TAB, False)
+photo("switcher")
+key(KEY_LEFTALT, False)
+photo("switched")
+second.terminate()
+fcntl.ioctl(kbd, UI_DEV_DESTROY)
+os.close(kbd)
 
 fcntl.ioctl(fd, UI_DEV_DESTROY)
 os.close(fd)

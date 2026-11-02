@@ -9,6 +9,10 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Alt+Tab as on Windows**: a list of the windows (last used first) while
+  Alt is held; Tab and Shift+Tab move through it, letting go picks,
+  Escape cancels. A quick Alt+Tab goes back to the previous window (it
+  used to pick the oldest one); minimized windows are listed and restored.
 - **Touchpad gestures**: three or four fingers left/right switch
   workspaces (or windows), down shows the desktop, up brings the windows
   back; pinch-to-zoom reaches applications (Firefox, image viewers).

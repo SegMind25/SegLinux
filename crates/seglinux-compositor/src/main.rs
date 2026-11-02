@@ -25,6 +25,7 @@ mod render;
 mod screens;
 mod snap;
 mod state;
+mod switcher;
 mod udev;
 mod winit;
 mod x11keys;

@@ -58,7 +58,9 @@ impl State {
                     Action::WorkspacePrev
                 });
             } else {
-                self.cycle_windows();
+                // The previous window, as a quick Alt+Tab.
+                self.switch_windows(false);
+                self.finish_switcher();
             }
         } else if d.y.abs() > SWIPE {
             // Down hides the windows; up, with none shown, brings them back.

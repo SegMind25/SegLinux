@@ -59,6 +59,10 @@ pub enum Action {
     Minimize,
     /// Focus the next window (Alt+Tab).
     CycleWindows,
+    /// Back through Alt+Tab's list (Alt+Shift+Tab).
+    CycleWindowsBack,
+    /// Escape in Alt+Tab's list (not a setting).
+    SwitcherCancel,
     /// Half of the screen, as labwc's SnapToEdge.
     SnapLeft,
     SnapRight,
@@ -95,6 +99,7 @@ impl Action {
             "fullscreen" => simple(Action::Fullscreen),
             "minimize" => simple(Action::Minimize),
             "cycle-windows" => simple(Action::CycleWindows),
+            "cycle-windows-back" => simple(Action::CycleWindowsBack),
             "snap-left" => simple(Action::SnapLeft),
             "snap-right" => simple(Action::SnapRight),
             "show-desktop" => simple(Action::ShowDesktop),
@@ -224,6 +229,7 @@ pub fn default_binds() -> Vec<(&'static str, String)> {
         ("Super+Down", "minimize".into()),
         ("Alt+F4", "close".into()),
         ("Alt+Tab", "cycle-windows".into()),
+        ("Alt+Shift+Tab", "cycle-windows-back".into()),
         ("Super+F11", "fullscreen".into()),
         ("Ctrl+Super+Left", "workspace-prev".into()),
         ("Ctrl+Super+Right", "workspace-next".into()),

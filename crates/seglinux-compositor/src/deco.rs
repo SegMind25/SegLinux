@@ -163,7 +163,7 @@ fn load_font() -> Option<fontdue::Font> {
 }
 
 /// `title` drawn in one line, cut to `max_width` pixels.
-fn text(
+pub fn text(
     title: &str,
     max_width: i32,
     color: Rgba,
