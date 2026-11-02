@@ -9,6 +9,10 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Games show on Discord as themselves**: a game Discord knows (its own
+  list of about 22,000; Steam games by their Steam number, others by
+  title or program name) is shown under that game's Discord application,
+  with its name and picture, as Discord's game detection does on Windows.
 - **labwc is the default again**: the SegLinux session runs on labwc;
   SegLinux's own compositor is "SegLinux (own compositor)" on the sign-in
   screen. labwc got Windows-style snapping (corners, a quicker preview),

@@ -15,6 +15,7 @@
 
 use std::{
     cell::RefCell,
+    collections::HashMap,
     io::{self, Read, Write},
     os::unix::net::UnixStream,
     path::PathBuf,
@@ -48,6 +49,16 @@ struct Activity {
     kind: u8,
     /// Pictures that may show the application, the likeliest first.
     icons: Vec<String>,
+    /// A game: shown as that game, under its own Discord application.
+    game: Option<Game>,
+}
+
+/// What may identify a game in Discord's list of games.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Game {
+    steam: Option<String>,
+    /// Its title and program name, lowercase.
+    names: Vec<String>,
 }
 
 static SENDER: OnceLock<Sender<Option<Activity>>> = OnceLock::new();
@@ -81,7 +92,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         // Talking about it: what was shown stays.
         return;
     }
-    let (app, kind, icons) = describe(task);
+    let (app, kind, icons, game) = describe(task);
     let since = SHOWN.with(|s| {
         let mut s = s.borrow_mut();
         match &*s {
@@ -104,22 +115,31 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         since,
         kind,
         icons,
+        game,
     }));
 }
 
 /// The application's name, Discord's verb for it, and pictures of it. A
 /// game goes by its title (Steam games, fullscreen windows) with its Steam
 /// artwork; any other application by its menu name and icon.
-fn describe(task: &Task) -> (String, u8, Vec<String>) {
+fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
     use gtk::prelude::{AppInfoExt, IconExt};
     if let Some(id) = task.app_id.strip_prefix("steam_app_")
         && !task.title.is_empty()
     {
         let art = format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/header.jpg");
-        return (task.title.clone(), 0, vec![art]);
+        let game = Game {
+            steam: Some(id.to_string()),
+            names: vec![task.title.to_lowercase()],
+        };
+        return (task.title.clone(), 0, vec![art], Some(game));
     }
     if task.fullscreen && !task.title.is_empty() {
-        return (task.title.clone(), 0, Vec::new());
+        let game = Game {
+            steam: None,
+            names: vec![task.title.to_lowercase(), task.app_id.to_lowercase()],
+        };
+        return (task.title.clone(), 0, Vec::new(), Some(game));
     }
     let info = apps::lookup(&task.app_id);
     let name = info
@@ -151,7 +171,11 @@ fn describe(task: &Task) -> (String, u8, Vec<String>) {
         .into_iter()
         .map(|n| format!("{ICONS}{n}.png"))
         .collect();
-    (name, kind, icons)
+    let game = has("Game").then(|| Game {
+        steam: None,
+        names: vec![name.to_lowercase(), task.app_id.to_lowercase()],
+    });
+    (name, kind, icons, game)
 }
 
 /// Names an icon collection may know an application by: "brave-browser",
@@ -190,10 +214,7 @@ fn icon_names<'a>(from: impl IntoIterator<Item = &'a str>) -> Vec<String> {
 
 /// The first picture that exists (looked up once each), or none: Discord
 /// then shows the Discord application's own icon.
-fn find_icon(
-    urls: &[String],
-    known: &mut std::collections::HashMap<String, bool>,
-) -> Option<String> {
+fn find_icon(urls: &[String], known: &mut HashMap<String, bool>) -> Option<String> {
     urls.iter()
         .find(|url| {
             *known.entry((*url).clone()).or_insert_with(|| {
@@ -222,7 +243,8 @@ fn run(rx: Receiver<Option<Activity>>) {
     // What Discord shows now (None: unknown).
     let mut shown: Option<Option<Activity>> = None;
     let mut last = Instant::now() - MIN_GAP;
-    let mut known_icons = std::collections::HashMap::new();
+    let mut known_icons = HashMap::new();
+    let mut games = Games::default();
     loop {
         match rx.recv_timeout(RETRY) {
             Ok(a) => want = a,
@@ -237,8 +259,13 @@ fn run(rx: Receiver<Option<Activity>>) {
         if conn.is_some() && shown.as_ref() == Some(&want) {
             continue;
         }
+        // A game Discord knows: under its own application.
+        let game_id = want
+            .as_ref()
+            .and_then(|a| a.game.as_ref())
+            .and_then(|g| games.find(g));
         let client_id = match (&want, &conn) {
-            (Some(a), _) => a.client_id.clone(),
+            (Some(a), _) => game_id.clone().unwrap_or_else(|| a.client_id.clone()),
             // Nothing to show and not connected: nothing to clear.
             (None, None) => continue,
             (None, Some((_, id))) => id.clone(),
@@ -253,8 +280,9 @@ fn run(rx: Receiver<Option<Activity>>) {
         last = Instant::now();
         let icon = want
             .as_ref()
+            .filter(|_| game_id.is_none())
             .and_then(|a| find_icon(&a.icons, &mut known_icons));
-        match set_activity(stream, want.as_ref(), icon.as_deref()) {
+        match set_activity(stream, want.as_ref(), icon.as_deref(), game_id.is_some()) {
             Ok(()) => shown = Some(want.clone()),
             Err(e) => {
                 eprintln!("seglinux-shell: Discord: {e}");
@@ -262,6 +290,139 @@ fn run(rx: Receiver<Option<Activity>>) {
             }
         }
     }
+}
+
+/// Discord's list of the games it knows (as its own game detection uses),
+/// fetched once a week: Steam games by their Steam number, others by
+/// title or program name. A game found there is shown as itself, with
+/// its name and picture, as on Windows.
+#[derive(Default)]
+struct Games {
+    loaded: bool,
+    by_steam: HashMap<String, String>,
+    by_name: HashMap<String, String>,
+}
+
+const GAME_LISTS: [&str; 2] = [
+    "https://discord.com/api/v9/applications/detectable",
+    // The same list, kept by arRPC (the open Discord RPC server).
+    "https://raw.githubusercontent.com/OpenAsar/arrpc/main/src/process/detectable.json",
+];
+
+#[derive(serde::Deserialize)]
+struct Detectable {
+    id: String,
+    name: String,
+    #[serde(default)]
+    aliases: Option<Vec<String>>,
+    #[serde(default)]
+    executables: Option<Vec<Executable>>,
+    #[serde(default)]
+    third_party_skus: Option<Vec<Sku>>,
+}
+
+#[derive(serde::Deserialize)]
+struct Executable {
+    name: String,
+    #[serde(default)]
+    is_launcher: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct Sku {
+    distributor: String,
+    id: Option<String>,
+}
+
+impl Games {
+    fn find(&mut self, game: &Game) -> Option<String> {
+        if !self.loaded {
+            self.loaded = true;
+            if let Some(list) = game_list() {
+                self.index(list);
+            }
+        }
+        game.steam
+            .as_ref()
+            .and_then(|s| self.by_steam.get(s))
+            .or_else(|| game.names.iter().find_map(|n| self.by_name.get(n)))
+            .cloned()
+    }
+
+    fn index(&mut self, list: Vec<Detectable>) {
+        // A program name more than one game uses (launcher.exe) names none.
+        let mut programs: HashMap<String, Option<String>> = HashMap::new();
+        for game in list {
+            for sku in game.third_party_skus.iter().flatten() {
+                if sku.distributor == "steam"
+                    && let Some(id) = &sku.id
+                {
+                    self.by_steam.entry(id.clone()).or_insert(game.id.clone());
+                }
+            }
+            for name in std::iter::once(&game.name).chain(game.aliases.iter().flatten()) {
+                self.by_name
+                    .entry(name.to_lowercase())
+                    .or_insert(game.id.clone());
+            }
+            for exe in game.executables.iter().flatten().filter(|e| !e.is_launcher) {
+                let program = exe
+                    .name
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&exe.name)
+                    .to_lowercase();
+                programs
+                    .entry(program)
+                    .and_modify(|id| {
+                        if id.as_ref() != Some(&game.id) {
+                            *id = None;
+                        }
+                    })
+                    .or_insert(Some(game.id.clone()));
+            }
+        }
+        for (program, id) in programs {
+            if let Some(id) = id {
+                self.by_name.entry(program).or_insert(id);
+            }
+        }
+    }
+}
+
+/// The list, from the cache (~/.cache/seglinux) or downloaded again
+/// when a week old.
+fn game_list() -> Option<Vec<Detectable>> {
+    let cache = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?
+        .join("seglinux");
+    let file = cache.join("discord-games.json");
+    let week = Duration::from_secs(7 * 24 * 3600);
+    let fresh = std::fs::metadata(&file)
+        .and_then(|m| m.modified())
+        .is_ok_and(|t| t.elapsed().is_ok_and(|age| age < week));
+    let read = |path: &std::path::Path| -> Option<Vec<Detectable>> {
+        serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+    };
+    if !fresh {
+        let _ = std::fs::create_dir_all(&cache);
+        let part = file.with_extension("part");
+        for url in GAME_LISTS {
+            let got = std::process::Command::new("curl")
+                .args(["-sfL", "--max-time", "120", "-o"])
+                .arg(&part)
+                .arg(url)
+                .status()
+                .is_ok_and(|s| s.success());
+            if got && read(&part).is_some() {
+                let _ = std::fs::rename(&part, &file);
+                break;
+            }
+        }
+        let _ = std::fs::remove_file(&part);
+    }
+    read(&file)
 }
 
 /// Where Discord listens: native, Flatpak, Snap, Vesktop.
@@ -302,8 +463,13 @@ fn set_activity(
     s: &mut UnixStream,
     activity: Option<&Activity>,
     icon: Option<&str>,
+    known_game: bool,
 ) -> io::Result<()> {
     let activity = activity.map(|a| {
+        if known_game {
+            // Discord shows the game's own name and picture.
+            return serde_json::json!({ "type": 0, "timestamps": { "start": a.since } });
+        }
         let mut v = serde_json::json!({
             "type": a.kind,
             "details": clip(&a.app),
