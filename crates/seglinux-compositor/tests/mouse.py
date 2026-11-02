@@ -8,7 +8,8 @@ Steps, for the first terminal (placed at 162,149, 700x500 under a 30 px
 title bar): drag it by its title bar to the top edge (a photo of the snap
 preview), let go (maximized), double-click its title bar (its size back),
 drag it into the top-left corner (a quarter), then pull its right border
-(wider). Each photo includes the pointer.
+(wider), then open a terminal's right-click menu and click elsewhere to
+close it. Each photo includes the pointer.
 """
 import fcntl
 import os
@@ -119,6 +120,22 @@ button(True)
 glide((514, 200), (760, 200))
 button(False)
 photo("mouse-resized")
+
+# A right-click menu (xdg popup with a grab): it opens over a terminal and a
+# click elsewhere closes it.
+terminal = subprocess.Popen(["weston-terminal"])
+time.sleep(12)
+move(512, 384)
+emit(EV_KEY, BTN_RIGHT, 1)
+sync()
+emit(EV_KEY, BTN_RIGHT, 0)
+sync()
+photo("menu-open")
+move(1000, 740)
+button(True)
+button(False)
+photo("menu-closed")
+terminal.terminate()
 
 fcntl.ioctl(fd, UI_DEV_DESTROY)
 os.close(fd)

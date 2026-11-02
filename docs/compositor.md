@@ -52,6 +52,9 @@ foreign-toplevel); the terminal with the white page is an X11 application.*
   through XWayland), focus requests (xdg-activation: a link from a chat
   brings the browser forward), sharp text at 125 % or 150 % (fractional
   scale), portal dialogs over their application (xdg-foreign).
+- Menus and drop-downs (xdg popup grabs): a right-click menu takes the
+  keyboard while open (arrow keys, Enter, Escape) and closes on a click
+  elsewhere, in GTK, Qt, Firefox and Chromium/Electron applications.
 - Smooth frames for Chromium and Electron applications (Discord, browsers)
   and games: presentation-time tells them when each frame reached the
   screen (at vblank, with the driver's timestamp), so they draw in step

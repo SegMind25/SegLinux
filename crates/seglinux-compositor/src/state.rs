@@ -1333,7 +1333,54 @@ impl XdgShellHandler for State {
         }
     }
 
-    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {}
+    /// A menu or drop-down that takes the pointer and keyboard while it is
+    /// open (right-click menus, combo boxes): a click elsewhere closes it,
+    /// the arrow keys move through it.
+    fn grab(&mut self, surface: PopupSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        use smithay::desktop::{PopupKeyboardGrab, PopupPointerGrab, PopupUngrabStrategy};
+        let Some(seat) = Seat::<State>::from_resource(&seat) else {
+            return;
+        };
+        let kind = PopupKind::Xdg(surface);
+        let Ok(root) = find_popup_root_surface(&kind) else {
+            return;
+        };
+        // The window or panel (the dock's menus) it belongs to.
+        let known = self.window_for_surface(&root).is_some()
+            || self.space.outputs().any(|o| {
+                layer_map_for_output(o)
+                    .layer_for_surface(&root, WindowSurfaceType::TOPLEVEL)
+                    .is_some()
+            });
+        if !known {
+            return;
+        }
+        let root_focus = crate::focus::KeyboardFocus::Wayland(root);
+        let Ok(mut grab) = self.popups.grab_popup(root_focus, kind, &seat, serial) else {
+            return;
+        };
+        if let Some(keyboard) = seat.get_keyboard() {
+            if keyboard.is_grabbed()
+                && !(keyboard.has_grab(serial)
+                    || keyboard.has_grab(grab.previous_serial().unwrap_or(serial)))
+            {
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            keyboard.set_focus(self, grab.current_grab(), serial);
+            keyboard.set_grab(self, PopupKeyboardGrab::new(&grab), serial);
+        }
+        if let Some(pointer) = seat.get_pointer() {
+            if pointer.is_grabbed()
+                && !(pointer.has_grab(serial)
+                    || pointer.has_grab(grab.previous_serial().unwrap_or_else(|| grab.serial())))
+            {
+                grab.ungrab(PopupUngrabStrategy::All);
+                return;
+            }
+            pointer.set_grab(self, PopupPointerGrab::new(&grab), serial, Focus::Keep);
+        }
+    }
 
     fn maximize_request(&mut self, surface: ToplevelSurface) {
         if let Some(window) = self.window_for_surface(surface.wl_surface()) {

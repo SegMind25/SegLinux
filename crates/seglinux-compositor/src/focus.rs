@@ -23,6 +23,26 @@ pub enum KeyboardFocus {
     X11(X11Surface),
 }
 
+/// A menu or drop-down (xdg popup) takes the keyboard while it is open.
+impl From<smithay::desktop::PopupKind> for KeyboardFocus {
+    fn from(popup: smithay::desktop::PopupKind) -> Self {
+        KeyboardFocus::Wayland(popup.wl_surface().clone())
+    }
+}
+
+/// The pointer side of a popup grab: popups and their roots are always
+/// Wayland surfaces (an X11 window has one once it is shown).
+impl From<KeyboardFocus> for WlSurface {
+    fn from(focus: KeyboardFocus) -> Self {
+        match focus {
+            KeyboardFocus::Wayland(s) => s,
+            KeyboardFocus::X11(x) => x
+                .wl_surface()
+                .expect("a shown X11 window has a Wayland surface"),
+        }
+    }
+}
+
 impl From<WlSurface> for KeyboardFocus {
     fn from(s: WlSurface) -> Self {
         KeyboardFocus::Wayland(s)

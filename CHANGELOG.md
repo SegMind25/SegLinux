@@ -55,7 +55,8 @@ Measurements and the reasons behind each removal are in
   touch screens, snapping windows to screen edges and
   corners by dragging, double-click to maximize, resizing from borders,
   the theme's pointer shapes, presentation-time
-  (smooth frames in Discord, browsers and games), a log file, and the Settings
+  (smooth frames in Discord, browsers and games), menus that take the
+  keyboard and close on a click elsewhere, a log file, and the Settings
   app's keyboard, mouse and touchpad choices, the keyboard layout picked in Setup and the SegLinux window theme (title bar colours, border), as in the labwc session ([docs/compositor.md](docs/compositor.md)).
 
 - **A lighter desktop**: the terminal is foot instead of kitty (about 65 MiB
