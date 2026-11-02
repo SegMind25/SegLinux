@@ -48,6 +48,11 @@ const KEYBINDS: &[(&str, &str)] = &[
         "W-Right",
         r#"<action name="SnapToEdge" direction="right" />"#,
     ),
+    ("W-Up", r#"<action name="Maximize" />"#),
+    (
+        "W-Down",
+        r#"<action name="If"><query maximized="both" /><then><action name="UnMaximize" /></then><else><action name="Iconify" /></else></action>"#,
+    ),
     (
         "C-W-Left",
         r#"<action name="GoToDesktop" to="left" wrap="yes" />"#,
@@ -150,6 +155,14 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
     <raiseOnFocus>{raise}</raiseOnFocus>
   </focus>
   <desktops number=\"{workspaces}\" />
+  <!-- As on Windows: a window dragged to an edge fills that half, to a
+       corner a quarter, to the top the whole screen; the preview shows at
+       once. -->
+  <snapping>
+    <cornerRange>50</cornerRange>
+    <overlay enabled=\"yes\"><delay inner=\"150\" outer=\"150\" /></overlay>
+    <topMaximize>yes</topMaximize>
+  </snapping>
   <theme>
     <name>SegLinux</name><cornerRadius>{radius}</cornerRadius>
     <font place=\"ActiveWindow\"><name>Noto Sans</name><size>10</size></font>
@@ -202,7 +215,7 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
       <disableWhileTyping>{dwt}</disableWhileTyping>
     </device>
   </libinput>
-  <windowSwitcher preview=\"yes\"><osd show=\"yes\" /></windowSwitcher>
+  <windowSwitcher preview=\"yes\" outlines=\"yes\"><osd show=\"yes\" style=\"thumbnail\" /></windowSwitcher>
 </labwc_config>
 ",
         mouse_natural = yes(input.natural_scroll_mouse),

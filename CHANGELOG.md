@@ -9,6 +9,12 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **labwc is the default again**: the SegLinux session runs on labwc;
+  SegLinux's own compositor is "SegLinux (own compositor)" on the sign-in
+  screen. labwc got Windows-style snapping (corners, a quicker preview),
+  Super+Up to maximize and Super+Down to restore or minimize, an Alt+Tab
+  with window thumbnails, window shadows and button highlights, and
+  wl-clip-persist, so copied text stays after its application closes.
 - **Alt+Tab as on Windows**: a list of the windows (last used first) while
   Alt is held; Tab and Shift+Tab move through it, letting go picks,
   Escape cancels. A quick Alt+Tab goes back to the previous window (it

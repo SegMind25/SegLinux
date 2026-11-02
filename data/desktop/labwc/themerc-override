@@ -16,3 +16,12 @@ menu.items.active.text.color: #ffffff
 osd.bg.color: #121d2e
 osd.border.color: #446084
 osd.label.text.color: #eef5ff
+window.active.shadow.size: 28
+window.inactive.shadow.size: 16
+window.active.shadow.color: #00000070
+window.inactive.shadow.color: #00000040
+window.button.width: 34
+window.button.hover.bg.color: #2c4366
+window.button.hover.bg.corner-radius: 6
+osd.window-switcher.style-thumbnail.item.active.border.color: #3daee9
+osd.window-switcher.style-thumbnail.item.active.bg.color: #1e3552

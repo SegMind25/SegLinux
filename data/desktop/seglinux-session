@@ -1,13 +1,13 @@
 #!/bin/sh
 # The SegLinux desktop: the Rust shell (dock, desktop icons, Start menu) on
-# seglinux-compositor, SegLinux's own Rust compositor. Should it not start
-# at all (an error within its first seconds), the same desktop comes up on
-# labwc instead; `seglinux-session --labwc` ("SegLinux (labwc)" on the
-# sign-in screen) always uses labwc.
+# labwc. `seglinux-session --compositor` ("SegLinux (own compositor)" on the
+# sign-in screen) uses seglinux-compositor, SegLinux's own Rust compositor,
+# instead; should that not start at all (an error within its first
+# seconds), the same desktop comes up on labwc.
 set -eu
-use_labwc=false
-if [ "${1:-}" = --labwc ] || ! command -v seglinux-compositor >/dev/null 2>&1; then
-    use_labwc=true
+use_labwc=true
+if [ "${1:-}" = --compositor ] && command -v seglinux-compositor >/dev/null 2>&1; then
+    use_labwc=false
 fi
 export XDG_CURRENT_DESKTOP=SegLinux:wlroots
 export XDG_SESSION_DESKTOP=seglinux

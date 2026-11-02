@@ -2,6 +2,10 @@
 # labwc has now provided WAYLAND_DISPLAY and DISPLAY to its children.
 dbus-update-activation-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
 xdg-user-dirs-update
+# What was copied stays after its application closes (as on Windows).
+if command -v wl-clip-persist >/dev/null 2>&1; then
+    wl-clip-persist --clipboard regular &
+fi
 /usr/lib/seglinux/pipewire-session
 /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 if [ -x /usr/lib/seglinux/live-autostart ]; then

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=SegLinux (own compositor)
+Comment=The same SegLinux desktop on SegLinux's own Rust compositor
+Exec=seglinux-session --compositor
+TryExec=seglinux-compositor
+Type=Application

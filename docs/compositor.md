@@ -2,9 +2,9 @@
 
 SegLinux's own Wayland compositor, written in Rust on
 [Smithay](https://github.com/Smithay/smithay) (`crates/seglinux-compositor`).
-The **SegLinux** session runs on it. If it cannot start (an error within
-its first seconds), the same desktop comes up on labwc; **SegLinux (labwc)**
-on the sign-in screen always uses labwc.
+The **SegLinux** session runs on labwc; pick **SegLinux (own compositor)**
+on the sign-in screen to run it on this one instead. If it cannot start
+(an error within its first seconds), the same desktop comes up on labwc.
 
 ![The SegLinux wallpaper, a terminal and a panel listing the open windows, on seglinux-compositor](images/compositor-preview.png)
 

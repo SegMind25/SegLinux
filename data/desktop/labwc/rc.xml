@@ -15,6 +15,14 @@
     <raiseOnFocus>no</raiseOnFocus>
   </focus>
   <desktops number="1" />
+  <!-- As on Windows: a window dragged to an edge fills that half, to a
+       corner a quarter, to the top the whole screen; the preview shows at
+       once. -->
+  <snapping>
+    <cornerRange>50</cornerRange>
+    <overlay enabled="yes"><delay inner="150" outer="150" /></overlay>
+    <topMaximize>yes</topMaximize>
+  </snapping>
   <theme>
     <name>SegLinux</name><cornerRadius>8</cornerRadius>
     <font place="ActiveWindow"><name>Noto Sans</name><size>10</size></font>
@@ -32,6 +40,8 @@
     <keybind key="W-d"><action name="ToggleShowDesktop" /></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>
     <keybind key="W-Right"><action name="SnapToEdge" direction="right" /></keybind>
+    <keybind key="W-Up"><action name="Maximize" /></keybind>
+    <keybind key="W-Down"><action name="If"><query maximized="both" /><then><action name="UnMaximize" /></then><else><action name="Iconify" /></else></action></keybind>
     <keybind key="C-W-Left"><action name="GoToDesktop" to="left" wrap="yes" /></keybind>
     <keybind key="C-W-Right"><action name="GoToDesktop" to="right" wrap="yes" /></keybind>
     <keybind key="C-S-W-Left"><action name="SendToDesktop" to="left" wrap="yes" /></keybind>
@@ -64,5 +74,5 @@
       <disableWhileTyping>yes</disableWhileTyping>
     </device>
   </libinput>
-  <windowSwitcher preview="yes"><osd show="yes" /></windowSwitcher>
+  <windowSwitcher preview="yes" outlines="yes"><osd show="yes" style="thumbnail" /></windowSwitcher>
 </labwc_config>

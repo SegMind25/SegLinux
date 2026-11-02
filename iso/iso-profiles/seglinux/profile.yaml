@@ -48,6 +48,7 @@ rootfs:
 
     # SegLinux's Rust shell uses labwc for Wayland window management.
     - labwc
+    - wl-clip-persist              # copied text stays after its application closes
     - gtk4
     - gtk4-layer-shell
     - polkit-gnome
