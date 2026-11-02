@@ -6,6 +6,9 @@
 //! - fractional scales: sharp text at 125 % or 150 %
 //! - exported windows (xdg-foreign): a portal's file dialog over its
 //!   application
+//! - presentation-time: when each frame reached the screen, so Chromium and
+//!   Electron applications (Discord, browsers) and games pace their frames
+//!   to the screen instead of guessing
 //! - pointer shapes by name (cursor-shape: GTK 4), drawn from the
 //!   session's cursor theme
 
@@ -49,6 +52,7 @@ pub struct Protocols {
     _pointer_constraints: PointerConstraintsState,
     _fractional_scale: FractionalScaleManagerState,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
+    _presentation: smithay::wayland::presentation::PresentationState,
 }
 
 impl Protocols {
@@ -61,6 +65,10 @@ impl Protocols {
             _fractional_scale: FractionalScaleManagerState::new::<State>(dh),
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<State>(
                 dh,
+            ),
+            _presentation: smithay::wayland::presentation::PresentationState::new::<State>(
+                dh,
+                libc::CLOCK_MONOTONIC as u32,
             ),
         }
     }
@@ -210,6 +218,35 @@ pub fn prefer_window_scale(window: &Window, output: &Output) {
 impl smithay::wayland::tablet_manager::TabletSeatHandler for State {}
 
 smithay::delegate_cursor_shape!(State);
+smithay::delegate_presentation!(State);
+
+/// The presentation feedback of everything drawn on `output` in a frame
+/// (`states`: what ended up on screen), to send once it is shown.
+pub fn presentation_feedback(
+    state: &State,
+    output: &Output,
+    states: &smithay::backend::renderer::element::RenderElementStates,
+) -> smithay::desktop::utils::OutputPresentationFeedback {
+    use smithay::desktop::utils::{
+        OutputPresentationFeedback, surface_presentation_feedback_flags_from_states,
+    };
+    let mut feedback = OutputPresentationFeedback::new(output);
+    for window in state.space.elements_for_output(output) {
+        window.take_presentation_feedback(
+            &mut feedback,
+            |_, _| Some(output.clone()),
+            |surface, _| surface_presentation_feedback_flags_from_states(surface, states),
+        );
+    }
+    for layer in smithay::desktop::layer_map_for_output(output).layers() {
+        layer.take_presentation_feedback(
+            &mut feedback,
+            |_, _| Some(output.clone()),
+            |surface, _| surface_presentation_feedback_flags_from_states(surface, states),
+        );
+    }
+    feedback
+}
 delegate_relative_pointer!(State);
 delegate_pointer_constraints!(State);
 delegate_xdg_activation!(State);

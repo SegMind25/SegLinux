@@ -33,7 +33,10 @@ retire_update_copy() {
 sign_in_with_password() {
     local done=/var/lib/seglinux/autologin-removed backup=/var/lib/seglinux/autologin-backup
     local file section
-    [[ -e $done || -d /run/artix/bootmnt ]] && return 0
+    [[ -e $done ]] && return 0
+    # The live USB: its medium is mounted there (a mere folder of that name,
+    # as in the ISO's own files, is not the live system).
+    mountpoint -q /run/artix/bootmnt 2>/dev/null && return 0
     for file in /etc/greetd/config.toml /etc/sddm.conf /etc/sddm.conf.d/*.conf; do
         [[ -f $file ]] || continue
         case $file in

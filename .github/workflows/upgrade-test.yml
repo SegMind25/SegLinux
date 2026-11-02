@@ -80,7 +80,8 @@ jobs:
           in_root seglinux-shell --version
           # SDDM (still in use) asks for the password again.
           if grep -q '^\[Autologin\]' "$ROOT/etc/sddm.conf.d/20-seglinux-autologin.conf"; then exit 1; fi
-          test -f "$ROOT/var/lib/seglinux/autologin-backup/_etc_sddm.conf.d_20-seglinux-autologin.conf"
+          # The backup folder is root's alone (0700).
+          sudo test -f "$ROOT/var/lib/seglinux/autologin-backup/_etc_sddm.conf.d_20-seglinux-autologin.conf"
       - name: Asked, it switches from SDDM to SegLinux's sign-in screen
         env:
           GITHUB_TOKEN: ${{ github.token }}

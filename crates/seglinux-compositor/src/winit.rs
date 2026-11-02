@@ -109,7 +109,7 @@ pub fn init(
                 } else {
                     state.config.background
                 };
-                let rendered = {
+                let feedback = {
                     let Ok((renderer, mut framebuffer)) = backend.bind() else {
                         return;
                     };
@@ -117,10 +117,19 @@ pub fn init(
                     damage_tracker
                         .render_output(renderer, &mut framebuffer, 0, &elements, background)
                         .inspect_err(|e| tracing::warn!("cannot draw a frame: {e:?}"))
-                        .is_ok()
+                        .ok()
+                        .map(|r| crate::protocols::presentation_feedback(state, &output, &r.states))
                 };
-                if rendered {
+                if let Some(mut feedback) = feedback {
                     let _ = backend.submit(Some(&[Rectangle::from_size(size)]));
+                    // Shown as soon as the host takes it (a window, for testing).
+                    use smithay::reexports::wayland_protocols::wp::presentation_time::server::wp_presentation_feedback::Kind;
+                    feedback.presented::<_, smithay::utils::Monotonic>(
+                        smithay::utils::Clock::<smithay::utils::Monotonic>::new().now(),
+                        smithay::wayland::presentation::Refresh::Unknown,
+                        0,
+                        Kind::empty(),
+                    );
                 }
                 crate::capture::fulfill(state, backend.renderer(), &output, &mut pointer);
                 send_frames(state, &output);

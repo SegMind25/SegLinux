@@ -13,7 +13,7 @@
 #
 # Needs: qemu-system-x86, a distribution kernel with its modules
 # (linux-image-virtual linux-modules-extra-*), virtme-ng (pip), busybox-static,
-# zstd, seatd, foot, swaybg, grim, wlr-randr, wlopm, xwayland, xterm.
+# zstd, seatd, foot, swaybg, grim, wlr-randr, wlopm, xwayland, xterm, weston.
 # Uses KVM when there is one; without it the run takes a few minutes.
 set -euo pipefail
 
@@ -65,6 +65,10 @@ wlr-randr && echo randr-ok
 wlopm --off '*' && sleep 2 && wlopm | grep -q ' off' && echo power-off-ok
 wlopm --on '*' && sleep 2 && wlopm | grep -q ' on' && echo power-on-ok
 python3 "$mouse" "$out"
+# presentation-time: frames reported shown at vblank (weston's flags: s vsync,
+# c hardware clock, e hardware completion).
+timeout -s INT 12 weston-presentation-shm -f > "$out/presentation.log" 2>&1
+grep -q '\[sce' "$out/presentation.log" && echo presentation-ok
 xterm -geometry 60x10 -title X11 &
 sleep 20
 grim "$out/screen.png" && echo grim-ok
@@ -85,7 +89,7 @@ grep -- '-ok' "$out/probe.log" 2>/dev/null || true
 failed=0
 for check in randr-ok power-off-ok power-on-ok grim-ok region-ok fullscreen-ok \
     mouse-preview-ok mouse-maximized-ok mouse-restored-ok mouse-quarter-ok mouse-border-ok \
-    mouse-resized-ok; do
+    mouse-resized-ok presentation-ok; do
     grep -qx "$check" "$out/probe.log" 2>/dev/null || { echo "missing: $check" >&2; failed=1; }
 done
 grep -q 'screen .* at ' "$out/compositor.log" 2>/dev/null || { echo "no screen was set up" >&2; failed=1; }
