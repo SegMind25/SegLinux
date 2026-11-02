@@ -183,6 +183,7 @@ impl State {
     pub fn forget_dead(&mut self) {
         use smithay::utils::IsAlive;
         self.hidden.retain(|(w, _, _)| w.alive());
+        self.check_clipboard_source();
         self.minimized.retain(|w| w.alive());
         if self
             .last_bar_click

@@ -311,6 +311,11 @@ impl XwmHandler for State {
         fd: OwnedFd,
     ) {
         let failed = match selection {
+            // The kept copy of a closed application's clipboard.
+            SelectionTarget::Clipboard if self.serving_kept_clipboard() => {
+                self.send_kept_clipboard(&mime_type, fd);
+                false
+            }
             SelectionTarget::Clipboard => {
                 request_data_device_client_selection(&self.seat, mime_type, fd).is_err()
             }
@@ -326,19 +331,28 @@ impl XwmHandler for State {
     /// An X11 application copied something: Wayland applications can paste it.
     fn new_selection(&mut self, _xwm: XwmId, selection: SelectionTarget, mime_types: Vec<String>) {
         match selection {
-            SelectionTarget::Clipboard => {
-                set_data_device_selection(&self.display_handle, &self.seat, mime_types, ())
-            }
-            SelectionTarget::Primary => {
-                set_primary_selection(&self.display_handle, &self.seat, mime_types, ())
-            }
+            SelectionTarget::Clipboard => set_data_device_selection(
+                &self.display_handle,
+                &self.seat,
+                mime_types,
+                crate::clipboard::Owner::X11,
+            ),
+            SelectionTarget::Primary => set_primary_selection(
+                &self.display_handle,
+                &self.seat,
+                mime_types,
+                crate::clipboard::Owner::X11,
+            ),
         }
     }
 
     fn cleared_selection(&mut self, _xwm: XwmId, selection: SelectionTarget) {
         match selection {
             SelectionTarget::Clipboard => {
-                if current_data_device_selection_userdata(&self.seat).is_some() {
+                // An X11 application's, not the kept copy.
+                if current_data_device_selection_userdata(&self.seat)
+                    .is_some_and(|o| *o == crate::clipboard::Owner::X11)
+                {
                     clear_data_device_selection(&self.display_handle, &self.seat)
                 }
             }

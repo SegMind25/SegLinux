@@ -147,6 +147,7 @@ pub struct State {
     pub lock: crate::lock::Lock,
     pub capture: crate::capture::CaptureState,
     pub protocols: crate::protocols::Protocols,
+    pub clipboard: crate::clipboard::Clipboard,
     pub screens: crate::screens::ScreensState,
     /// Screens turned off in the display settings, and where they were.
     pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
@@ -261,6 +262,7 @@ impl State {
             lock: crate::lock::Lock::default(),
             capture: crate::capture::CaptureState::new(&dh),
             protocols: crate::protocols::Protocols::new(&dh),
+            clipboard: Default::default(),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),
             snap_preview: None,
@@ -1182,15 +1184,27 @@ impl SeatHandler for State {
 }
 
 impl SelectionHandler for State {
-    type SelectionUserData = ();
+    type SelectionUserData = crate::clipboard::Owner;
 
-    /// A Wayland application copied something: X11 applications can paste it.
+    /// A Wayland application copied something: X11 applications can paste
+    /// it, and the compositor keeps a copy for when that application closes.
     fn new_selection(
         &mut self,
         ty: smithay::wayland::selection::SelectionTarget,
         source: Option<smithay::wayland::selection::SelectionSource>,
         _seat: Seat<Self>,
     ) {
+        use smithay::wayland::selection::SelectionTarget;
+        let clipboard = ty == SelectionTarget::Clipboard;
+        if clipboard {
+            // Read once Smithay has recorded it (just after this call).
+            let source = source.clone();
+            self.loop_handle.insert_idle(move |state| match source {
+                Some(s) => state.keep_clipboard(&s),
+                // Cleared on purpose: nothing kept.
+                None => state.clipboard_cleared(),
+            });
+        }
         if let Some(xwm) = self.xwm.as_mut()
             && let Err(e) = xwm.new_selection(ty, source.map(|s| s.mime_types()))
         {
@@ -1205,8 +1219,12 @@ impl SelectionHandler for State {
         mime_type: String,
         fd: std::os::fd::OwnedFd,
         _seat: Seat<Self>,
-        _user_data: &(),
+        user_data: &crate::clipboard::Owner,
     ) {
+        if *user_data == crate::clipboard::Owner::Kept {
+            self.send_kept_clipboard(&mime_type, fd);
+            return;
+        }
         if let Some(xwm) = self.xwm.as_mut()
             && let Err(e) = xwm.send_selection(ty, mime_type, fd, self.loop_handle.clone())
         {

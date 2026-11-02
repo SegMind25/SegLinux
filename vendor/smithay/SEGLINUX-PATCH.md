@@ -11,5 +11,10 @@ games), which Smithay does not offer yet.
   such as the pointer, or the driver cannot), the same frame waits for
   vblank as before.
 
+- `IsAlive for SelectionSource`: the compositor notices when the
+  application that copied is gone and offers its kept copy of the clipboard.
+- `X11Wm::new_selection` flushes: X11 applications see at once that a
+  Wayland application copied (before, only with the next X11 event).
+
 Every change is marked `SegLinux` (`grep -rn SegLinux src`). To update
 Smithay: copy the new release here and apply those changes again.

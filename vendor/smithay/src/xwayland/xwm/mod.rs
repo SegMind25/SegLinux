@@ -1158,6 +1158,9 @@ impl X11Wm {
             self.conn
                 .set_selection_owner(x11rb::NONE, selection.atom, selection.timestamp)?;
         }
+        // SegLinux: sent now, not with the next X11 event (X11 applications
+        // could not paste what a Wayland application copied).
+        self.conn.flush()?;
 
         Ok(())
     }

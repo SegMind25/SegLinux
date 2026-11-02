@@ -21,6 +21,15 @@ pub struct SelectionSource {
     pub(crate) provider: SelectionSourceProvider,
 }
 
+// SegLinux: whether the application that copied still offers it (the
+// compositor keeps a copy of the clipboard for when it is gone).
+impl IsAlive for SelectionSource {
+    #[inline]
+    fn alive(&self) -> bool {
+        self.provider.alive()
+    }
+}
+
 impl SelectionSource {
     /// Mime types associated with the source.
     pub fn mime_types(&self) -> Vec<String> {

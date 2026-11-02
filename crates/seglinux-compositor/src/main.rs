@@ -6,6 +6,7 @@
 //! (c) 2017 Victor Berger and Smithay contributors).
 
 mod capture;
+mod clipboard;
 mod config;
 mod cursor;
 mod deco;
