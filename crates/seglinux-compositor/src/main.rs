@@ -15,6 +15,7 @@ mod focus;
 mod foreign_toplevel;
 mod grabs;
 mod input;
+mod laptop;
 mod lock;
 mod outputs;
 mod places;
@@ -126,6 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         state.refresh_foreign_toplevels();
         state.refresh_output_management();
         state.update_xwayland_scale();
+        state.rescue_windows();
         state.popups.cleanup();
         let _ = state.display_handle.flush_clients();
     })?;

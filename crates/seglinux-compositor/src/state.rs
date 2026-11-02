@@ -153,6 +153,10 @@ pub struct State {
     pub clipboard: crate::clipboard::Clipboard,
     /// Where each application's windows were last closed.
     pub places: crate::places::Places,
+    /// A touchpad swipe under way: how far the fingers went.
+    pub swipe: Option<Point<f64, Logical>>,
+    /// Screens the closed lid turned off.
+    pub lid_off: Vec<smithay::output::Output>,
     /// Shortcut keys passed on to X11 applications (Discord push-to-talk).
     pub x11keys: crate::x11keys::X11Keys,
     pub screens: crate::screens::ScreensState,
@@ -273,6 +277,8 @@ impl State {
             protocols: crate::protocols::Protocols::new(&dh),
             clipboard: Default::default(),
             places: crate::places::Places::load(),
+            swipe: None,
+            lid_off: Vec::new(),
             x11keys: Default::default(),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),

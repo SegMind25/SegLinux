@@ -176,6 +176,33 @@ fn send_state(head: &ZwlrOutputHeadV1, modes: &[(ZwlrOutputModeV1, Mode)], s: &S
 
 impl State {
     /// Tell display settings apps what changed (once per loop turn).
+    /// A screen off (the display settings, the lid): out of the layout.
+    pub fn disable_output(&mut self, output: &Output) {
+        let pos = self
+            .space
+            .output_geometry(output)
+            .map(|g| g.loc)
+            .unwrap_or_default();
+        self.space.unmap_output(output);
+        self.disabled_outputs.push((output.clone(), pos));
+        crate::screens::prefs(output).power = false;
+        self.backend.set_power(output, false);
+    }
+
+    /// A screen back where it was.
+    pub fn enable_output(&mut self, output: &Output) {
+        let pos = self
+            .disabled_outputs
+            .iter()
+            .find(|(o, _)| o == output)
+            .map(|(_, p)| *p)
+            .unwrap_or_default();
+        self.disabled_outputs.retain(|(o, _)| o != output);
+        self.space.map_output(output, pos);
+        crate::screens::prefs(output).power = false;
+        self.set_power(output, true);
+    }
+
     pub fn refresh_output_management(&mut self) {
         let now = snapshot(self);
         if now == self.output_management.last {
@@ -232,29 +259,12 @@ impl State {
             let is_on = self.space.outputs().any(|o| o == output);
             if !enabled {
                 if !test && is_on {
-                    let pos = self
-                        .space
-                        .output_geometry(output)
-                        .map(|g| g.loc)
-                        .unwrap_or_default();
-                    self.space.unmap_output(output);
-                    self.disabled_outputs.push((output.clone(), pos));
-                    crate::screens::prefs(output).power = false;
-                    self.backend.set_power(output, false);
+                    self.disable_output(output);
                 }
                 continue;
             }
             if !test && !is_on {
-                let pos = self
-                    .disabled_outputs
-                    .iter()
-                    .find(|(o, _)| o == output)
-                    .map(|(_, p)| *p)
-                    .unwrap_or_default();
-                self.disabled_outputs.retain(|(o, _)| o != output);
-                self.space.map_output(output, pos);
-                crate::screens::prefs(output).power = false;
-                self.set_power(output, true);
+                self.enable_output(output);
             }
             let wish = wish.lock().unwrap();
             let target = wish.mode.or_else(|| {

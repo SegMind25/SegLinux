@@ -3,9 +3,10 @@
 
 use smithay::{
     backend::input::{
-        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
-        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
-        TouchEvent,
+        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, GestureBeginEvent,
+        GestureEndEvent, GesturePinchUpdateEvent, GestureSwipeUpdateEvent, InputBackend,
+        InputEvent, KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
+        PointerMotionEvent, TouchEvent,
     },
     input::{
         keyboard::{FilterResult, Keysym, ModifiersState, xkb},
@@ -20,6 +21,7 @@ use crate::{
     config::{Action, Combo, Mods, normalize_key},
     deco::Hit,
     grabs::MoveSurfaceGrab,
+    laptop::Pinch,
     protocols::Constraint,
     state::State,
 };
@@ -399,6 +401,37 @@ impl State {
             InputEvent::TouchCancel { .. } => {
                 if let Some(touch) = self.seat.get_touch() {
                     touch.cancel(self);
+                }
+            }
+            InputEvent::GestureSwipeBegin { .. } => self.swipe_begin(),
+            InputEvent::GestureSwipeUpdate { event } => self.swipe_update(event.delta()),
+            InputEvent::GestureSwipeEnd { event } => self.swipe_end(event.cancelled()),
+            InputEvent::GesturePinchBegin { event } => self.pinch(Pinch::Begin {
+                time: event.time_msec(),
+                fingers: event.fingers(),
+            }),
+            InputEvent::GesturePinchUpdate { event } => self.pinch(Pinch::Update {
+                time: event.time_msec(),
+                delta: event.delta(),
+                scale: event.scale(),
+                rotation: event.rotation(),
+            }),
+            InputEvent::GesturePinchEnd { event } => self.pinch(Pinch::End {
+                time: event.time_msec(),
+                cancelled: event.cancelled(),
+            }),
+            InputEvent::GestureHoldBegin { event } => self.pinch(Pinch::HoldBegin {
+                time: event.time_msec(),
+                fingers: event.fingers(),
+            }),
+            InputEvent::GestureHoldEnd { event } => self.pinch(Pinch::HoldEnd {
+                time: event.time_msec(),
+                cancelled: event.cancelled(),
+            }),
+            InputEvent::SwitchToggle { event } => {
+                use smithay::backend::input::{Switch, SwitchState, SwitchToggleEvent};
+                if event.switch() == Some(Switch::Lid) {
+                    self.lid(event.state() == SwitchState::On);
                 }
             }
             InputEvent::PointerAxis { event } => {

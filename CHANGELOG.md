@@ -9,6 +9,13 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Touchpad gestures**: three or four fingers left/right switch
+  workspaces (or windows), down shows the desktop, up brings the windows
+  back; pinch-to-zoom reaches applications (Firefox, image viewers).
+- **Laptop lid**: closed with another screen connected, the laptop's
+  screen turns off and its windows move over; opened, it comes back.
+  Windows of a screen that is unplugged or turned off move to one that
+  is there.
 - **Sharp X11 applications on scaled screens** (125 %, 150 %, 200 %):
   XWayland draws at the screen's full resolution and X11 applications
   (Discord, Steam, Chromium, Qt) scale themselves by Xft.dpi instead of

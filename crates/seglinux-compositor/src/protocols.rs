@@ -53,6 +53,7 @@ pub struct Protocols {
     _fractional_scale: FractionalScaleManagerState,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     _presentation: smithay::wayland::presentation::PresentationState,
+    _gestures: smithay::wayland::pointer_gestures::PointerGesturesState,
 }
 
 impl Protocols {
@@ -70,6 +71,7 @@ impl Protocols {
                 dh,
                 libc::CLOCK_MONOTONIC as u32,
             ),
+            _gestures: smithay::wayland::pointer_gestures::PointerGesturesState::new::<State>(dh),
         }
     }
 }
@@ -219,6 +221,7 @@ impl smithay::wayland::tablet_manager::TabletSeatHandler for State {}
 
 smithay::delegate_cursor_shape!(State);
 smithay::delegate_presentation!(State);
+smithay::delegate_pointer_gestures!(State);
 
 /// The presentation feedback of everything drawn on `output` in a frame
 /// (`states`: what ended up on screen), to send once it is shown.
