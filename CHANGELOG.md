@@ -9,6 +9,13 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Graphics drivers for this computer only**: Setup and `seglinux-upgrade`
+  detect the GPU (Intel, AMD, NVIDIA) and keep its drivers and firmware,
+  plus the firmware the network and sound chips use; the rest is removed,
+  so updates no longer download NVIDIA's firmware for an Intel laptop. A
+  card added later: `sudo seglinux-upgrade --drivers`.
+- **Clipboard kept**: what was copied can still be pasted after the
+  application closes (Wayland and X11 applications).
 - **Steadier Wi-Fi**: power saving is off (NetworkManager and the Intel,
   Realtek and MediaTek drivers), which made the speed and the ping jump
   around and Realtek cards drop the connection; larger TCP buffers for fast

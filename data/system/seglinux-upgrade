@@ -8,6 +8,7 @@
 #   sudo seglinux-upgrade --noconfirm     ... without questions (any pacman option)
 #   sudo seglinux-upgrade --setup         only set up the repositories (Setup)
 #   sudo seglinux-upgrade --from-source   build SegLinux from its newest source
+#   sudo seglinux-upgrade --drivers       only fit the graphics drivers to this computer
 #
 # (seglinux-update is the same command, by its former name.) A system
 # installed from an ISO older than this command gets it once with
@@ -411,6 +412,119 @@ offer_sign_in_screen() {
     say "The new sign-in screen appears at the next restart (to go back: docs/desktop.md)."
 }
 
+# Graphics drivers and firmware for this computer only. The image carries
+# every GPU's drivers and all of linux-firmware, so that it starts on any PC;
+# an installed system keeps what its hardware uses (else every update
+# downloads NVIDIA's firmware for an Intel laptop). A graphics card added
+# later: sudo seglinux-upgrade --drivers.
+pci_devices=${SEGLINUX_PCI:-/sys/bus/pci/devices}
+declare -A gpu_drivers=(
+    [intel]="vulkan-intel lib32-vulkan-intel intel-media-driver libva-intel-driver"
+    [amd]="vulkan-radeon lib32-vulkan-radeon"
+    [nvidia]="vulkan-nouveau lib32-vulkan-nouveau"
+)
+declare -A gpu_firmware=(
+    [intel]="linux-firmware-intel"
+    [amd]="linux-firmware-amdgpu linux-firmware-radeon"
+    [nvidia]="linux-firmware-nvidia"
+)
+
+# The graphics makers in this computer: intel, amd, nvidia (PCI display
+# controllers; none in most virtual machines).
+gpu_vendors() {
+    local dev
+    for dev in "$pci_devices"/*; do
+        [[ $(cat "$dev/class" 2>/dev/null) == 0x03* ]] || continue
+        case $(cat "$dev/vendor" 2>/dev/null) in
+            0x8086) echo intel ;;
+            0x1002) echo amd ;;
+            0x10de) echo nvidia ;;
+        esac
+    done | sort -u
+}
+
+loaded_modules() { cut -d' ' -f1 /proc/modules 2> /dev/null || true; }
+
+# The installed firmware packages (of $@) that hold what the loaded drivers
+# ask for: Wi-Fi, Bluetooth, Ethernet, sound.
+firmware_in_use() {
+    (($#)) || return 0
+    local modules
+    modules=$(loaded_modules)
+    [[ -n $modules ]] || return 0
+    # shellcheck disable=SC2086 # one name per module
+    awk 'NR == FNR {
+            if ($0 ~ /[*?]/) {
+                g = $0; gsub(/[.+^$(){}|\\]/, "\\\\&", g)
+                gsub(/\*/, ".*", g); gsub(/\?/, ".", g); globs["^" g "$"] = 1
+            } else want[$0] = 1
+            next
+        }
+        {
+            f = $2; sub("^/usr/lib/firmware/", "", f); sub(/\.(zst|xz)$/, "", f)
+            if (f in want) { print $1; next }
+            for (g in globs) if (f ~ g) { print $1; next }
+        }' <(modinfo -F firmware $modules 2>/dev/null | sort -u) <(pacman -Ql "$@") | sort -u
+}
+
+# Removes the drivers and firmware of graphics this computer does not have;
+# with $1 = install, also installs those of the graphics it has (after an
+# upgrade: never a partial one).
+fit_drivers() {
+    local vendors vendor installed=() keep=() drop=() want=() pkg
+    if mountpoint -q /run/artix/bootmnt 2>/dev/null; then return 0; fi
+    vendors=$(gpu_vendors)
+    if [[ -z $vendors ]]; then
+        # A virtual machine, or graphics this cannot tell: all stay.
+        return 0
+    fi
+    for vendor in intel amd nvidia; do
+        if grep -qx "$vendor" <<< "$vendors"; then
+            # shellcheck disable=SC2206 # package lists
+            want+=(${gpu_drivers[$vendor]} ${gpu_firmware[$vendor]})
+            # shellcheck disable=SC2206
+            keep+=(${gpu_firmware[$vendor]})
+        else
+            for pkg in ${gpu_drivers[$vendor]} ${gpu_firmware[$vendor]}; do
+                if pacman -Q "$pkg" > /dev/null 2>&1; then drop+=("$pkg"); fi
+            done
+        fi
+    done
+    # Other firmware (network, sound): what the loaded drivers use stays.
+    mapfile -t installed < <(pacman -Qq | grep -E '^linux-firmware-' | grep -vx 'linux-firmware-whence' || true)
+    mapfile -t -O "${#keep[@]}" keep < <(firmware_in_use "${installed[@]}")
+    for pkg in "${installed[@]}"; do
+        if ! printf '%s\n' "${keep[@]}" | grep -qx "$pkg"; then
+            printf '%s\n' "${drop[@]}" | grep -qx "$pkg" || drop+=("$pkg")
+        fi
+    done
+    if ((${#drop[@]})); then
+        say "Graphics: $(tr '\n' ' ' <<< "$vendors")- removing the drivers and firmware of other hardware: ${drop[*]}"
+        # The meta package needs them all; what stays is kept on its own.
+        if pacman -Q linux-firmware > /dev/null 2>&1; then
+            drop=(linux-firmware "${drop[@]}")
+            for pkg in "${keep[@]}"; do
+                if pacman -Q "$pkg" > /dev/null 2>&1; then pacman -D --asexplicit "$pkg" > /dev/null || true; fi
+            done
+        fi
+        if ! pacman -Rs --noconfirm "${drop[@]}" > /dev/null 2>&1; then
+            # Something needs one of them: the others still go.
+            for pkg in "${drop[@]}"; do
+                pacman -Rs --noconfirm "$pkg" > /dev/null 2>&1 || true
+            done
+        fi
+    fi
+    [[ ${1:-} == install ]] || return 0
+    local missing=()
+    for pkg in "${want[@]}"; do
+        pacman -Q "$pkg" > /dev/null 2>&1 || ! pacman -Si "$pkg" > /dev/null 2>&1 || missing+=("$pkg")
+    done
+    ((${#missing[@]})) || return 0
+    say "Installing the drivers of this computer's graphics: ${missing[*]}"
+    pacman -S --needed --noconfirm "${missing[@]}" ||
+        warn "Not installed. To install them later: sudo pacman -S ${missing[*]}"
+}
+
 # SegLinux dropped its second desktop (the Plasma session) and Discover:
 # about 500 MiB and a second set of background services. A system installed
 # before is asked once, interactively; Blueman and the printer settings
@@ -452,7 +566,7 @@ main() {
     set -- "${args[@]}"
     case ${1:-} in
         -h | --help)
-            sed -n '2,16s/^# \{0,1\}//p' "$0"
+            sed -n '2,17s/^# \{0,1\}//p' "$0"
             exit 0
             ;;
     esac
@@ -460,6 +574,10 @@ main() {
 
     if [[ ${1:-} == --setup ]]; then
         setup_seglinux offline
+        exit 0
+    fi
+    if [[ ${1:-} == --drivers ]]; then
+        fit_drivers install
         exit 0
     fi
 
@@ -481,7 +599,10 @@ main() {
     say "Upgrading the system"
     pacman -Sy
     retire_replaced
+    # Before the download: none of other hardware's.
+    fit_drivers
     pacman -Su "$@"
+    fit_drivers install
     if pacman -Q brave-bin >/dev/null 2>&1; then aur_install brave-bin; fi
     if $from_source || ! seglinux_published; then
         build_seglinux "$@"

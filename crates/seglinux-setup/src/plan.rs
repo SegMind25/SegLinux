@@ -810,6 +810,14 @@ pub fn build(
             actions: vec![Action::chroot_optional(Cmd::new(RESTORE_TRIMMED_FILES))],
         });
     }
+    // The image has every GPU's drivers and all firmware; the installed
+    // system keeps this computer's (updates download nothing else).
+    sp.push(Step {
+        description: "Keeping only the graphics drivers and firmware this computer uses".into(),
+        actions: vec![Action::chroot_optional(
+            Cmd::new("seglinux-update").arg("--drivers"),
+        )],
+    });
     if answer.drivers.nvidia == DriverChoice::Auto
         && let Some(gpu) = facts.gpus.iter().find(|g| g.nvidia_open_capable())
     {
@@ -1291,6 +1299,10 @@ mod tests {
         assert!(text.contains("== Setting up user accounts (oobeSystem)"));
         // No NVIDIA GPU, no driver step.
         assert!(!text.contains("nvidia"));
+        // The other hardware's drivers go, before the boot image is built.
+        assert!(
+            text.find("seglinux-update --drivers").unwrap() < text.find("mkinitcpio -P").unwrap()
+        );
 
         let actions = all_actions(&plan);
         assert!(actions.contains(&&Action::EnableService("greetd".into())));
