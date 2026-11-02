@@ -8,6 +8,7 @@
 //! background = "#0b1220"
 //! focus_follows_mouse = false
 //! adaptive_sync = "fullscreen"   # "on", "off"; unset: the Settings app's
+//! x11_keys = "shortcuts"         # Discord push-to-talk: x11keys.rs
 //!
 //! [keyboard]
 //! layout = "us,ara"
@@ -184,6 +185,7 @@ struct File {
     background: Option<String>,
     focus_follows_mouse: Option<bool>,
     adaptive_sync: Option<String>,
+    x11_keys: Option<String>,
     keyboard: Keyboard,
     binds: BTreeMap<String, String>,
 }
@@ -196,6 +198,8 @@ pub struct Config {
     pub focus_follows_mouse: bool,
     /// None: the Settings app's choice (Settings, Gaming).
     pub adaptive_sync: Option<AdaptiveSync>,
+    /// Keys X11 applications hear while a Wayland window is focused.
+    pub x11_keys: crate::x11keys::Forward,
     pub keyboard: Keyboard,
     pub binds: BTreeMap<Combo, Action>,
 }
@@ -260,6 +264,7 @@ impl Default for Config {
             // services, sound, the password prompt agent and the desktop.
             autostart: vec!["sh /usr/share/seglinux/labwc/autostart".into()],
             background: [0.043, 0.071, 0.125, 1.0],
+            x11_keys: Default::default(),
             focus_follows_mouse: false,
             adaptive_sync: None,
             keyboard: Keyboard::default(),
@@ -304,6 +309,14 @@ impl Config {
         }
         if let Some(f) = file.focus_follows_mouse {
             config.focus_follows_mouse = f;
+        }
+        if let Some(k) = file.x11_keys {
+            match crate::x11keys::Forward::parse(&k) {
+                Some(k) => config.x11_keys = k,
+                None => problems.push(format!(
+                    "x11_keys: `{k}` is not \"shortcuts\", \"all\" or \"off\""
+                )),
+            }
         }
         if let Some(a) = file.adaptive_sync {
             match AdaptiveSync::parse(&a) {

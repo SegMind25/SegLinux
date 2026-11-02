@@ -9,6 +9,11 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Discord push-to-talk works in every window**: the keys shortcuts use
+  (Ctrl, Alt, Shift, Super, F1-F24, any key with Ctrl/Alt/Super, mouse
+  side buttons) reach X11 applications such as Discord while a Wayland
+  window is focused; ordinary typing stays private (`x11_keys` in
+  compositor.toml: "shortcuts", "all", "off").
 - **Windows remember their place**: each application's window opens where
   and as big as it was last closed (maximized again if it was), also after
   a restart; Wayland and X11 applications alike.

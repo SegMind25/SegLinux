@@ -150,6 +150,8 @@ pub struct State {
     pub clipboard: crate::clipboard::Clipboard,
     /// Where each application's windows were last closed.
     pub places: crate::places::Places,
+    /// Shortcut keys passed on to X11 applications (Discord push-to-talk).
+    pub x11keys: crate::x11keys::X11Keys,
     pub screens: crate::screens::ScreensState,
     /// Screens turned off in the display settings, and where they were.
     pub disabled_outputs: Vec<(smithay::output::Output, Point<i32, Logical>)>,
@@ -266,6 +268,7 @@ impl State {
             protocols: crate::protocols::Protocols::new(&dh),
             clipboard: Default::default(),
             places: crate::places::Places::load(),
+            x11keys: Default::default(),
             screens: crate::screens::ScreensState::new(&dh, loop_handle.clone()),
             disabled_outputs: Vec::new(),
             snap_preview: None,

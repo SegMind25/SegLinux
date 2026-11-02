@@ -56,6 +56,19 @@ impl State {
                 };
                 let binds = self.config.binds.clone();
                 let locked = self.lock.locked;
+                // Discord's push-to-talk hears it too (an X11 application).
+                let x11_focused = matches!(
+                    keyboard.current_focus(),
+                    Some(crate::focus::KeyboardFocus::X11(_))
+                );
+                let mods = keyboard.modifier_state();
+                self.x11keys.key(
+                    self.config.x11_keys,
+                    event.key_code().raw(),
+                    pressed,
+                    !x11_focused && !locked,
+                    mods.ctrl || mods.alt || mods.logo,
+                );
                 let action = keyboard.input::<Action, _>(
                     self,
                     event.key_code(),
@@ -183,6 +196,19 @@ impl State {
                 let serial = SERIAL_COUNTER.next_serial();
                 let button = event.button_code();
                 let state = event.state();
+                let over_x11 = pointer
+                    .current_focus()
+                    .and_then(|s| smithay::reexports::wayland_server::Resource::client(&s))
+                    .is_some_and(|c| {
+                        c.get_data::<smithay::xwayland::XWaylandClientData>()
+                            .is_some()
+                    });
+                self.x11keys.button(
+                    self.config.x11_keys,
+                    button,
+                    state == ButtonState::Pressed,
+                    !over_x11 && !self.lock.locked,
+                );
                 if state == ButtonState::Pressed && !pointer.is_grabbed() && !self.lock.locked {
                     let pos = pointer.current_location();
                     // The border around a window: resize it from there.

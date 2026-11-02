@@ -77,6 +77,7 @@ impl State {
                         std::env::set_var("DISPLAY", format!(":{display_number}"));
                     }
                     tracing::info!("XWayland on :{display_number}");
+                    state.x11keys.start(format!(":{display_number}"));
                     state.autostart();
                 }
                 XWaylandEvent::Error => {

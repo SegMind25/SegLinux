@@ -26,6 +26,7 @@ mod snap;
 mod state;
 mod udev;
 mod winit;
+mod x11keys;
 mod xwayland;
 
 use std::path::PathBuf;

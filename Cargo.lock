@@ -2756,6 +2756,7 @@ dependencies = [
  "tracing-subscriber",
  "wayland-client",
  "wayland-protocols-wlr",
+ "x11rb",
  "xcursor",
 ]
 
