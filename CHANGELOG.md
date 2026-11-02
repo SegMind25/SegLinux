@@ -9,6 +9,10 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Game time keeps counting**: an open game stays the Discord activity
+  while another window is in front (as Discord counts games on Windows),
+  with one timer from its start; launchers (Steam, Lutris, Heroic) do not
+  count as games.
 - **Games show on Discord as themselves**: a game Discord knows (its own
   list of about 22,000; Steam games by their Steam number, others by
   title or program name) is shown under that game's Discord application,

@@ -59,6 +59,10 @@ struct Game {
     steam: Option<String>,
     /// Its title and program name, lowercase.
     names: Vec<String>,
+    /// A game for sure (a Steam game, a desktop entry in the Game
+    /// category; not just any fullscreen window): it counts while it is
+    /// open, in front or not.
+    lasting: bool,
 }
 
 static SENDER: OnceLock<Sender<Option<Activity>>> = OnceLock::new();
@@ -66,9 +70,19 @@ static SENDER: OnceLock<Sender<Option<Activity>>> = OnceLock::new();
 thread_local! {
     /// The application shown and since when (a new title keeps the time).
     static SHOWN: RefCell<Option<(String, u64)>> = const { RefCell::new(None) };
+    /// Each open game's window and when it started.
+    static GAMES: RefCell<HashMap<u32, u64>> = RefCell::new(HashMap::new());
 }
 
-/// The windows changed: show the active one's application on Discord.
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// The windows changed. An open game is shown for as long as it is open,
+/// in front or behind another window, with one timer from its start (as
+/// Discord counts games on Windows); otherwise the application in front.
 pub fn update(tasks: &[Task], discord: &Discord) {
     let client_id = match discord.client_id.trim() {
         "" => SEGLINUX_APP_ID,
@@ -76,6 +90,41 @@ pub fn update(tasks: &[Task], discord: &Discord) {
     };
     if !discord.activity || client_id.is_empty() {
         send(None);
+        return;
+    }
+    let lasting = |t: &&Task| {
+        let (_, _, _, game) = describe(t);
+        game.is_some_and(|g| g.lasting)
+    };
+    let open: Vec<u32> = tasks.iter().filter(lasting).map(|t| t.id).collect();
+    GAMES.with(|g| {
+        let mut g = g.borrow_mut();
+        g.retain(|id, _| open.contains(id));
+        for id in &open {
+            g.entry(*id).or_insert_with(now);
+        }
+    });
+    // A game in front, else one open behind.
+    let game = tasks
+        .iter()
+        .filter(|t| open.contains(&t.id))
+        .max_by_key(|t| t.active);
+    if let Some(task) = game {
+        let (app, kind, icons, game) = describe(task);
+        let since = GAMES
+            .with(|g| g.borrow().get(&task.id).copied())
+            .unwrap_or_else(now);
+        let title = (discord.show_titles && !task.title.is_empty() && task.title != app)
+            .then(|| task.title.clone());
+        send(Some(Activity {
+            client_id: client_id.to_string(),
+            app,
+            title,
+            since,
+            kind,
+            icons,
+            game,
+        }));
         return;
     }
     let Some(task) = tasks.iter().find(|t| t.active) else {
@@ -98,9 +147,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         match &*s {
             Some((shown, since)) if *shown == app => *since,
             _ => {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0, |d| d.as_secs());
+                let now = now();
                 *s = Some((app.clone(), now));
                 now
             }
@@ -131,6 +178,7 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
         let game = Game {
             steam: Some(id.to_string()),
             names: vec![task.title.to_lowercase()],
+            lasting: true,
         };
         return (task.title.clone(), 0, vec![art], Some(game));
     }
@@ -138,6 +186,7 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
         let game = Game {
             steam: None,
             names: vec![task.title.to_lowercase(), task.app_id.to_lowercase()],
+            lasting: false,
         };
         return (task.title.clone(), 0, Vec::new(), Some(game));
     }
@@ -171,9 +220,24 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
         .into_iter()
         .map(|n| format!("{ICONS}{n}.png"))
         .collect();
-    let game = has("Game").then(|| Game {
+    // Game launchers are in the Game category too, but are not games.
+    let id = task.app_id.to_lowercase();
+    let launcher = [
+        "steam",
+        "lutris",
+        "heroic",
+        "bottles",
+        "itch",
+        "minigalaxy",
+        "prismlauncher",
+        "gamehub",
+    ]
+    .iter()
+    .any(|l| id.contains(l));
+    let game = (has("Game") && !launcher).then(|| Game {
         steam: None,
         names: vec![name.to_lowercase(), task.app_id.to_lowercase()],
+        lasting: true,
     });
     (name, kind, icons, game)
 }
