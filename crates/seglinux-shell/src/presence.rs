@@ -29,7 +29,9 @@ use crate::{apps, config::Discord, tasks::Task};
 
 /// SegLinux's Discord application: what Discord shows the activity under.
 const SEGLINUX_APP_ID: &str = "1290295496077738019";
-const LOGO: &str = "https://raw.githubusercontent.com/SegMind25/SegLinux/main/data/grub/seglinux/icons/seglinux.png";
+/// Application icons as PNG, by name (dashboard-icons: Brave, Firefox,
+/// Spotify, Steam, VS Code and many more).
+const ICONS: &str = "https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/png/";
 /// Discord takes 5 updates per 20 seconds.
 const MIN_GAP: Duration = Duration::from_secs(4);
 /// Discord not running: looked for again this often.
@@ -42,6 +44,10 @@ struct Activity {
     title: Option<String>,
     /// Unix seconds: when this application came to the front.
     since: u64,
+    /// Discord's verb: 0 Playing, 2 Listening, 3 Watching.
+    kind: u8,
+    /// Pictures that may show the application, the likeliest first.
+    icons: Vec<String>,
 }
 
 static SENDER: OnceLock<Sender<Option<Activity>>> = OnceLock::new();
@@ -75,7 +81,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         // Talking about it: what was shown stays.
         return;
     }
-    let app = app_name(task);
+    let (app, kind, icons) = describe(task);
     let since = SHOWN.with(|s| {
         let mut s = s.borrow_mut();
         match &*s {
@@ -96,18 +102,108 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         app,
         title,
         since,
+        kind,
+        icons,
     }));
 }
 
-/// A game by its title (Steam games, fullscreen windows), any other
-/// application by its menu name.
-fn app_name(task: &Task) -> String {
-    if (task.fullscreen || task.app_id.starts_with("steam_app_")) && !task.title.is_empty() {
-        return task.title.clone();
+/// The application's name, Discord's verb for it, and pictures of it. A
+/// game goes by its title (Steam games, fullscreen windows) with its Steam
+/// artwork; any other application by its menu name and icon.
+fn describe(task: &Task) -> (String, u8, Vec<String>) {
+    use gtk::prelude::{AppInfoExt, IconExt};
+    if let Some(id) = task.app_id.strip_prefix("steam_app_")
+        && !task.title.is_empty()
+    {
+        let art = format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/header.jpg");
+        return (task.title.clone(), 0, vec![art]);
     }
-    apps::lookup(&task.app_id)
-        .map(|a| gtk::prelude::AppInfoExt::name(&a).to_string())
-        .unwrap_or_else(|| task.app_id.clone())
+    if task.fullscreen && !task.title.is_empty() {
+        return (task.title.clone(), 0, Vec::new());
+    }
+    let info = apps::lookup(&task.app_id);
+    let name = info
+        .as_ref()
+        .map(|a| a.name().to_string())
+        .unwrap_or_else(|| task.app_id.clone());
+    let categories = info
+        .as_ref()
+        .and_then(|a| a.categories())
+        .map(|c| c.to_string())
+        .unwrap_or_default();
+    let has = |c: &str| categories.split(';').any(|x| x == c);
+    let kind = if has("Game") {
+        0
+    } else if has("Video") || has("TV") {
+        3
+    } else if has("Audio") || has("Music") {
+        2
+    } else {
+        0
+    };
+    let icon = info
+        .as_ref()
+        .and_then(|a| a.icon())
+        .and_then(|i| IconExt::to_string(&i))
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+    let icons = icon_names([icon.as_str(), &task.app_id, &name])
+        .into_iter()
+        .map(|n| format!("{ICONS}{n}.png"))
+        .collect();
+    (name, kind, icons)
+}
+
+/// Names an icon collection may know an application by: "brave-browser",
+/// "org.mozilla.firefox", "Visual Studio Code" give brave, firefox and
+/// visual-studio-code.
+fn icon_names<'a>(from: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    const GENERIC: &[&str] = &["client", "browser", "desktop", "app", "stable", "bin"];
+    let mut names = Vec::new();
+    for raw in from {
+        // A path (an icon file): its name.
+        let raw = raw.rsplit('/').next().unwrap_or(raw);
+        let raw = raw
+            .split('.')
+            .filter(|p| !["png", "svg", "desktop"].contains(p));
+        // Reverse-DNS ids: the last part that is not a generic word.
+        let part = raw
+            .rev()
+            .map(str::to_lowercase)
+            .find(|p| !p.is_empty() && !GENERIC.contains(&p.as_str()))
+            .unwrap_or_default();
+        let dashed = part.split_whitespace().collect::<Vec<_>>().join("-");
+        let mut short = dashed.clone();
+        while let Some((head, tail)) = short.rsplit_once('-')
+            && GENERIC.contains(&tail)
+        {
+            short = head.to_string();
+        }
+        for n in [dashed, short] {
+            if !n.is_empty() && !names.contains(&n) {
+                names.push(n);
+            }
+        }
+    }
+    names
+}
+
+/// The first picture that exists (looked up once each), or none: Discord
+/// then shows the Discord application's own icon.
+fn find_icon(
+    urls: &[String],
+    known: &mut std::collections::HashMap<String, bool>,
+) -> Option<String> {
+    urls.iter()
+        .find(|url| {
+            *known.entry((*url).clone()).or_insert_with(|| {
+                std::process::Command::new("curl")
+                    .args(["-sfI", "--max-time", "5", "-o", "/dev/null", url])
+                    .status()
+                    .is_ok_and(|s| s.success())
+            })
+        })
+        .cloned()
 }
 
 fn send(activity: Option<Activity>) {
@@ -126,6 +222,7 @@ fn run(rx: Receiver<Option<Activity>>) {
     // What Discord shows now (None: unknown).
     let mut shown: Option<Option<Activity>> = None;
     let mut last = Instant::now() - MIN_GAP;
+    let mut known_icons = std::collections::HashMap::new();
     loop {
         match rx.recv_timeout(RETRY) {
             Ok(a) => want = a,
@@ -154,7 +251,10 @@ fn run(rx: Receiver<Option<Activity>>) {
             continue;
         };
         last = Instant::now();
-        match set_activity(stream, want.as_ref()) {
+        let icon = want
+            .as_ref()
+            .and_then(|a| find_icon(&a.icons, &mut known_icons));
+        match set_activity(stream, want.as_ref(), icon.as_deref()) {
             Ok(()) => shown = Some(want.clone()),
             Err(e) => {
                 eprintln!("seglinux-shell: Discord: {e}");
@@ -198,13 +298,22 @@ fn connect(client_id: &str) -> Option<UnixStream> {
     })
 }
 
-fn set_activity(s: &mut UnixStream, activity: Option<&Activity>) -> io::Result<()> {
+fn set_activity(
+    s: &mut UnixStream,
+    activity: Option<&Activity>,
+    icon: Option<&str>,
+) -> io::Result<()> {
     let activity = activity.map(|a| {
         let mut v = serde_json::json!({
+            "type": a.kind,
             "details": clip(&a.app),
+            // The short status ("Playing Brave") names the application.
+            "status_display_type": 2,
             "timestamps": { "start": a.since },
-            "assets": { "large_image": LOGO, "large_text": "SegLinux" },
         });
+        if let Some(icon) = icon {
+            v["assets"] = serde_json::json!({ "large_image": icon, "large_text": clip(&a.app) });
+        }
         if let Some(t) = &a.title {
             v["state"] = clip(t).into();
         }
@@ -271,6 +380,14 @@ mod tests {
         frame(&mut a, 2, &serde_json::json!({ "code": 4000 })).unwrap();
         assert!(reply(&mut b).is_err());
         assert_eq!(clip("X"), "X ");
+        assert_eq!(
+            icon_names(["brave-browser", "org.mozilla.firefox", "Visual Studio Code"]),
+            ["brave-browser", "brave", "firefox", "visual-studio-code"]
+        );
+        assert_eq!(
+            icon_names(["com.spotify.Client", "/usr/share/pixmaps/steam.png"]),
+            ["spotify", "steam"]
+        );
         assert_eq!(clip(&"a".repeat(300)).len(), 128);
     }
 }
