@@ -180,7 +180,11 @@ pub fn dock(
     };
     render(&[]);
     if !preview {
-        let tasks = tasks::watch(&apps_box, render);
+        let discord = config.discord.clone();
+        let tasks = tasks::watch(&apps_box, move |tasks| {
+            render(tasks);
+            crate::presence::update(tasks, &discord);
+        });
         let _ = handle.set(tasks);
     }
 

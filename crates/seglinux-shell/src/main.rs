@@ -17,6 +17,7 @@ mod managed;
 mod notify;
 mod osd;
 mod pins;
+mod presence;
 mod screenshot;
 mod services;
 mod settings;

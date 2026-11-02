@@ -35,6 +35,7 @@ pub struct Config {
     pub input: Input,
     pub overlay: Overlay,
     pub gaming_mode: GamingMode,
+    pub discord: Discord,
 }
 
 impl Default for Config {
@@ -67,6 +68,7 @@ impl Default for Config {
             input: Input::default(),
             overlay: Overlay::default(),
             gaming_mode: GamingMode::default(),
+            discord: Discord::default(),
         }
     }
 }
@@ -264,6 +266,17 @@ pub enum OverlayDetail {
     Standard,
     /// Temperatures, clocks, memory and more.
     Detailed,
+}
+
+/// The application in use on the Discord profile (presence.rs).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Discord {
+    /// A Discord application's ID (discord.com/developers/applications),
+    /// named as Discord should show it; empty: off.
+    pub client_id: String,
+    /// Also each window's title (web pages, documents): off, for privacy.
+    pub show_titles: bool,
 }
 
 /// The "SegLinux Gaming Mode" session: Steam Big Picture in gamescope.

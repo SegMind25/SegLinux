@@ -9,6 +9,9 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Discord activity**: the app or game in use shows on the Discord
+  profile (Settings, Gaming, Discord activity: a Discord application's ID).
+  Window titles stay private unless turned on.
 - **Graphics drivers for this computer only**: Setup and `seglinux-upgrade`
   detect the GPU (Intel, AMD, NVIDIA) and keep its drivers and firmware,
   plus the firmware the network and sound chips use; the rest is removed,
