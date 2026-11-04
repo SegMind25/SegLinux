@@ -30,9 +30,6 @@ use crate::{apps, config::Discord, tasks::Task};
 
 /// SegLinux's Discord application: what Discord shows the activity under.
 const SEGLINUX_APP_ID: &str = "1290295496077738019";
-/// Application icons as PNG, by name (dashboard-icons: Brave, Firefox,
-/// Spotify, Steam, VS Code and many more).
-const ICONS: &str = "https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/png/";
 /// Discord takes 5 updates per 20 seconds.
 const MIN_GAP: Duration = Duration::from_secs(4);
 /// Discord not running: looked for again this often.
@@ -47,8 +44,6 @@ struct Activity {
     since: u64,
     /// Discord's verb: 0 Playing, 2 Listening, 3 Watching.
     kind: u8,
-    /// Pictures that may show the application, the likeliest first.
-    icons: Vec<String>,
     /// A game: shown as that game, under its own Discord application.
     game: Option<Game>,
 }
@@ -185,7 +180,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         return;
     }
     let lasting = |t: &&Task| {
-        let (_, _, _, game) = describe(t);
+        let (_, _, game) = describe(t);
         game.is_some_and(|g| g.lasting)
     };
     let open: Vec<u32> = tasks.iter().filter(lasting).map(|t| t.id).collect();
@@ -195,7 +190,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         .filter(|t| open.contains(&t.id))
         .max_by_key(|t| t.active);
     if let Some(task) = game {
-        let (app, kind, icons, game) = describe(task);
+        let (app, kind, game) = describe(task);
         let since = CLOCK.with(|c| c.borrow_mut().show(Some(&app)));
         let title = (discord.show_titles && !task.title.is_empty() && task.title != app)
             .then(|| task.title.clone());
@@ -205,7 +200,6 @@ pub fn update(tasks: &[Task], discord: &Discord) {
             title,
             since,
             kind,
-            icons,
             game,
         }));
         return;
@@ -224,7 +218,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         // Talking about it: what was shown stays.
         return;
     }
-    let (app, kind, icons, game) = describe(task);
+    let (app, kind, game) = describe(task);
     let since = CLOCK.with(|c| c.borrow_mut().show(Some(&app)));
     let title = (discord.show_titles && !task.title.is_empty() && task.title != app)
         .then(|| task.title.clone());
@@ -234,26 +228,25 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         title,
         since,
         kind,
-        icons,
         game,
     }));
 }
 
-/// The application's name, Discord's verb for it, and pictures of it. A
-/// game goes by its title (Steam games, fullscreen windows) with its Steam
-/// artwork; any other application by its menu name and icon.
-fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
-    use gtk::prelude::{AppInfoExt, IconExt};
+/// The application's name, Discord's verb for it, and whether it is a
+/// game. A game goes by its title (Steam games, fullscreen windows), any
+/// other application by its menu name. The picture is always the Discord
+/// application's own (a game Discord knows: that game's).
+fn describe(task: &Task) -> (String, u8, Option<Game>) {
+    use gtk::prelude::AppInfoExt;
     if let Some(id) = task.app_id.strip_prefix("steam_app_")
         && !task.title.is_empty()
     {
-        let art = format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/header.jpg");
         let game = Game {
             steam: Some(id.to_string()),
             names: vec![task.title.to_lowercase()],
             lasting: true,
         };
-        return (task.title.clone(), 0, vec![art], Some(game));
+        return (task.title.clone(), 0, Some(game));
     }
     if task.fullscreen && !task.title.is_empty() {
         let game = Game {
@@ -261,7 +254,7 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
             names: vec![task.title.to_lowercase(), task.app_id.to_lowercase()],
             lasting: false,
         };
-        return (task.title.clone(), 0, Vec::new(), Some(game));
+        return (task.title.clone(), 0, Some(game));
     }
     let info = apps::lookup(&task.app_id);
     let name = info
@@ -283,16 +276,6 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
     } else {
         0
     };
-    let icon = info
-        .as_ref()
-        .and_then(|a| a.icon())
-        .and_then(|i| IconExt::to_string(&i))
-        .map(|s| s.to_string())
-        .unwrap_or_default();
-    let icons = icon_names([icon.as_str(), &task.app_id, &name])
-        .into_iter()
-        .map(|n| format!("{ICONS}{n}.png"))
-        .collect();
     // Game launchers are in the Game category too, but are not games.
     let id = task.app_id.to_lowercase();
     let launcher = [
@@ -307,74 +290,16 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
     ]
     .iter()
     .any(|l| id.contains(l));
-    // Discord's own entries for these show their real name and icon
-    // (only checked ones: its "Brave" and "Firefox" are games of those
-    // names, and Dolphin, the file manager, would match the emulator).
-    const DISCORD_APPS: &[&str] = &["krita"];
-    let lower = name.to_lowercase();
     let game = if has("Game") && !launcher {
         Some(Game {
             steam: None,
-            names: vec![lower, task.app_id.to_lowercase()],
+            names: vec![name.to_lowercase(), task.app_id.to_lowercase()],
             lasting: true,
         })
     } else {
-        DISCORD_APPS.contains(&lower.as_str()).then(|| Game {
-            steam: None,
-            names: vec![lower],
-            lasting: false,
-        })
+        None
     };
-    (name, kind, icons, game)
-}
-
-/// Names an icon collection may know an application by: "brave-browser",
-/// "org.mozilla.firefox", "Visual Studio Code" give brave, firefox and
-/// visual-studio-code.
-fn icon_names<'a>(from: impl IntoIterator<Item = &'a str>) -> Vec<String> {
-    const GENERIC: &[&str] = &["client", "browser", "desktop", "app", "stable", "bin"];
-    let mut names = Vec::new();
-    for raw in from {
-        // A path (an icon file): its name.
-        let raw = raw.rsplit('/').next().unwrap_or(raw);
-        let raw = raw
-            .split('.')
-            .filter(|p| !["png", "svg", "desktop"].contains(p));
-        // Reverse-DNS ids: the last part that is not a generic word.
-        let part = raw
-            .rev()
-            .map(str::to_lowercase)
-            .find(|p| !p.is_empty() && !GENERIC.contains(&p.as_str()))
-            .unwrap_or_default();
-        let dashed = part.split_whitespace().collect::<Vec<_>>().join("-");
-        let mut short = dashed.clone();
-        while let Some((head, tail)) = short.rsplit_once('-')
-            && GENERIC.contains(&tail)
-        {
-            short = head.to_string();
-        }
-        for n in [dashed, short] {
-            if !n.is_empty() && !names.contains(&n) {
-                names.push(n);
-            }
-        }
-    }
-    names
-}
-
-/// The first picture that exists (looked up once each), or none: Discord
-/// then shows the Discord application's own icon.
-fn find_icon(urls: &[String], known: &mut HashMap<String, bool>) -> Option<String> {
-    urls.iter()
-        .find(|url| {
-            *known.entry((*url).clone()).or_insert_with(|| {
-                std::process::Command::new("curl")
-                    .args(["-sfI", "--max-time", "5", "-o", "/dev/null", url])
-                    .status()
-                    .is_ok_and(|s| s.success())
-            })
-        })
-        .cloned()
+    (name, kind, game)
 }
 
 fn send(activity: Option<Activity>) {
@@ -393,7 +318,6 @@ fn run(rx: Receiver<Option<Activity>>) {
     // What Discord shows now (None: unknown).
     let mut shown: Option<Option<Activity>> = None;
     let mut last = Instant::now() - MIN_GAP;
-    let mut known_icons = HashMap::new();
     let mut games = Games::default();
     loop {
         match rx.recv_timeout(RETRY) {
@@ -428,11 +352,7 @@ fn run(rx: Receiver<Option<Activity>>) {
             continue;
         };
         last = Instant::now();
-        let icon = want
-            .as_ref()
-            .filter(|_| game_id.is_none())
-            .and_then(|a| find_icon(&a.icons, &mut known_icons));
-        match set_activity(stream, want.as_ref(), icon.as_deref(), game_id.is_some()) {
+        match set_activity(stream, want.as_ref(), game_id.is_some()) {
             Ok(()) => shown = Some(want.clone()),
             Err(e) => {
                 eprintln!("seglinux-shell: Discord: {e}");
@@ -612,7 +532,6 @@ fn connect(client_id: &str) -> Option<UnixStream> {
 fn set_activity(
     s: &mut UnixStream,
     activity: Option<&Activity>,
-    icon: Option<&str>,
     known_game: bool,
 ) -> io::Result<()> {
     let activity = activity.map(|a| {
@@ -627,9 +546,6 @@ fn set_activity(
             "status_display_type": 2,
             "timestamps": { "start": a.since },
         });
-        if let Some(icon) = icon {
-            v["assets"] = serde_json::json!({ "large_image": icon, "large_text": clip(&a.app) });
-        }
         if let Some(t) = &a.title {
             v["state"] = clip(t).into();
         }
@@ -696,14 +612,6 @@ mod tests {
         frame(&mut a, 2, &serde_json::json!({ "code": 4000 })).unwrap();
         assert!(reply(&mut b).is_err());
         assert_eq!(clip("X"), "X ");
-        assert_eq!(
-            icon_names(["brave-browser", "org.mozilla.firefox", "Visual Studio Code"]),
-            ["brave-browser", "brave", "firefox", "visual-studio-code"]
-        );
-        assert_eq!(
-            icon_names(["com.spotify.Client", "/usr/share/pixmaps/steam.png"]),
-            ["spotify", "steam"]
-        );
         assert_eq!(clip(&"a".repeat(300)).len(), 128);
     }
 }
