@@ -68,10 +68,102 @@ struct Game {
 static SENDER: OnceLock<Sender<Option<Activity>>> = OnceLock::new();
 
 thread_local! {
-    /// The application shown and since when (a new title keeps the time).
-    static SHOWN: RefCell<Option<(String, u64)>> = const { RefCell::new(None) };
-    /// Each open game's window and when it started.
-    static GAMES: RefCell<HashMap<u32, u64>> = RefCell::new(HashMap::new());
+    static CLOCK: RefCell<Clock> = RefCell::new(Clock::load());
+}
+
+/// Each application's time today (a game's while it is open), kept in
+/// ~/.local/state/seglinux/activity-time: coming back to an application
+/// continues its timer where it stopped; a new day starts from zero.
+#[derive(Default)]
+struct Clock {
+    day: String,
+    totals: HashMap<String, u64>,
+    /// What is shown, and since when this stretch.
+    current: Option<(String, u64)>,
+}
+
+impl Clock {
+    fn file() -> Option<PathBuf> {
+        let state = std::env::var_os("XDG_STATE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))?;
+        Some(state.join("seglinux/activity-time"))
+    }
+
+    fn today() -> String {
+        gtk::glib::DateTime::now_local()
+            .ok()
+            .and_then(|d| d.format("%F").ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
+    }
+
+    /// One line per application: seconds, a tab, its name; the first
+    /// line is the day.
+    fn load() -> Clock {
+        let text = Self::file()
+            .and_then(|f| std::fs::read_to_string(f).ok())
+            .unwrap_or_default();
+        let mut lines = text.lines();
+        let day = lines.next().unwrap_or_default().to_string();
+        if day != Self::today() {
+            return Clock::default();
+        }
+        let totals = lines
+            .filter_map(|l| {
+                let (secs, name) = l.split_once('\t')?;
+                Some((name.to_string(), secs.parse().ok()?))
+            })
+            .collect();
+        Clock {
+            day,
+            totals,
+            current: None,
+        }
+    }
+
+    fn save(&self) {
+        let Some(file) = Self::file() else {
+            return;
+        };
+        let mut text = format!("{}\n", self.day);
+        for (name, secs) in &self.totals {
+            text += &format!("{secs}\t{name}\n");
+        }
+        let _ = std::fs::create_dir_all(file.parent().unwrap_or(&file));
+        let _ = std::fs::write(file, text);
+    }
+
+    /// `name` is shown from now on (None: nothing); when its timer
+    /// started, counting its time earlier today.
+    fn show(&mut self, name: Option<&str>) -> u64 {
+        let t = now();
+        let today = Self::today();
+        if self.day != today {
+            self.day = today;
+            self.totals.clear();
+            if let Some((_, start)) = &mut self.current {
+                *start = t;
+            }
+        }
+        let earlier = |c: &Clock, n: &str| c.totals.get(n).copied().unwrap_or(0);
+        if let Some((cur, start)) = &self.current
+            && Some(cur.as_str()) == name
+        {
+            return start.saturating_sub(earlier(self, cur));
+        }
+        if let Some((cur, start)) = self.current.take() {
+            *self.totals.entry(cur).or_default() += t.saturating_sub(start);
+        }
+        self.save();
+        match name {
+            Some(n) => {
+                self.current = Some((n.to_string(), t));
+                t.saturating_sub(earlier(self, n))
+            }
+            None => t,
+        }
+    }
 }
 
 fn now() -> u64 {
@@ -97,13 +189,6 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         game.is_some_and(|g| g.lasting)
     };
     let open: Vec<u32> = tasks.iter().filter(lasting).map(|t| t.id).collect();
-    GAMES.with(|g| {
-        let mut g = g.borrow_mut();
-        g.retain(|id, _| open.contains(id));
-        for id in &open {
-            g.entry(*id).or_insert_with(now);
-        }
-    });
     // A game in front, else one open behind.
     let game = tasks
         .iter()
@@ -111,9 +196,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         .max_by_key(|t| t.active);
     if let Some(task) = game {
         let (app, kind, icons, game) = describe(task);
-        let since = GAMES
-            .with(|g| g.borrow().get(&task.id).copied())
-            .unwrap_or_else(now);
+        let since = CLOCK.with(|c| c.borrow_mut().show(Some(&app)));
         let title = (discord.show_titles && !task.title.is_empty() && task.title != app)
             .then(|| task.title.clone());
         send(Some(Activity {
@@ -129,7 +212,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
     }
     let Some(task) = tasks.iter().find(|t| t.active) else {
         // The desktop itself.
-        SHOWN.with(|s| s.borrow_mut().take());
+        CLOCK.with(|c| c.borrow_mut().show(None));
         send(None);
         return;
     };
@@ -142,17 +225,7 @@ pub fn update(tasks: &[Task], discord: &Discord) {
         return;
     }
     let (app, kind, icons, game) = describe(task);
-    let since = SHOWN.with(|s| {
-        let mut s = s.borrow_mut();
-        match &*s {
-            Some((shown, since)) if *shown == app => *since,
-            _ => {
-                let now = now();
-                *s = Some((app.clone(), now));
-                now
-            }
-        }
-    });
+    let since = CLOCK.with(|c| c.borrow_mut().show(Some(&app)));
     let title = (discord.show_titles && !task.title.is_empty() && task.title != app)
         .then(|| task.title.clone());
     send(Some(Activity {
@@ -234,11 +307,24 @@ fn describe(task: &Task) -> (String, u8, Vec<String>, Option<Game>) {
     ]
     .iter()
     .any(|l| id.contains(l));
-    let game = (has("Game") && !launcher).then(|| Game {
-        steam: None,
-        names: vec![name.to_lowercase(), task.app_id.to_lowercase()],
-        lasting: true,
-    });
+    // Discord's own entries for these show their real name and icon
+    // (only checked ones: its "Brave" and "Firefox" are games of those
+    // names, and Dolphin, the file manager, would match the emulator).
+    const DISCORD_APPS: &[&str] = &["krita"];
+    let lower = name.to_lowercase();
+    let game = if has("Game") && !launcher {
+        Some(Game {
+            steam: None,
+            names: vec![lower, task.app_id.to_lowercase()],
+            lasting: true,
+        })
+    } else {
+        DISCORD_APPS.contains(&lower.as_str()).then(|| Game {
+            steam: None,
+            names: vec![lower],
+            lasting: false,
+        })
+    };
     (name, kind, icons, game)
 }
 

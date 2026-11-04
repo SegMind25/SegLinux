@@ -9,6 +9,9 @@ Measurements and the reasons behind each removal are in
 
 ### Changed
 
+- **Discord timers continue**: each application's time today is kept
+  (~/.local/state/seglinux/activity-time); coming back to it continues
+  its timer instead of starting from zero.
 - **Game time keeps counting**: an open game stays the Discord activity
   while another window is in front (as Discord counts games on Windows),
   with one timer from its start; launchers (Steam, Lutris, Heroic) do not
