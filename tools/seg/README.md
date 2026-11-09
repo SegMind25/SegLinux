@@ -10,7 +10,7 @@ launcher needs); the release binary is about 700 KiB.
 seg info                      distro, kernel, init, uptime, memory, packages, disk
 seg svc list|enable|disable|start|stop [name]
 seg clean [--apply]           orphans, old cached packages, old logs
-seg tune light|balanced|gaming|performance|apply|status
+seg tune auto|light|balanced|gaming|performance|apply|status
 seg zram on|off|status
 seg game run|check|setup|profiles|apply|audio|unsafe-boost
 seg doctor                    look for problems and print their fixes

@@ -1,4 +1,4 @@
-//! `seg tune light|balanced|gaming|performance`: memory and writeback sysctls, the
+//! `seg tune auto|light|balanced|gaming|performance`: memory and writeback sysctls, the
 //! CPU governor and the I/O scheduler of every disk, applied now and saved
 //! for the next boot (/etc/sysctl.d/99-seg.conf, /etc/seg/tune.conf, and the
 //! `seg-tune` init service that runs `seg tune apply`).
@@ -15,15 +15,21 @@ use crate::error::{Context, Error, Result};
 use crate::sys::{self, bold};
 
 pub const HELP: &str = "\
-Usage: seg tune [light|balanced|gaming|performance|apply|status] [--dry-run]
+Usage: seg tune [auto|light|balanced|gaming|performance|apply|status] [--dry-run]
 
+  auto          (the default) chosen from this computer's memory: gaming,
+                and on 8 GB or less the kernel reclaims early (no stutter
+                when memory runs low) and keeps a game's working set in
+                memory (MGLRU); on 4 GB or less, small writeback bursts and
+                a lighter file cache
   light         save memory and battery: aggressive reclaim, small dirty
                 limits, the most frugal CPU governor
   balanced      kernel defaults for memory, a dynamic governor
   gaming        keep caches, short writeback bursts, low swappiness; the CPU
                 stays dynamic (seg game run raises it while a game runs)
   performance   the same, and the governor `performance` all the time
-  apply         apply the saved profile (the seg-tune service does this at boot)
+  apply         apply the saved profile, `auto` if none is saved (the seg-tune
+                service does this at boot)
   status        show the saved profile and the current values (default)
 
 Also sets the I/O scheduler of every disk: none for NVMe, mq-deadline for
@@ -44,6 +50,8 @@ pub const SYSCTL_CONF: &str = "/etc/sysctl.d/99-seg.conf";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
+    /// Gaming, adapted to the computer's memory (low-end PCs).
+    Auto,
     Light,
     Balanced,
     /// Everything fast, all the time: the CPU on `performance` too.
@@ -57,6 +65,7 @@ pub enum Mode {
 impl Mode {
     pub fn name(self) -> &'static str {
         match self {
+            Mode::Auto => "auto",
             Mode::Light => "light",
             Mode::Balanced => "balanced",
             Mode::Performance => "performance",
@@ -76,12 +85,13 @@ impl FromStr for Mode {
 
     fn from_str(s: &str) -> Result<Mode> {
         match s {
+            "auto" => Ok(Mode::Auto),
             "light" => Ok(Mode::Light),
             "balanced" => Ok(Mode::Balanced),
             "performance" => Ok(Mode::Performance),
             "gaming" => Ok(Mode::Gaming),
             other => Err(Error::Usage(format!(
-                "unknown profile `{other}` (light, balanced, gaming or performance)"
+                "unknown profile `{other}` (auto, light, balanced, gaming or performance)"
             ))),
         }
     }
@@ -126,7 +136,7 @@ fn profile(mode: Mode) -> Profile {
             governors: &["performance"],
             epp: "performance",
         },
-        Mode::Gaming => Profile {
+        Mode::Gaming | Mode::Auto => Profile {
             swappiness: 10,
             vfs_cache_pressure: 50,
             dirty_ratio: 15,
@@ -137,27 +147,80 @@ fn profile(mode: Mode) -> Profile {
     }
 }
 
+/// What `auto` adapts to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hardware {
+    pub mem_mib: u64,
+    pub cpus: usize,
+}
+
+impl Default for Hardware {
+    fn default() -> Self {
+        Hardware {
+            mem_mib: 16 * 1024,
+            cpus: 8,
+        }
+    }
+}
+
+impl Hardware {
+    /// 8 GB or less (what the kernel reports is a little under).
+    pub fn low_memory(self) -> bool {
+        self.mem_mib <= 8 * 1024
+    }
+
+    /// 4 GB or less.
+    pub fn very_low_memory(self) -> bool {
+        self.mem_mib <= 4 * 1024
+    }
+}
+
+/// MGLRU keeps pages used in the last second (a game's working set) out of
+/// reclaim, so a low-memory system kills a background tab instead of
+/// stuttering (as ChromeOS does).
+pub const MGLRU_MIN_TTL: &str = "/sys/kernel/mm/lru_gen/min_ttl_ms";
+
 /// The sysctl keys and values of a mode.
-pub fn sysctl_values(mode: Mode, zram_active: bool) -> [(&'static str, u32); 4] {
+pub fn sysctl_values(mode: Mode, zram_active: bool, hw: Hardware) -> Vec<(&'static str, u32)> {
     let p = profile(mode);
+    let auto = mode == Mode::Auto;
+    let tight = auto && hw.very_low_memory();
     let swappiness = if zram_active {
         p.swappiness.max(ZRAM_SWAPPINESS)
+    } else if tight {
+        // Little memory and no zram: keep some room to swap rather than
+        // dropping the files a game streams.
+        30
     } else {
         p.swappiness
     };
-    [
+    let mut values = vec![
         ("vm.swappiness", swappiness),
-        ("vm.vfs_cache_pressure", p.vfs_cache_pressure),
-        ("vm.dirty_ratio", p.dirty_ratio),
+        // A small file cache leaves memory to the game.
+        (
+            "vm.vfs_cache_pressure",
+            if tight { 100 } else { p.vfs_cache_pressure },
+        ),
+        // Small writeback bursts: no long stall while a slow disk catches up.
+        ("vm.dirty_ratio", if tight { 10 } else { p.dirty_ratio }),
         ("vm.dirty_background_ratio", p.dirty_background_ratio),
-    ]
+    ];
+    if auto && hw.low_memory() {
+        // kswapd frees memory earlier, before a game has to wait for it.
+        values.push(("vm.watermark_scale_factor", 125));
+    }
+    if auto && zram_active {
+        // Compressed swap is read page by page: no read-ahead.
+        values.push(("vm.page-cluster", 0));
+    }
+    values
 }
 
-pub fn sysctl_conf(mode: Mode, zram_active: bool) -> String {
+pub fn sysctl_conf(mode: Mode, zram_active: bool, hw: Hardware) -> String {
     let mut text = format!(
-        "# Written by `seg tune {mode}`; change it with `sudo seg tune <light|balanced|gaming|performance>`.\n"
+        "# Written by `seg tune {mode}`; change it with `sudo seg tune <auto|light|balanced|gaming|performance>`.\n"
     );
-    for (key, value) in sysctl_values(mode, zram_active) {
+    for (key, value) in sysctl_values(mode, zram_active, hw) {
         text.push_str(&format!("{key} = {value}\n"));
     }
     text
@@ -274,6 +337,33 @@ impl Fs {
             .is_some_and(|t| t.lines().any(|l| l.starts_with("/dev/zram")))
     }
 
+    /// Memory and CPUs, from /proc/meminfo and /sys.
+    pub fn hardware(&self) -> Hardware {
+        let mut hw = Hardware::default();
+        if let Some(kib) = sys::read_trimmed(self.p("/proc/meminfo")).and_then(|t| {
+            t.lines()
+                .find_map(|l| l.strip_prefix("MemTotal:"))
+                .and_then(|v| v.split_whitespace().next()?.parse::<u64>().ok())
+        }) {
+            hw.mem_mib = kib / 1024;
+        }
+        if let Ok(entries) = fs::read_dir(self.p("/sys/devices/system/cpu")) {
+            let cpus = entries
+                .flatten()
+                .filter(|e| {
+                    let name = e.file_name();
+                    let name = name.to_string_lossy();
+                    name.strip_prefix("cpu")
+                        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+                })
+                .count();
+            if cpus > 0 {
+                hw.cpus = cpus;
+            }
+        }
+        hw
+    }
+
     pub fn saved_mode(&self) -> Option<Mode> {
         sys::read_trimmed(self.p(CONF)).and_then(|t| parse_conf(&t))
     }
@@ -312,7 +402,7 @@ impl Fs {
     }
 
     fn apply_sysctl(&self, mode: Mode, dry_run: bool, report: &mut Report) -> Result<()> {
-        for (key, value) in sysctl_values(mode, self.zram_active()) {
+        for (key, value) in sysctl_values(mode, self.zram_active(), self.hardware()) {
             self.set(
                 key,
                 &self.sysctl_path(key),
@@ -433,8 +523,21 @@ impl Fs {
         self.apply_sysctl(mode, dry_run, &mut report)?;
         self.apply_cpu(mode, dry_run, &mut report)?;
         self.apply_io(dry_run, &mut report)?;
+        let hw = self.hardware();
+        if mode == Mode::Auto && hw.low_memory() && self.p(MGLRU_MIN_TTL).exists() {
+            self.set(
+                "MGLRU min_ttl_ms",
+                &self.p(MGLRU_MIN_TTL),
+                "1000",
+                dry_run,
+                &mut report,
+            )?;
+        }
         if save && !dry_run {
-            sys::write_atomic(&self.p(SYSCTL_CONF), &sysctl_conf(mode, self.zram_active()))?;
+            sys::write_atomic(
+                &self.p(SYSCTL_CONF),
+                &sysctl_conf(mode, self.zram_active(), hw),
+            )?;
             sys::write_atomic(
                 &self.p(CONF),
                 &format!("# seg tune profile\nmode = {mode}\n"),
@@ -460,7 +563,7 @@ impl Fs {
             Some(mode) => out.push_str(&format!("profile: {mode}\n")),
             None => out.push_str("profile: none saved (`sudo seg tune balanced` saves one)\n"),
         }
-        for (key, _) in sysctl_values(Mode::Balanced, false) {
+        for (key, _) in sysctl_values(Mode::Balanced, false, Hardware::default()) {
             out.push_str(&format!(
                 "  {key:<28}{}\n",
                 self.sysctl_now(key).unwrap_or_else(|| "?".into())
@@ -579,12 +682,8 @@ pub fn run(o: Options) -> Result<()> {
             if !o.dry_run {
                 sys::require_root("`seg tune apply`")?;
             }
-            // Nothing saved is fine: the service is enabled in the image
-            // before anyone has chosen a profile.
-            let Some(mode) = fs.saved_mode() else {
-                outln!("seg tune: no profile saved ({CONF}); nothing to apply");
-                return Ok(());
-            };
+            // Nothing saved: `auto`, chosen from this computer's hardware.
+            let mode = fs.saved_mode().unwrap_or(Mode::Auto);
             outln!("{}", bold(&format!("seg tune apply ({mode})")));
             print_report(&fs.apply(mode, false, o.dry_run)?);
             Ok(())
@@ -618,10 +717,10 @@ mod tests {
 
     #[test]
     fn profiles_are_ordered_from_frugal_to_fast() {
-        let swap = |m| sysctl_values(m, false)[0].1;
+        let swap = |m| sysctl_values(m, false, Hardware::default())[0].1;
         assert!(swap(Mode::Light) > swap(Mode::Balanced));
         assert!(swap(Mode::Balanced) > swap(Mode::Performance));
-        let vfs = |m| sysctl_values(m, false)[1].1;
+        let vfs = |m| sysctl_values(m, false, Hardware::default())[1].1;
         assert!(
             vfs(Mode::Light) > vfs(Mode::Balanced) && vfs(Mode::Balanced) > vfs(Mode::Performance)
         );
@@ -643,7 +742,7 @@ mod tests {
         );
         assert_eq!(pick_governor("performance", g.governors), None);
         assert_eq!(
-            sysctl_values(Mode::Gaming, false),
+            sysctl_values(Mode::Gaming, false, Hardware::default()),
             [
                 ("vm.swappiness", 10),
                 ("vm.vfs_cache_pressure", 50),
@@ -653,7 +752,7 @@ mod tests {
         );
         // With zram, swapping early is right even for gaming.
         assert_eq!(
-            sysctl_values(Mode::Gaming, true)[0],
+            sysctl_values(Mode::Gaming, true, Hardware::default())[0],
             ("vm.swappiness", ZRAM_SWAPPINESS)
         );
     }
@@ -709,24 +808,27 @@ vm.nonexistent = 1
     #[test]
     fn zram_raises_swappiness_to_the_zram_value() {
         assert_eq!(
-            sysctl_values(Mode::Performance, true)[0],
+            sysctl_values(Mode::Performance, true, Hardware::default())[0],
             ("vm.swappiness", ZRAM_SWAPPINESS)
         );
         assert_eq!(
-            sysctl_values(Mode::Balanced, true)[0],
+            sysctl_values(Mode::Balanced, true, Hardware::default())[0],
             ("vm.swappiness", ZRAM_SWAPPINESS)
         );
         assert_eq!(
-            sysctl_values(Mode::Performance, false)[0],
+            sysctl_values(Mode::Performance, false, Hardware::default())[0],
             ("vm.swappiness", 10)
         );
         // Never lowered.
-        assert_eq!(sysctl_values(Mode::Light, true)[0].1, ZRAM_SWAPPINESS);
+        assert_eq!(
+            sysctl_values(Mode::Light, true, Hardware::default())[0].1,
+            ZRAM_SWAPPINESS
+        );
     }
 
     #[test]
     fn sysctl_file_is_plain_key_value() {
-        let text = sysctl_conf(Mode::Balanced, false);
+        let text = sysctl_conf(Mode::Balanced, false, Hardware::default());
         assert!(text.starts_with('#'));
         assert!(text.contains("\nvm.swappiness = 60\n"));
         assert!(text.contains("\nvm.vfs_cache_pressure = 100\n"));
@@ -735,16 +837,17 @@ vm.nonexistent = 1
     }
 
     #[test]
-    fn the_shipped_defaults_are_the_balanced_profile() {
+    fn the_shipped_defaults_are_the_auto_profile() {
         // dist/ is what the package installs as /etc/sysctl.d/99-seg.conf and
-        // /etc/seg/tune.conf: it must say what `seg tune balanced` writes.
+        // /etc/seg/tune.conf: it must say what `seg tune auto` writes on a
+        // computer with plenty of memory (the boot service adapts it).
         assert_eq!(
             include_str!("../../dist/99-seg.conf"),
-            sysctl_conf(Mode::Balanced, false)
+            sysctl_conf(Mode::Auto, false, Hardware::default())
         );
         assert_eq!(
             parse_conf(include_str!("../../dist/tune.conf")),
-            Some(Mode::Balanced)
+            Some(Mode::Auto)
         );
     }
 
@@ -994,5 +1097,68 @@ vm.nonexistent = 1
         assert!(text.contains("nvme0n1 scheduler"));
         assert!(!text.contains("loop0"));
         assert!(text.contains("zram swap") && text.contains("off"));
+    }
+
+    #[test]
+    fn auto_adapts_to_memory() {
+        let big = Hardware::default();
+        let eight = Hardware {
+            mem_mib: 7_800,
+            cpus: 4,
+        };
+        let four = Hardware {
+            mem_mib: 3_900,
+            cpus: 2,
+        };
+        let get = |hw, zram, key| {
+            sysctl_values(Mode::Auto, zram, hw)
+                .into_iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| v)
+        };
+        // Plenty of memory: the gaming profile.
+        assert_eq!(
+            sysctl_values(Mode::Auto, false, big),
+            sysctl_values(Mode::Gaming, false, big)
+        );
+        assert_eq!(get(eight, false, "vm.watermark_scale_factor"), Some(125));
+        assert_eq!(get(eight, false, "vm.vfs_cache_pressure"), Some(50));
+        assert_eq!(get(four, false, "vm.vfs_cache_pressure"), Some(100));
+        assert_eq!(get(four, false, "vm.dirty_ratio"), Some(10));
+        assert_eq!(get(four, false, "vm.swappiness"), Some(30));
+        assert_eq!(get(four, true, "vm.swappiness"), Some(ZRAM_SWAPPINESS));
+        assert_eq!(get(four, true, "vm.page-cluster"), Some(0));
+        assert_eq!(get(big, false, "vm.page-cluster"), None);
+        assert_eq!("auto".parse::<Mode>().unwrap(), Mode::Auto);
+    }
+
+    #[test]
+    fn reads_the_hardware() {
+        let t = TempDir::new();
+        let root = t.path();
+        fs::create_dir_all(root.join("proc")).unwrap();
+        fs::write(
+            root.join("proc/meminfo"),
+            "MemTotal:        3955456 kB\nMemFree: 1 kB\n",
+        )
+        .unwrap();
+        for d in ["cpu0", "cpu1", "cpufreq", "cpuidle"] {
+            fs::create_dir_all(root.join("sys/devices/system/cpu").join(d)).unwrap();
+        }
+        fs::create_dir_all(root.join("sys/kernel/mm/lru_gen")).unwrap();
+        fs::write(root.join("sys/kernel/mm/lru_gen/min_ttl_ms"), "0\n").unwrap();
+        let fs_ = Fs::new(root);
+        assert_eq!(
+            fs_.hardware(),
+            Hardware {
+                mem_mib: 3862,
+                cpus: 2
+            }
+        );
+        fs_.apply(Mode::Auto, false, false).unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("sys/kernel/mm/lru_gen/min_ttl_ms")).unwrap(),
+            "1000"
+        );
     }
 }

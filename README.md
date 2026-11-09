@@ -108,7 +108,8 @@ published.
   or dinit; rolling release.
 * **`seg`, one small tool for the system.** `seg info`, `seg svc` (the same
   commands on OpenRC, runit, dinit and s6), `seg clean`, `seg tune`
-  (light, balanced, gaming or performance), `seg zram`, `seg game` (see
+  (auto, the default, adapts to the PC's memory; light, balanced, gaming or
+  performance), `seg zram`, `seg game` (see
   above) and `seg doctor`, which finds problems and prints their fixes. A
   single Rust binary of about 700 KiB; see
   [tools/seg](tools/seg/README.md). What the images weigh and what was taken

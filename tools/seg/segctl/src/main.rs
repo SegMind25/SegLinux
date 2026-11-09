@@ -47,7 +47,7 @@ Commands:
   svc list|enable|disable|start|stop [name]
                                services, on whichever init is running
   clean [--apply]              orphans, old cached packages, old logs (dry run by default)
-  tune light|balanced|gaming|performance|apply|status
+  tune auto|light|balanced|gaming|performance|apply|status
                                memory, CPU and disk settings
   zram on|off|status           compressed swap in memory
   game run|check|setup|...     play: boost while a game runs, readiness check, drivers
