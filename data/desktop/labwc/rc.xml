@@ -27,6 +27,7 @@
     <name>SegLinux</name><cornerRadius>8</cornerRadius>
     <font place="ActiveWindow"><name>Noto Sans</name><size>10</size></font>
     <titlebar><layout>icon:iconify,max,close</layout></titlebar>
+    <dropShadows>yes</dropShadows>
   </theme>
   <keyboard>
     <repeatRate>25</repeatRate>

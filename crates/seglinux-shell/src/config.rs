@@ -114,6 +114,8 @@ pub struct Windows {
     pub adaptive_sync: AdaptiveSync,
     /// Tearing, for the lowest input latency in games.
     pub allow_tearing: Tearing,
+    /// Window shadows, Alt+Tab thumbnails and animations.
+    pub effects: Effects,
 }
 impl Default for Windows {
     fn default() -> Self {
@@ -125,8 +127,45 @@ impl Default for Windows {
             workspaces: 1,
             adaptive_sync: AdaptiveSync::Fullscreen,
             allow_tearing: Tearing::Yes,
+            effects: Effects::Auto,
         }
     }
+}
+
+/// Visual effects: window shadows, Alt+Tab thumbnails, animations.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Effects {
+    /// On, except on a weak PC (4 GB of memory or less, or two CPU cores
+    /// or fewer), where they would cost games frames.
+    #[default]
+    Auto,
+    On,
+    Off,
+}
+
+impl Effects {
+    pub fn enabled(self) -> bool {
+        match self {
+            Effects::On => true,
+            Effects::Off => false,
+            Effects::Auto => !weak_pc(),
+        }
+    }
+}
+
+/// 4 GB of memory or less, or two CPU cores or fewer.
+pub fn weak_pc() -> bool {
+    let mem_kib = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|t| {
+            t.lines()
+                .find_map(|l| l.strip_prefix("MemTotal:"))
+                .and_then(|v| v.split_whitespace().next()?.parse::<u64>().ok())
+        })
+        .unwrap_or(u64::MAX);
+    let cpus = std::thread::available_parallelism().map_or(usize::MAX, |n| n.get());
+    mem_kib <= 4 * 1024 * 1024 || cpus <= 2
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]

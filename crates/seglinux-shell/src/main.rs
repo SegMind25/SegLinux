@@ -54,7 +54,7 @@ Volume and brightness keys: gapplication action org.seglinux.Shell volume \"'up'
 fn apply_gtk_settings(config: &Config) {
     if let Some(settings) = gtk::Settings::default() {
         set_dark_theme(&settings, config.theme == config::Theme::Dark);
-        settings.set_gtk_enable_animations(config.animations);
+        settings.set_gtk_enable_animations(config.animations && config.windows.effects.enabled());
     }
 }
 

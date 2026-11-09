@@ -2,9 +2,10 @@
 //! mouse and touchpad. The compositor (labwc) applies them at once.
 use super::widgets::{self, index_of, selected};
 use super::{Page, State};
-use crate::config::{LayoutSwitch, NumLock};
+use crate::config::{Effects, LayoutSwitch, NumLock};
 use gtk::prelude::*;
 
+const EFFECTS: [Effects; 3] = [Effects::Auto, Effects::On, Effects::Off];
 const SWITCHES: [LayoutSwitch; 4] = [
     LayoutSwitch::AltShift,
     LayoutSwitch::CtrlShift,
@@ -34,6 +35,7 @@ pub struct Windows {
     raise: gtk::Switch,
     gap: gtk::SpinButton,
     radius: gtk::SpinButton,
+    effects: gtk::DropDown,
     workspaces: gtk::SpinButton,
     layout: gtk::Entry,
     layout_switch: gtk::DropDown,
@@ -75,6 +77,14 @@ impl Windows {
             Some("In pixels; 0 for square corners."),
             (0.0, 20.0),
             1.0,
+        );
+        let effects = widgets::dropdown(
+            &win,
+            "Visual effects",
+            Some(
+                "Window shadows, Alt+Tab thumbnails and animations. Automatic turns them off on a weak PC (4 GB of memory or less), leaving games the frames.",
+            ),
+            &["Automatic", "On", "Off"],
         );
         let workspaces = widgets::spin(
             &win,
@@ -208,6 +218,7 @@ impl Windows {
             raise,
             gap,
             radius,
+            effects,
             workspaces,
             layout,
             layout_switch,
@@ -237,6 +248,7 @@ impl Page for Windows {
         self.raise.set_active(w.raise_on_focus);
         self.gap.set_value(w.gap.into());
         self.radius.set_value(w.corner_radius.into());
+        self.effects.set_selected(index_of(&EFFECTS, &w.effects));
         self.workspaces.set_value(w.workspaces.into());
         let i = &state.shell.input;
         self.layout.set_text(&i.keyboard_layout);
@@ -261,6 +273,7 @@ impl Page for Windows {
         w.raise_on_focus = self.raise.is_active();
         w.gap = widgets::spin_u32(&self.gap);
         w.corner_radius = widgets::spin_u32(&self.radius);
+        w.effects = selected(&EFFECTS, &self.effects);
         w.workspaces = widgets::spin_u32(&self.workspaces);
         let i = &mut state.shell.input;
         i.keyboard_layout = self

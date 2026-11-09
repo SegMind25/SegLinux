@@ -116,10 +116,17 @@ const KEYBINDS: &[(&str, &str)] = &[
     ),
 ];
 
+/// The distribution's `rc.xml` fits: the default settings, with the
+/// visual effects on (a weak PC on Automatic gets its own, without).
+pub fn is_default(windows: &Windows, input: &Input) -> bool {
+    *windows == Windows::default() && *input == Input::default() && windows.effects.enabled()
+}
+
 /// labwc's `rc.xml` for these settings. The defaults give the file the
 /// distribution installs (`data/desktop/labwc/rc.xml`).
 pub fn rc_xml(windows: &Windows, input: &Input) -> String {
-    let defaults = *windows == Windows::default() && *input == Input::default();
+    let defaults = is_default(windows, input);
+    let effects = windows.effects.enabled();
     let mut x = String::from("<?xml version=\"1.0\"?>\n");
     if defaults {
         x.push_str("<!-- SegLinux desktop: window behaviour, keyboard, mouse and touchpad.\n     Change them in SegLinux Settings (Super+I). -->\n");
@@ -167,6 +174,7 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
     <name>SegLinux</name><cornerRadius>{radius}</cornerRadius>
     <font place=\"ActiveWindow\"><name>Noto Sans</name><size>10</size></font>
     <titlebar><layout>icon:iconify,max,close</layout></titlebar>
+    <dropShadows>{shadows}</dropShadows>
   </theme>
   <keyboard>
 ",
@@ -175,6 +183,7 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
         raise = yes(windows.raise_on_focus),
         workspaces = windows.workspaces,
         radius = windows.corner_radius,
+        shadows = yes(effects),
     );
     match input.numlock {
         NumLock::Unchanged => {}
@@ -215,7 +224,7 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
       <disableWhileTyping>{dwt}</disableWhileTyping>
     </device>
   </libinput>
-  <windowSwitcher preview=\"yes\" outlines=\"yes\"><osd show=\"yes\" style=\"thumbnail\" /></windowSwitcher>
+  <windowSwitcher preview=\"yes\" outlines=\"yes\"><osd show=\"yes\" style=\"{switcher}\" /></windowSwitcher>
 </labwc_config>
 ",
         mouse_natural = yes(input.natural_scroll_mouse),
@@ -223,6 +232,8 @@ pub fn rc_xml(windows: &Windows, input: &Input) -> String {
         left = yes(input.left_handed),
         tap = yes(input.tap_to_click),
         dwt = yes(input.disable_touchpad_while_typing),
+        // Thumbnails of every window cost a weak GPU: a list instead.
+        switcher = if effects { "thumbnail" } else { "classic" },
     );
     x
 }
@@ -264,7 +275,7 @@ pub struct Synced {
 /// to `system` for everything left at its default.
 pub fn sync_into(config: &Config, dir: &Path, system: &Path) -> io::Result<Synced> {
     std::fs::create_dir_all(dir)?;
-    let defaults = config.windows == Windows::default() && config.input == Input::default();
+    let defaults = is_default(&config.windows, &config.input);
     let files = [
         (
             "rc.xml",
