@@ -53,7 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The seglinux package's version counts the commits (0.1.0.<count>),
+          # The seglinux package's version is the PKGBUILD's pkgver plus the
+          # number of commits (<pkgver>.<count>),
           # so every update is newer than the one before.
           fetch-depth: 0
       - name: Free disk space
@@ -76,7 +77,7 @@ jobs:
           [[ $EDITION == lite ]] && edition=(--lite)
           # Numbered by main's history, as the updates are (update.yml), even
           # for a build of another branch.
-          SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
+          SEGLINUX_PKGVER="$(sed -n 's/^pkgver=//p' packaging/seglinux/PKGBUILD).$(git rev-list --count origin/main)" \
             ./iso/build.sh "${edition[@]}" -e docker -i "$INIT" -k "$KERNEL"
       - name: Show the result
         run: ls -l iso/out/ iso/out/packages/ && cat iso/out/*.sha256
@@ -122,10 +123,16 @@ jobs:
           Write it to a USB stick with \`sudo dd if=$iso of=/dev/sdX bs=4M status=progress oflag=sync\`
           (or Ventoy), disable Secure Boot and boot from it. See docs/building.md.
           EOF
-          # A version tag builds both editions into one release.
+          # A version tag builds both editions into one stable release (the
+          # repository's Latest); other builds are pre-releases.
+          kind=(--prerelease)
+          if [[ $GITHUB_REF_TYPE == tag ]]; then
+            kind=(--latest)
+            title="SegLinux ${GITHUB_REF_NAME#v}"
+          fi
           gh release create "$tag" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "$title" --notes-file notes.md --prerelease ||
+            --title "$title" --notes-file notes.md "${kind[@]}" ||
             gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY"
       # The website (Vercel) lists the releases when it is built: ask it to
       # build again. Add the project's deploy hook URL as the repository

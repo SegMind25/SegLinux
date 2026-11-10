@@ -1,7 +1,9 @@
 NAME="SegLinux"
-PRETTY_NAME="SegLinux"
+PRETTY_NAME="SegLinux 1.0.0"
 ID=seglinux
 ID_LIKE="artix arch"
+VERSION="1.0.0"
+VERSION_ID=1.0.0
 BUILD_ID=rolling
 ANSI_COLOR="38;2;61;174;233"
 HOME_URL="https://github.com/SegMind25/SegLinux"

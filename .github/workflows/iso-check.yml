@@ -36,7 +36,7 @@ jobs:
         run: |
           edition=()
           [[ $EDITION == lite ]] && edition=(--lite)
-          SEGLINUX_PKGVER="0.1.0.$(git rev-list --count origin/main)" \
+          SEGLINUX_PKGVER="$(sed -n 's/^pkgver=//p' packaging/seglinux/PKGBUILD).$(git rev-list --count origin/main)" \
             ./iso/build.sh "${edition[@]}" -e docker -i openrc -k linux-zen
       - name: Inside the image
         run: bash .github/iso-check/inspect.sh "$(ls iso/out/seglinux-*.iso)"

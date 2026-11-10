@@ -143,6 +143,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: One release number everywhere
+        run: |
+          # The release is pkgver in the PKGBUILD; Cargo, os-release and
+          # seglinux-upgrade must name the same one.
+          release=$(sed -n 's/^pkgver=//p' packaging/seglinux/PKGBUILD)
+          cargo=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          os=$(sed -n 's/^VERSION_ID=//p' data/system/os-release)
+          upgrade=$(sed -n 's/^release=//p' data/system/seglinux-upgrade)
+          echo "PKGBUILD $release, Cargo $cargo, os-release $os, seglinux-upgrade $upgrade"
+          test -n "$release" && test "$cargo" = "$release" && test "$os" = "$release" && test "$upgrade" = "$release"
+          grep -qx "PRETTY_NAME=\"SegLinux $release\"" data/system/os-release
+          if [[ $GITHUB_REF_TYPE == tag ]]; then test "$GITHUB_REF_NAME" = "v$release"; fi
       - name: shellcheck
         run: |
           shellcheck -s bash iso/build.sh iso/scripts/*.sh packaging/seglinux/seglinux.install data/system/seglinux-upgrade data/system/seglinux-update \

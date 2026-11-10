@@ -206,21 +206,26 @@ plasma-x11-session plasma-workspace
 LIST
 }
 
+# The release the seglinux package belongs to: pkgver in
+# packaging/seglinux/PKGBUILD. Published packages are numbered
+# <release>.<commits on main>.
+release=1.0.0
+
 # SegLinux's newest version, numbered as its published packages are
-# (0.1.0.<commits on main>), and the commit to build: "VERSION COMMIT".
+# (<release>.<commits on main>), and the commit to build: "VERSION COMMIT".
 latest() {
     local sha count auth=()
     # A token raises GitHub's limit of 60 questions an hour (CI uses one).
     [[ -n ${GITHUB_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
     if [[ -n ${SEGLINUX_SOURCE:-} ]]; then
-        echo "${SEGLINUX_VERSION:-0.1.0.$(git -C "$SEGLINUX_SOURCE" rev-list --count HEAD)} local"
+        echo "${SEGLINUX_VERSION:-$release.$(git -C "$SEGLINUX_SOURCE" rev-list --count HEAD)} local"
         return
     fi
     sha=$(curl -fsS "${auth[@]}" -H 'Accept: application/vnd.github.sha' "$api/commits/main") || return 1
     count=$(curl -fsSI "${auth[@]}" "$api/commits?sha=$sha&per_page=1" | tr -d '\r' |
         sed -n 's/.*[?&]page=\([0-9]*\)>; rel="last".*/\1/p')
     [[ $sha =~ ^[0-9a-f]{40}$ && $count =~ ^[0-9]+$ ]] || return 1
-    echo "0.1.0.$count $sha"
+    echo "$release.$count $sha"
 }
 
 # SegLinux itself, built on this computer from its source on GitHub, the way

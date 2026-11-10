@@ -37,7 +37,8 @@ jobs:
         with:
           # Always main, also when "Run workflow" is started on another
           # branch (the repository's default branch is the website's). The
-          # package's version counts main's commits (0.1.0.<count>), so each
+          # package's version is the PKGBUILD's pkgver plus main's commit count
+          # (<pkgver>.<count>), so each
           # update is newer than the one before.
           ref: main
           fetch-depth: 0
@@ -47,7 +48,7 @@ jobs:
         run: iso/scripts/signing-key.sh
       - name: Build the seglinux package
         if: env.SEGLINUX_SIGNING_FPR != ''
-        run: SEGLINUX_PKGVER="0.1.0.$(git rev-list --count HEAD)" ./iso/build.sh --package-only -e docker
+        run: SEGLINUX_PKGVER="$(sed -n 's/^pkgver=//p' packaging/seglinux/PKGBUILD).$(git rev-list --count HEAD)" ./iso/build.sh --package-only -e docker
       - name: Publish the update
         if: env.SEGLINUX_SIGNING_FPR != ''
         env:

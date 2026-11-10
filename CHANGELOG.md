@@ -1,14 +1,32 @@
 # Changelog
 
-Notable changes to SegLinux. The project has no version numbers yet, so this
-lists what changed since the last ISO build of 19 October 2026 (`4ca2f45`).
+Notable changes to SegLinux. Releases are numbered `MAJOR.MINOR.PATCH`; the
+seglinux package built from each commit on main is `<release>.<commit count>`
+(for example `1.0.0.412`), so updates between releases keep arriving.
 Measurements and the reasons behind each removal are in
 [docs/lean-audit.md](docs/lean-audit.md).
 
 ## Unreleased
 
+Nothing yet.
+
+## 1.0.0 - 2026-11-10
+
+The first stable release, with what changed since the last ISO build of
+19 October 2026 (`4ca2f45`). Its ISOs are the repository's Latest release
+(tag `v1.0.0`); `PRETTY_NAME` in os-release is now "SegLinux 1.0.0".
+
 ### Changed
 
+- **Visual effects** (Settings, Windows: Automatic, On, Off): Automatic
+  turns window shadows, Alt+Tab thumbnails and animations off on a weak PC
+  (4 GB of memory or less, or two CPU cores or fewer). labwc's window
+  shadows now show; dock icons lift on hover, menus and notifications
+  slide in.
+- **`seg tune auto` is the default profile**: the gaming profile, adapted
+  to the PC's memory. On 8 GB or less memory is reclaimed earlier so a
+  background page is dropped instead of a game stuttering; on 4 GB or less
+  a lighter file cache, smaller write-back bursts and less swapping.
 - **Discord timers continue**: each application's time today is kept
   (~/.local/state/seglinux/activity-time); coming back to it continues
   its timer instead of starting from zero.

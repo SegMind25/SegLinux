@@ -2743,7 +2743,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "seglinux-compositor"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bitflags 2.13.2",
  "calloop 0.14.5",
@@ -2762,7 +2762,7 @@ dependencies = [
 
 [[package]]
 name = "seglinux-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -2770,7 +2770,7 @@ dependencies = [
 
 [[package]]
 name = "seglinux-greeter"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gtk4",
  "gtk4-layer-shell",
@@ -2782,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "seglinux-installer"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "gtk4",
@@ -2793,11 +2793,11 @@ dependencies = [
 
 [[package]]
 name = "seglinux-pe"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "seglinux-setup"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "seglinux-shell"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gtk4",
  "gtk4-layer-shell",
@@ -2827,7 +2827,7 @@ dependencies = [
 
 [[package]]
 name = "segrun"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
