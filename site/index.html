@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SegOS: a from-scratch OS in Rust that speaks Linux</title>
+  <meta name="description" content="SegOS is an operating system written from scratch in Rust. Its kernel implements the Linux system call interface so it can, in time, run unmodified Linux applications, and Windows ones through Wine and Proton. Early development: it boots, it does not run programs yet.">
+  <meta name="theme-color" content="#0e0f12" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SegOS">
+  <meta property="og:title" content="SegOS: a from-scratch OS in Rust that speaks Linux">
+  <meta property="og:description" content="A new kernel in Rust that implements the Linux syscall ABI, so unmodified Linux apps (and Windows apps via Wine/Proton) can run on it. Phases 0 and 1 done; Phase 2 next.">
+  <meta property="og:image" content="/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="SegOS logo and tagline: a from-scratch OS in Rust that speaks Linux.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="SegOS home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14120f"/><g fill="#ff7a3d"><rect x="21" y="11" width="22" height="6" rx="3"/><rect x="15" y="18" width="6" height="10" rx="3"/><rect x="21" y="29" width="22" height="6" rx="3"/><rect x="43" y="36" width="6" height="10" rx="3"/><rect x="21" y="47" width="22" height="6" rx="3"/></g><g fill="#ff7a3d" opacity=".2"><rect x="43" y="18" width="6" height="10" rx="3"/><rect x="15" y="36" width="6" height="10" rx="3"/></g></svg>
+        <span>SegOS</span>
+      </a>
+      <nav aria-label="Main">
+        <ul class="nav">
+          <li><a href="/" aria-current="page">Home</a></li>
+          <li><a href="/roadmap">Roadmap</a></li>
+          <li><a href="https://github.com/SegMind25/SegLinux">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span><span>Early development &middot; Phase 1 of 11 done</span></p>
+        <h1 id="hero-title">A new operating system in Rust that <em>speaks Linux</em>.</h1>
+        <p class="lede">
+          SegOS is a kernel written from scratch whose native interface is the
+          <strong>Linux system call ABI</strong>. The goal: run the applications
+          people already use, unmodified, and Windows programs through Wine and
+          Proton. Today it boots and manages memory. <strong>It does not run
+          programs yet.</strong>
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="/roadmap">See the roadmap</a>
+          <a class="btn" href="https://github.com/SegMind25/SegLinux">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            Source on GitHub
+          </a>
+        </div>
+      </section>
+
+      <figure class="console" aria-labelledby="console-cap">
+        <div class="console-bar" aria-hidden="true"><i></i><i></i><i></i><span>qemu-system-x86_64 &middot; segos.iso</span></div>
+        <div class="shot" tabindex="0" role="region" aria-label="Kernel console screenshot">
+        <picture>
+          <source srcset="/assets/console.webp" type="image/webp">
+          <img src="/assets/console.png" width="888" height="120"
+               alt="SegOS kernel console in QEMU. Lines: SegOS 0.1.0; [info] console: 1280x800 framebuffer; [info] ready: 504 MiB free, heap 0/4194304 bytes; [info] Phase 0 complete: nothing more to run yet.">
+        </picture>
+        </div>
+        <figcaption id="console-cap">
+          The SegOS kernel today, booted in QEMU: framebuffer console, memory
+          map, heap, and an honest last line.
+          <a href="/assets/console-full.png">Full 1280&times;800 screenshot</a>.
+        </figcaption>
+      </figure>
+    </div>
+
+    <section aria-labelledby="why-title">
+      <div class="wrap split">
+        <div>
+          <p class="kicker">The idea</p>
+          <h2 id="why-title">Why the Linux ABI means &ldquo;runs every application&rdquo;</h2>
+          <p>
+            The programs people actually use (Steam, Firefox, Chromium, Discord,
+            Blender, LibreOffice) already exist as <strong>Linux x86-64
+            binaries</strong>. Nobody is going to port them to a new operating
+            system. So instead of asking applications to change, SegOS changes
+            the kernel.
+          </p>
+          <p>
+            The kernel loads the same ELF files and answers the
+            <strong>same system calls</strong>, with the same numbers, structures
+            and error codes, and provides the same <code>/proc</code>,
+            <code>/sys</code> and <code>/dev</code> files programs read.
+            Unmodified glibc or musl sits on top, and the application cannot
+            tell the difference.
+          </p>
+          <p>
+            Windows software then comes along the same way it does on Linux
+            today: <strong>Wine and Proton are Linux programs</strong>.
+          </p>
+          <p>
+            This is the route taken by gVisor, Asterinas, Kerla and Maestro, and
+            by FreeBSD&rsquo;s and Windows&rsquo; (WSL1) Linux layers. It is the
+            realistic way for a new kernel to reach real software.
+          </p>
+        </div>
+
+        <ol class="stack" aria-label="SegOS architecture, top to bottom">
+          <li><b>Unmodified applications</b><span>bash, coreutils, Mesa, Firefox, Steam, Wine/Proton</span></li>
+          <li><b>glibc / musl</b><span>unmodified C libraries</span></li>
+          <li class="abi">syscall boundary &middot; Linux ABI</li>
+          <li class="ours"><em class="tag">written in Rust</em><b>segkernel</b><span>linux-abi &middot; process &middot; mm &middot; vfs &middot; net &middot; drivers &middot; sched</span></li>
+          <li class="ours"><em class="tag">the small unsafe core</em><b>segkernel-hal</b><span>x86-64: GDT/IDT, APIC, ACPI, PCI(e)</span></li>
+          <li><b>Limine bootloader</b><span>UEFI and legacy BIOS</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section aria-labelledby="design-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Design</p>
+          <h2 id="design-title">Four decisions that shape everything</h2>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3><span class="n">01</span> Linux ABI is the native ABI</h3>
+            <p>Not an emulation layer bolted on the side. There is no second &ldquo;own&rdquo; syscall interface to maintain.</p>
+          </article>
+          <article class="card">
+            <h3><span class="n">02</span> Monolithic, small unsafe core</h3>
+            <p>All <code>unsafe</code> lives in the HAL and a few audited modules; the rest is <code>#![forbid(unsafe_code)]</code>. No IPC cost per syscall.</p>
+          </article>
+          <article class="card">
+            <h3><span class="n">03</span> Drivers speak Linux&rsquo;s interfaces</h3>
+            <p>DRM/KMS ioctls, evdev and ALSA, so Mesa, libinput and PipeWire work without changes.</p>
+          </article>
+          <article class="card">
+            <h3><span class="n">04</span> Measured against real software</h3>
+            <p>A syscall conformance suite compared with real Linux, plus an application ladder from BusyBox up to Steam.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="status-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Status</p>
+          <h2 id="status-title">Where it is right now</h2>
+          <p>Each phase ends with a demo that has to work in QEMU. Phases 0 and 1 have passed; Phase 2, the first user program, is next.</p>
+        </div>
+        <div class="grid">
+          <div class="panel">
+            <h3>Phase 0 &middot; Bring-up <span class="badge done">Done</span></h3>
+            <ul class="checklist done">
+              <li>Boots on UEFI and legacy BIOS via Limine</li>
+              <li>Serial port and framebuffer text console</li>
+              <li>GDT, TSS and IDT; handlers for every CPU exception</li>
+              <li>Physical frame allocator from the boot memory map</li>
+              <li>4-level paging with a higher-half direct map</li>
+              <li>Kernel heap</li>
+              <li>7 in-kernel tests passing in QEMU</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Phase 1 &middot; Multitasking <span class="badge done">Done</span></h3>
+            <ul class="checklist done">
+              <li>Local APIC timer, calibrated against the PIT</li>
+              <li>Kernel threads and a preemptive scheduler</li>
+              <li>SMP: every CPU started, per-CPU data</li>
+              <li>Interrupt-safe spinlocks, sleeping mutexes, wait queues</li>
+              <li>Kernel stacks with guard pages</li>
+              <li>13 in-kernel tests passing in QEMU on 4 CPUs</li>
+            </ul>
+            <p class="notice"><span>Next, Phase 2: the first user program, a static musl &ldquo;hello world&rdquo; built on Linux, running unmodified.</span></p>
+          </div>
+        </div>
+        <p style="margin-top:1.5rem"><a href="/roadmap">All 11 phases, from bring-up to Steam &rarr;</a></p>
+      </div>
+    </section>
+
+    <section aria-labelledby="build-title">
+      <div class="wrap split split-wide-end">
+        <div>
+          <p class="kicker">Try it</p>
+          <h2 id="build-title">Build it yourself</h2>
+          <p>
+            You need Rust (the version is pinned in <code>rust-toolchain.toml</code>),
+            QEMU, xorriso, git, make, a C compiler and OVMF. The first build
+            downloads the <a href="https://github.com/limine-bootloader/limine">Limine</a>
+            bootloader into <code>target/limine</code>.
+          </p>
+          <p>
+            What you will see is the console above: the kernel boots, reports
+            its memory and stops. That is the honest state of things.
+          </p>
+        </div>
+        <div class="cmds">
+          <figure class="cmd">
+            <figcaption>Dependencies on Debian or Ubuntu</figcaption>
+            <pre><code><span class="p" aria-hidden="true">$ </span>sudo apt install qemu-system-x86 xorriso ovmf build-essential git</code></pre>
+          </figure>
+          <figure class="cmd">
+            <figcaption>Get the source</figcaption>
+            <pre><code><span class="p" aria-hidden="true">$ </span>git clone https://github.com/SegMind25/SegLinux
+<span class="p" aria-hidden="true">$ </span>cd SegLinux</code></pre>
+          </figure>
+          <figure class="cmd">
+            <figcaption>Build, boot and test</figcaption>
+            <pre><code><span class="p" aria-hidden="true">$ </span>cargo xtask run          <span class="c"># build the ISO, boot it in QEMU (UEFI)</span>
+<span class="p" aria-hidden="true">$ </span>cargo xtask run --bios   <span class="c"># legacy BIOS boot</span>
+<span class="p" aria-hidden="true">$ </span>cargo xtask test         <span class="c"># in-kernel tests, in QEMU</span>
+<span class="p" aria-hidden="true">$ </span>cargo xtask image        <span class="c"># target/segos.iso, bootable from USB or DVD</span></code></pre>
+          </figure>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>SegOS &middot; MIT or Apache-2.0. SegOS replaces SegLinux, the Linux distribution previously built in this repository.</p>
+      <ul>
+        <li><a href="/roadmap">Roadmap</a></li>
+        <li><a href="https://github.com/SegMind25/SegLinux">GitHub</a></li>
+        <li><a href="https://github.com/SegMind25/SegLinux/issues">Issues</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roadmap: SegOS</title>
+  <meta name="description" content="The SegOS roadmap: 11 phases from kernel bring-up to running Steam and Proton games on a from-scratch Rust kernel that implements the Linux ABI. Phases 0 and 1 are done; Phase 2 is next.">
+  <meta name="theme-color" content="#0e0f12" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SegOS">
+  <meta property="og:title" content="SegOS roadmap: from bring-up to Steam">
+  <meta property="og:description" content="11 phases, each ending in a working demo. Phase 0 (bring-up) and Phase 1 (multitasking, SMP) done; Phase 2 next.">
+  <meta property="og:image" content="/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="SegOS logo and tagline: a from-scratch OS in Rust that speaks Linux.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="SegOS home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14120f"/><g fill="#ff7a3d"><rect x="21" y="11" width="22" height="6" rx="3"/><rect x="15" y="18" width="6" height="10" rx="3"/><rect x="21" y="29" width="22" height="6" rx="3"/><rect x="43" y="36" width="6" height="10" rx="3"/><rect x="21" y="47" width="22" height="6" rx="3"/></g><g fill="#ff7a3d" opacity=".2"><rect x="43" y="18" width="6" height="10" rx="3"/><rect x="15" y="36" width="6" height="10" rx="3"/></g></svg>
+        <span>SegOS</span>
+      </a>
+      <nav aria-label="Main">
+        <ul class="nav">
+          <li><a href="/">Home</a></li>
+          <li><a href="/roadmap" aria-current="page">Roadmap</a></li>
+          <li><a href="https://github.com/SegMind25/SegLinux">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <section class="hero" aria-labelledby="hero-title" style="padding-bottom:1.5rem">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span><span>1 of 11 phases done</span></p>
+        <h1 id="hero-title">From bring-up to Steam, one demo at a time.</h1>
+        <p class="lede">
+          Every phase ends with a demo that must work in QEMU and in CI, and no
+          phase starts before the previous one passes. The phases build on each
+          other: a scheduler before processes, processes before a shell, a
+          shell before a desktop.
+        </p>
+      </section>
+
+      <div class="progress" role="img" aria-label="Progress: phases 0 and 1 done, phase 2 next, phases 3 to 10 planned">
+        <span class="done"></span><span class="done"></span><span class="wip"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="progress-legend">Phases 0&ndash;1 done &middot; Phase 2 next &middot; Phases 3&ndash;10 planned</p>
+
+      <div class="table-wrap">
+        <table class="phases">
+          <caption class="sr-only">SegOS roadmap, phases 0 to 10</caption>
+          <thead>
+            <tr>
+              <th scope="col">Phase</th>
+              <th scope="col">What gets built</th>
+              <th scope="col">Done when</th>
+              <th scope="col">Effort*</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="is-done">
+              <th scope="row"><span class="num">0</span> Bring-up</th>
+              <td data-label="What gets built">Workspace, xtask, Limine boot, serial + framebuffer console, GDT/IDT, exceptions, physical frame allocator, kernel heap, paging</td>
+              <td data-label="Done when">Kernel prints &ldquo;SegOS&rdquo; in QEMU, panics show a backtrace, CI boots it</td>
+              <td data-label="Effort" class="effort">2&ndash;4 weeks</td>
+              <td class="status"><span class="badge done">Done</span></td>
+            </tr>
+            <tr class="is-done">
+              <th scope="row"><span class="num">1</span> Multitasking</th>
+              <td data-label="What gets built">APIC timer, kernel threads, preemptive scheduler, SMP bring-up, spinlocks/mutexes</td>
+              <td data-label="Done when">4 CPUs run kernel threads in parallel</td>
+              <td data-label="Effort" class="effort">1&ndash;2 months</td>
+              <td class="status"><span class="badge done">Done</span></td>
+            </tr>
+            <tr class="is-wip">
+              <th scope="row"><span class="num">2</span> First user process</th>
+              <td data-label="What gets built">Ring 3, <code>syscall</code>/<code>sysret</code>, ELF loader, address spaces, initramfs (cpio), tmpfs, ~40 syscalls (<code>read</code>, <code>write</code>, <code>mmap</code>, <code>brk</code>, <code>exit</code>, &hellip;)</td>
+              <td data-label="Done when">A static musl &ldquo;hello world&rdquo; built on Linux runs unmodified</td>
+              <td data-label="Effort" class="effort">1&ndash;2 months</td>
+              <td class="status"><span class="badge wip">Next</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">3</span> A shell</th>
+              <td data-label="What gets built"><code>fork</code> with copy-on-write, <code>execve</code>, <code>wait4</code>, pipes, signals, TTY + line discipline, <code>ioctl(TCGETS&hellip;)</code>, devfs, procfs basics</td>
+              <td data-label="Done when">BusyBox <code>sh</code> runs; <code>ls | grep | wc</code> works</td>
+              <td data-label="Effort" class="effort">2&ndash;3 months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">4</span> Real storage</th>
+              <td data-label="What gets built">PCI, virtio-blk, NVMe, AHCI, page cache, ext4 (read, then write), fat32 for the EFI partition</td>
+              <td data-label="Done when">Boots from a disk with a full rootfs</td>
+              <td data-label="Effort" class="effort">2&ndash;3 months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">5</span> glibc and dynamic linking</th>
+              <td data-label="What gets built"><code>ld-linux.so</code>, threads (<code>clone</code> flags, TLS, <code>futex</code>, <code>set_robust_list</code>), <code>epoll</code>, <code>eventfd</code>, <code>timerfd</code>, <code>signalfd</code>, <code>poll</code>/<code>select</code>, <code>/proc/self/*</code></td>
+              <td data-label="Done when">Unmodified Debian/Artix userland: bash, coreutils, python3, gcc compiling a program</td>
+              <td data-label="Effort" class="effort">3&ndash;4 months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">6</span> Networking</th>
+              <td data-label="What gets built">virtio-net, e1000, TCP/IP (smoltcp, later own), unix sockets incl. <code>SCM_RIGHTS</code>, netlink (route, uevent)</td>
+              <td data-label="Done when"><code>curl https://&hellip;</code> and <code>ssh</code> work</td>
+              <td data-label="Effort" class="effort">2&ndash;3 months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">7</span> Graphics and input</th>
+              <td data-label="What gets built">DRM/KMS on virtio-gpu (then simple-framebuffer, then AMD/Intel), evdev, xHCI + USB HID, <code>memfd</code>, dma-buf</td>
+              <td data-label="Done when">SegLinux&rsquo;s Rust compositor and shell run unchanged on SegOS</td>
+              <td data-label="Effort" class="effort">4&ndash;6 months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">8</span> Desktop apps</th>
+              <td data-label="What gets built">Sound (virtio-snd, Intel HDA &rarr; ALSA interface), <code>inotify</code>, <code>fanotify</code>, seccomp, namespaces (for Flatpak/Chromium sandbox), <code>io_uring</code> subset</td>
+              <td data-label="Done when">Firefox, Chromium, LibreOffice, Discord run</td>
+              <td data-label="Effort" class="effort">6+ months</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">9</span> Games</th>
+              <td data-label="What gets built">Mesa radv/iris on real AMD/Intel GPUs (amdgpu-compatible DRM is the largest single task), <code>ptrace</code>, cgroups v2 subset, Wine/Proton</td>
+              <td data-label="Done when">Steam installs; a Proton game runs</td>
+              <td data-label="Effort" class="effort">1 year+</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="num">10</span> Release</th>
+              <td data-label="What gets built">Installer (reusing SegLinux Setup&rsquo;s design), updates, real-hardware testing, power management (ACPI S3, cpufreq)</td>
+              <td data-label="Done when">Installable ISO</td>
+              <td data-label="Effort" class="effort">ongoing</td>
+              <td class="status"><span class="badge planned">Planned</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footnote">* Rough effort for one or two experienced developers. Source: <a href="https://github.com/SegMind25/SegLinux/blob/HEAD/docs/plan.md">docs/plan.md</a>.</p>
+
+      <p class="notice"><strong>Honest expectation:</strong> a shell in 3&ndash;6 months, a desktop with a browser in 2&ndash;3 years, Steam games longer. GPU drivers for real hardware are the hardest part, as they were for every other new OS.</p>
+    </div>
+
+    <section aria-labelledby="measure-title" style="margin-top:3rem">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Compatibility</p>
+          <h2 id="measure-title">How &ldquo;runs Linux apps&rdquo; gets measured</h2>
+          <p>Claims are only as good as the tests behind them. These arrive with the phases that make them possible.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Syscall conformance suite</h3>
+            <p>Small programs whose output is recorded on real Linux and compared on SegOS, plus LTP, gVisor&rsquo;s syscall tests and musl&rsquo;s libc-test.</p>
+          </article>
+          <article class="card">
+            <h3>Syscall coverage table</h3>
+            <p>Generated from the source: implemented, partial or <code>ENOSYS</code> for all ~360 x86-64 Linux syscalls.</p>
+          </article>
+          <article class="card">
+            <h3>Application ladder</h3>
+            <p>BusyBox &rarr; bash &rarr; coreutils &rarr; python &rarr; gcc &rarr; curl &rarr; weston &rarr; SegLinux compositor &rarr; Firefox &rarr; Steam, run in CI.</p>
+          </article>
+          <article class="card">
+            <h3><code>strace</code> first</h3>
+            <p>Before working on an application, trace it on Linux to find exactly which syscalls it needs.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="goals-title">
+      <div class="wrap"><div class="prose">
+        <p class="kicker">Scope</p>
+        <h2 id="goals-title">Not on the list (for the first years)</h2>
+        <ul>
+          <li>Running Linux kernel modules</li>
+          <li>NVIDIA&rsquo;s proprietary driver</li>
+          <li>Secure Boot signed by Microsoft</li>
+          <li>32-bit-only hardware</li>
+          <li>Architectures other than x86-64 (aarch64 later)</li>
+        </ul>
+        <p>Kernel code is original, under MIT or Apache-2.0; nothing is copied from Linux (GPL-2.0). Linux source is read for semantics only.</p>
+      </div></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>SegOS &middot; MIT or Apache-2.0. SegOS replaces SegLinux, the Linux distribution previously built in this repository.</p>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="https://github.com/SegMind25/SegLinux">GitHub</a></li>
+        <li><a href="https://github.com/SegMind25/SegLinux/blob/HEAD/docs/plan.md">Full plan</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>
