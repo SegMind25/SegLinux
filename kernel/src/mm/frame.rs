@@ -6,7 +6,7 @@
 
 use super::{PAGE_SIZE, phys_to_virt};
 use crate::limine::{MemmapResponse, memmap_kind};
-use spin::Mutex;
+use crate::sync::SpinLock;
 
 pub struct FrameAllocator {
     bitmap: &'static mut [u64],
@@ -16,7 +16,7 @@ pub struct FrameAllocator {
     next: u64,
 }
 
-static ALLOCATOR: Mutex<Option<FrameAllocator>> = Mutex::new(None);
+static ALLOCATOR: SpinLock<Option<FrameAllocator>> = SpinLock::new(None);
 
 impl FrameAllocator {
     fn is_used(&self, i: u64) -> bool {

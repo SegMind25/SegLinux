@@ -172,3 +172,60 @@ pub struct ExecutableAddressResponse {
     pub physical_base: u64,
     pub virtual_base: u64,
 }
+
+/// Multiprocessor request: Limine brings every CPU into long mode, parks
+/// the application processors, and starts one when its `goto_address` is set.
+#[repr(C)]
+pub struct MpRequest {
+    id: [u64; 4],
+    revision: u64,
+    response: UnsafeCell<*const MpResponse>,
+    flags: u64,
+}
+
+unsafe impl Sync for MpRequest {}
+
+impl MpRequest {
+    pub fn response(&self) -> Option<&'static MpResponse> {
+        let ptr = unsafe { core::ptr::read_volatile(self.response.get()) };
+        unsafe { ptr.as_ref() }
+    }
+}
+
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+pub static MP: MpRequest = MpRequest {
+    id: [
+        COMMON_MAGIC[0],
+        COMMON_MAGIC[1],
+        0x95a67b819a1b857e,
+        0xa0b61b723b6a73e0,
+    ],
+    revision: 0,
+    response: UnsafeCell::new(core::ptr::null()),
+    flags: 0, // stay in xAPIC mode
+};
+
+#[repr(C)]
+pub struct MpResponse {
+    pub revision: u64,
+    pub flags: u32,
+    pub bsp_lapic_id: u32,
+    count: u64,
+    cpus: *const *mut MpInfo,
+}
+
+impl MpResponse {
+    pub fn cpus(&self) -> &[*mut MpInfo] {
+        unsafe { core::slice::from_raw_parts(self.cpus, self.count as usize) }
+    }
+}
+
+#[repr(C)]
+pub struct MpInfo {
+    pub processor_id: u32,
+    pub lapic_id: u32,
+    reserved: u64,
+    pub goto_address: core::sync::atomic::AtomicU64,
+    pub extra_argument: u64,
+}

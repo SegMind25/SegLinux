@@ -1,7 +1,8 @@
 # SegOS: a from-scratch operating system in Rust (plan)
 
-Status: **Phase 0 done** (boots on UEFI and BIOS; exceptions, frames,
-paging and heap work, 7 kernel tests pass in QEMU). Next: Phase 1.
+Status: **Phase 1 done** (boots on UEFI and BIOS; exceptions, frames,
+paging, heap; APIC timer, all CPUs started, preemptive scheduler, locks;
+13 kernel tests pass in QEMU on 4 CPUs). Next: Phase 2.
 
 ## 1. The goal, stated precisely
 

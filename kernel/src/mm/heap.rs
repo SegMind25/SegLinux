@@ -4,10 +4,10 @@
 //! demand: it starts at 4 MiB and grows when an allocation fails.
 //! A slab allocator replaces it once allocation patterns are known.
 
+use crate::sync::SpinLock;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::NonNull;
 use linked_list_allocator::Heap;
-use spin::Mutex;
 
 pub const HEAP_START: u64 = 0xffff_c000_0000_0000;
 const HEAP_MAX: u64 = 1 << 30; // 1 GiB window
@@ -15,12 +15,12 @@ const INITIAL: u64 = 4 << 20;
 const GROW_STEP: u64 = 4 << 20;
 
 struct KernelHeap {
-    heap: Mutex<Heap>,
+    heap: SpinLock<Heap>,
 }
 
 #[global_allocator]
 static ALLOCATOR: KernelHeap = KernelHeap {
-    heap: Mutex::new(Heap::empty()),
+    heap: SpinLock::new(Heap::empty()),
 };
 
 unsafe impl GlobalAlloc for KernelHeap {

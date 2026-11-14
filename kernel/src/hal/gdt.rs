@@ -61,8 +61,37 @@ pub fn selectors() -> &'static Selectors {
 }
 
 pub fn init() {
-    GDT.0.load();
-    let s = &GDT.1;
+    load(&GDT.0, &GDT.1);
+}
+
+/// Application processors: each gets its own GDT, TSS and IST stack,
+/// because the TSS is per CPU (and becomes busy when loaded).
+pub fn init_ap() {
+    use alloc::boxed::Box;
+    let stack = Box::leak(alloc::vec![0u8; IST_STACK_SIZE].into_boxed_slice());
+    let mut tss = TaskStateSegment::new();
+    tss.interrupt_stack_table[DOUBLE_FAULT_IST as usize] =
+        VirtAddr::from_ptr(stack.as_ptr()) + IST_STACK_SIZE as u64;
+    let tss: &'static TaskStateSegment = Box::leak(Box::new(tss));
+    let mut gdt = GlobalDescriptorTable::new();
+    let kernel_code = gdt.append(Descriptor::kernel_code_segment());
+    let kernel_data = gdt.append(Descriptor::kernel_data_segment());
+    let user_data = gdt.append(Descriptor::user_data_segment());
+    let user_code = gdt.append(Descriptor::user_code_segment());
+    let tss_sel = gdt.append(Descriptor::tss_segment(tss));
+    let gdt: &'static GlobalDescriptorTable = Box::leak(Box::new(gdt));
+    let sel = Box::leak(Box::new(Selectors {
+        kernel_code,
+        kernel_data,
+        user_data,
+        user_code,
+        tss: tss_sel,
+    }));
+    load(gdt, sel);
+}
+
+fn load(gdt: &'static GlobalDescriptorTable, s: &Selectors) {
+    gdt.load();
     unsafe {
         CS::set_reg(s.kernel_code);
         DS::set_reg(s.kernel_data);

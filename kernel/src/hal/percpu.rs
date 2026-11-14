@@ -1,0 +1,65 @@
+//! Per-CPU data, reached through the GS base register.
+
+use crate::task::Task;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cell::UnsafeCell;
+use core::sync::atomic::{AtomicU64, Ordering};
+use spin::Once;
+use x86_64::VirtAddr;
+use x86_64::registers::model_specific::GsBase;
+
+#[repr(C)]
+pub struct PerCpu {
+    /// Must stay first: `this_cpu` reads it from `gs:0`.
+    self_ptr: *const PerCpu,
+    pub index: u32,
+    pub lapic_id: u32,
+    pub ticks: AtomicU64,
+    /// Touched only by this CPU, with interrupts disabled.
+    pub(crate) current: UnsafeCell<Option<Arc<Task>>>,
+    pub(crate) idle: Once<Arc<Task>>,
+}
+
+unsafe impl Sync for PerCpu {}
+
+static CPUS: crate::sync::SpinLock<Vec<&'static PerCpu>> = crate::sync::SpinLock::new(Vec::new());
+
+/// Creates this CPU's block and points GS at it.
+pub fn init(index: u32, lapic_id: u32) {
+    let cpu: &'static mut PerCpu = Box::leak(Box::new(PerCpu {
+        self_ptr: core::ptr::null(),
+        index,
+        lapic_id,
+        ticks: AtomicU64::new(0),
+        current: UnsafeCell::new(None),
+        idle: Once::new(),
+    }));
+    cpu.self_ptr = cpu;
+    GsBase::write(VirtAddr::from_ptr(cpu));
+    CPUS.lock().push(cpu);
+}
+
+pub fn this_cpu() -> &'static PerCpu {
+    let ptr: *const PerCpu;
+    unsafe {
+        core::arch::asm!("mov {}, gs:[0]", out(reg) ptr, options(nostack, readonly, preserves_flags))
+    };
+    unsafe { &*ptr }
+}
+
+pub fn count() -> usize {
+    CPUS.lock().len()
+}
+
+/// Timer ticks each CPU has handled, in CPU index order.
+pub fn ticks() -> Vec<(u32, u64)> {
+    let mut v: Vec<_> = CPUS
+        .lock()
+        .iter()
+        .map(|c| (c.index, c.ticks.load(Ordering::Relaxed)))
+        .collect();
+    v.sort_unstable();
+    v
+}

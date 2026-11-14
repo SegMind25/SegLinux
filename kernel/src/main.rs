@@ -18,6 +18,9 @@ mod ktest;
 mod ktest_hooks;
 mod limine;
 mod mm;
+mod sync;
+mod task;
+mod time;
 
 use core::panic::PanicInfo;
 
@@ -26,7 +29,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Entry point, called by Limine on the bootstrap CPU with interrupts off,
 /// on a bootloader-provided stack.
 #[unsafe(no_mangle)]
-#[allow(unreachable_code)] // the ktest build exits QEMU before the idle loop
 extern "C" fn kmain() -> ! {
     hal::serial::init();
     console::init_logger();
@@ -65,16 +67,37 @@ extern "C" fn kmain() -> ! {
         None => log::warn!("console: no framebuffer, serial only"),
     }
 
-    #[cfg(feature = "ktest")]
-    ktest::run();
+    // Phase 1: this CPU's data and timer, the other CPUs, the scheduler.
+    hal::percpu::init(0, hal::apic::bsp_id_from_bootloader());
+    hal::apic::init_bsp();
+    task::sched::init_cpu();
+    hal::smp::start_aps();
 
+    #[cfg(feature = "ktest")]
+    task::spawn_named("ktest", || ktest::run());
+    #[cfg(not(feature = "ktest"))]
+    task::spawn_named("init", kernel_init);
+
+    // The boot context becomes this CPU's idle task.
+    task::sched::idle_loop()
+}
+
+/// First kernel thread. Starts PID 1 from Phase 2 on; for now it reports.
+#[cfg(not(feature = "ktest"))]
+fn kernel_init() {
     let (used, size) = mm::heap::stats();
     log::info!(
-        "ready: {} MiB free, heap {used}/{size} bytes",
+        "ready: {} CPUs, {} MiB free, heap {used}/{size} bytes",
+        hal::percpu::count(),
         mm::frame::free_count() * mm::PAGE_SIZE / (1024 * 1024)
     );
-    log::info!("Phase 0 complete: nothing more to run yet.");
-    hal::cpu::halt_forever()
+    time::sleep_ms(1000);
+    log::info!(
+        "uptime {} ms, timer ticks per CPU: {:?}",
+        time::uptime_ms(),
+        hal::percpu::ticks()
+    );
+    log::info!("Phase 1: scheduler running; nothing more to run yet.");
 }
 
 #[panic_handler]

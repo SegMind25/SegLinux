@@ -191,6 +191,17 @@ extern "C" fn trap_dispatch(frame: &mut TrapFrame) {
                 frame.rip,
             );
         }
+        v if v == super::apic::TIMER_VECTOR as u64 => {
+            super::apic::eoi();
+            let cpu = super::percpu::this_cpu();
+            cpu.ticks
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+            if cpu.index == 0 {
+                crate::time::tick();
+            }
+            crate::task::sched::preempt();
+        }
+        v if v == super::apic::SPURIOUS_VECTOR as u64 => {}
         v @ 0..32 => panic!(
             "CPU exception {v}: {} (error code {:#x}) rip={:#x}\n{frame:#x?}",
             EXCEPTION_NAMES[v as usize], frame.error_code, frame.rip
