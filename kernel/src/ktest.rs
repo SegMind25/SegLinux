@@ -49,7 +49,7 @@ pub fn run() -> ! {
 
 fn breakpoint_returns() {
     let before = crate::ktest_hooks::breakpoints();
-    x86_64::instructions::interrupts::int3();
+    crate::hal::x86::breakpoint();
     assert_eq!(crate::ktest_hooks::breakpoints(), before + 1);
 }
 
@@ -127,7 +127,7 @@ fn timer_advances() {
 }
 
 fn smp_online() {
-    let expected = crate::limine::MP.response().map_or(1, |mp| mp.cpus().len());
+    let expected = crate::hal::smp::cpu_count_from_acpi();
     assert_eq!(percpu::count(), expected);
     let before = percpu::ticks();
     time::sleep_ms(50);

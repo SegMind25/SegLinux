@@ -1,14 +1,13 @@
 //! Per-CPU data, reached through the GS base register.
 
+use super::x86;
+use crate::sync::Once;
 use crate::task::Task;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU64, Ordering};
-use spin::Once;
-use x86_64::VirtAddr;
-use x86_64::registers::model_specific::GsBase;
 
 #[repr(C)]
 pub struct PerCpu {
@@ -37,7 +36,7 @@ pub fn init(index: u32, lapic_id: u32) {
         idle: Once::new(),
     }));
     cpu.self_ptr = cpu;
-    GsBase::write(VirtAddr::from_ptr(cpu));
+    unsafe { x86::wrmsr(x86::msr::GS_BASE, cpu as *const PerCpu as u64) };
     CPUS.lock().push(cpu);
 }
 

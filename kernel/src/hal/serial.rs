@@ -1,8 +1,8 @@
 //! 16550 UART on COM1: the first output that works and the last that fails.
 
+use super::x86;
+use crate::sync::SpinLock;
 use core::fmt;
-use spin::Mutex;
-use x86_64::instructions::port::Port;
 
 const COM1: u16 = 0x3f8;
 
@@ -15,28 +15,32 @@ impl Serial {
         Self { base }
     }
 
-    fn port(&self, offset: u16) -> Port<u8> {
-        Port::new(self.base + offset)
+    fn out(&self, offset: u16, value: u8) {
+        unsafe { x86::outb(self.base + offset, value) }
+    }
+
+    fn input(&self, offset: u16) -> u8 {
+        unsafe { x86::inb(self.base + offset) }
     }
 
     fn init(&mut self) {
-        unsafe {
-            self.port(1).write(0x00); // no interrupts
-            self.port(3).write(0x80); // DLAB on
-            self.port(0).write(0x01); // divisor 1: 115200 baud
-            self.port(1).write(0x00);
-            self.port(3).write(0x03); // 8N1, DLAB off
-            self.port(2).write(0xc7); // FIFO on, cleared, 14-byte threshold
-            self.port(4).write(0x0b); // DTR, RTS, OUT2
+        {
+            self.out(1, 0x00); // no interrupts
+            self.out(3, 0x80); // DLAB on
+            self.out(0, 0x01); // divisor 1: 115200 baud
+            self.out(1, 0x00);
+            self.out(3, 0x03); // 8N1, DLAB off
+            self.out(2, 0xc7); // FIFO on, cleared, 14-byte threshold
+            self.out(4, 0x0b); // DTR, RTS, OUT2
         }
     }
 
     fn write_byte(&mut self, byte: u8) {
-        unsafe {
-            while self.port(5).read() & 0x20 == 0 {
+        {
+            while self.input(5) & 0x20 == 0 {
                 core::hint::spin_loop();
             }
-            self.port(0).write(byte);
+            self.out(0, byte);
         }
     }
 }
@@ -53,7 +57,7 @@ impl fmt::Write for Serial {
     }
 }
 
-pub static SERIAL: Mutex<Serial> = Mutex::new(Serial::new(COM1));
+pub static SERIAL: SpinLock<Serial> = SpinLock::new(Serial::new(COM1));
 
 pub fn init() {
     SERIAL.lock().init();

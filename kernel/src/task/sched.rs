@@ -12,11 +12,11 @@
 
 use super::{State, Task};
 use crate::hal::percpu::{self, this_cpu};
+use crate::hal::x86;
 use crate::sync::SpinLock;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
-use x86_64::instructions::interrupts;
 
 static RUN_QUEUE: SpinLock<VecDeque<Arc<Task>>> = SpinLock::new(VecDeque::new());
 
@@ -86,7 +86,7 @@ pub fn init_cpu() {
 /// Runs the idle loop forever: sleep until an interrupt, then look for work.
 pub fn idle_loop() -> ! {
     loop {
-        interrupts::enable_and_hlt();
+        x86::enable_interrupts_and_halt();
         schedule();
     }
 }
@@ -102,7 +102,7 @@ pub(super) fn spawn_task(task: Task) -> Arc<Task> {
 }
 
 pub fn current() -> Arc<Task> {
-    interrupts::without_interrupts(|| unsafe {
+    x86::without_interrupts(|| unsafe {
         (*this_cpu().current.get())
             .clone()
             .expect("scheduler not running on this CPU")
@@ -124,8 +124,8 @@ pub fn preempt() {
 /// Gives the CPU to the next ready task (or keeps the current one if
 /// nothing else is ready and it can still run).
 pub fn schedule() {
-    let irq = interrupts::are_enabled();
-    interrupts::disable();
+    let irq = x86::interrupts_enabled();
+    x86::disable_interrupts();
     let cpu = this_cpu();
     let slot = unsafe { &mut *cpu.current.get() };
     let cur = slot.as_ref().expect("scheduler not running on this CPU");
@@ -152,7 +152,7 @@ pub fn schedule() {
         }
         drop(next);
         if irq {
-            interrupts::enable();
+            x86::enable_interrupts();
         }
         return;
     }
@@ -176,7 +176,7 @@ pub fn schedule() {
     let prev = unsafe { switch_context(save, next_rsp, prev.cast()) }.cast::<Task>();
     finish_switch(prev);
     if irq {
-        interrupts::enable();
+        x86::enable_interrupts();
     }
 }
 
@@ -195,7 +195,7 @@ extern "C" fn task_start(prev: *const Task) -> ! {
         let me = current();
         unsafe { (*me.entry.get()).take() }
     };
-    interrupts::enable();
+    x86::enable_interrupts();
     if let Some(f) = entry {
         f();
     }
@@ -204,7 +204,7 @@ extern "C" fn task_start(prev: *const Task) -> ! {
 
 /// Ends the current task.
 pub fn exit() -> ! {
-    interrupts::disable();
+    x86::disable_interrupts();
     {
         let me = unsafe { (*this_cpu().current.get()).as_ref().unwrap() };
         me.set_state(State::Dead);

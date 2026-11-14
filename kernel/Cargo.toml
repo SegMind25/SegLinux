@@ -14,9 +14,6 @@ bench = false
 # Run the in-kernel test suite instead of idling, then exit QEMU.
 ktest = []
 
+# No third-party crates: everything the kernel runs is in this repository.
 [dependencies]
-x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
-spin = "0.10"
-linked_list_allocator = "0.10"
-log = "0.4"
-font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }
+bootinfo = { path = "../bootinfo" }

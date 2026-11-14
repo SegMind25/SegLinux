@@ -1,0 +1,17 @@
+[package]
+name = "segboot"
+description = "SegOS UEFI bootloader"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "segboot"
+test = false
+bench = false
+
+# No third-party crates: only the in-tree boot protocol definitions.
+[dependencies]
+bootinfo = { path = "../bootinfo" }

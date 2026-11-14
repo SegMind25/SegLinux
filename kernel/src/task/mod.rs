@@ -118,7 +118,11 @@ const STACK_REGION: u64 = 0xffff_d800_0000_0000;
 static NEXT_SLOT: AtomicU64 = AtomicU64::new(0);
 
 impl KernelStack {
-    fn new() -> Option<Self> {
+    pub fn top(&self) -> u64 {
+        self.top
+    }
+
+    pub fn new() -> Option<Self> {
         let slot = NEXT_SLOT.fetch_add(1, Ordering::Relaxed);
         let guard = STACK_REGION + slot * (STACK_PAGES + 1) * PAGE_SIZE;
         let base = guard + PAGE_SIZE;

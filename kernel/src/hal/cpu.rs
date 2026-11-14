@@ -1,19 +1,19 @@
 //! Small CPU helpers.
 
-use x86_64::instructions::port::Port;
+use super::x86;
 
 pub fn halt_forever() -> ! {
     loop {
-        x86_64::instructions::interrupts::disable();
-        x86_64::instructions::hlt();
+        x86::disable_interrupts();
+        x86::halt();
     }
 }
 
 /// Masks every line of the two 8259 PICs so they never fire.
 pub fn mask_legacy_pic() {
     unsafe {
-        Port::<u8>::new(0x21).write(0xff);
-        Port::<u8>::new(0xa1).write(0xff);
+        x86::outb(0x21, 0xff);
+        x86::outb(0xa1, 0xff);
     }
 }
 
@@ -27,7 +27,7 @@ pub enum QemuExit {
 }
 
 pub fn exit_qemu(code: QemuExit) -> ! {
-    unsafe { Port::<u32>::new(0xf4).write(code as u32) };
+    unsafe { x86::outl(0xf4, code as u32) };
     // Not running under QEMU with the device: stop here.
     halt_forever()
 }

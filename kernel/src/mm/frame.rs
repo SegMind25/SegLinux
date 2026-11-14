@@ -5,8 +5,8 @@
 //! first usable region large enough, reached through the direct map.
 
 use super::{PAGE_SIZE, phys_to_virt};
-use crate::limine::{MemmapResponse, memmap_kind};
 use crate::sync::SpinLock;
+use bootinfo::{MemoryKind, MemoryRegion};
 
 pub struct FrameAllocator {
     bitmap: &'static mut [u64],
@@ -64,11 +64,10 @@ impl FrameAllocator {
     }
 }
 
-pub fn init(memmap: &MemmapResponse) {
-    let entries = memmap.entries();
+pub fn init(entries: &[MemoryRegion]) {
     let top = entries
         .iter()
-        .filter(|e| e.kind == memmap_kind::USABLE)
+        .filter(|e| e.kind == MemoryKind::Usable)
         .map(|e| e.base + e.length)
         .max()
         .expect("no usable memory");
@@ -78,7 +77,7 @@ pub fn init(memmap: &MemmapResponse) {
 
     let home = entries
         .iter()
-        .find(|e| e.kind == memmap_kind::USABLE && e.length >= bytes)
+        .find(|e| e.kind == MemoryKind::Usable && e.length >= bytes)
         .expect("no region large enough for the frame bitmap");
     let bitmap = unsafe {
         core::slice::from_raw_parts_mut(phys_to_virt(home.base).cast::<u64>(), words as usize)
@@ -91,7 +90,7 @@ pub fn init(memmap: &MemmapResponse) {
         free: 0,
         next: 0,
     };
-    for e in entries.iter().filter(|e| e.kind == memmap_kind::USABLE) {
+    for e in entries.iter().filter(|e| e.kind == MemoryKind::Usable) {
         // Usable regions are page aligned by the protocol.
         for i in e.base / PAGE_SIZE..(e.base + e.length) / PAGE_SIZE {
             fa.set(i, false);
@@ -107,7 +106,7 @@ pub fn init(memmap: &MemmapResponse) {
         fa.set(0, true);
         fa.free -= 1;
     }
-    log::info!(
+    crate::info!(
         "frames: {} free of {} ({} KiB bitmap)",
         fa.free,
         frames,
@@ -123,6 +122,19 @@ pub fn alloc_zeroed() -> Option<u64> {
     Some(phys)
 }
 
+/// Allocates one zeroed frame below `limit` (for real-mode code, DMA).
+pub fn alloc_below(limit: u64) -> Option<u64> {
+    let mut guard = ALLOCATOR.lock();
+    let fa = guard.as_mut()?;
+    let i = (1..(limit / PAGE_SIZE).min(fa.frames)).find(|&i| !fa.is_used(i))?;
+    fa.set(i, true);
+    fa.free -= 1;
+    drop(guard);
+    let phys = i * PAGE_SIZE;
+    unsafe { core::ptr::write_bytes(phys_to_virt(phys), 0, PAGE_SIZE as usize) };
+    Some(phys)
+}
+
 pub fn free(phys: u64) {
     ALLOCATOR
         .lock()
@@ -133,18 +145,4 @@ pub fn free(phys: u64) {
 
 pub fn free_count() -> u64 {
     ALLOCATOR.lock().as_ref().map_or(0, |a| a.free)
-}
-
-/// Adapter for the x86_64 crate's page table code.
-pub struct Frames;
-
-unsafe impl x86_64::structures::paging::FrameAllocator<x86_64::structures::paging::Size4KiB>
-    for Frames
-{
-    fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame> {
-        let phys = alloc_zeroed()?;
-        Some(x86_64::structures::paging::PhysFrame::containing_address(
-            x86_64::PhysAddr::new(phys),
-        ))
-    }
 }

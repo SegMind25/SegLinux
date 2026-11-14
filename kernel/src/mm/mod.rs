@@ -4,7 +4,7 @@ pub mod frame;
 pub mod heap;
 pub mod paging;
 
-use crate::limine::{MemmapResponse, memmap_kind};
+use bootinfo::{MemoryKind, MemoryRegion};
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub const PAGE_SIZE: u64 = 4096;
@@ -21,22 +21,22 @@ pub fn phys_to_virt(phys: u64) -> *mut u8 {
     (phys + hhdm_offset()) as *mut u8
 }
 
-pub fn init(memmap: &MemmapResponse, hhdm: u64) {
+pub fn init(memmap: &[MemoryRegion], hhdm: u64) {
     HHDM_OFFSET.store(hhdm, Ordering::Relaxed);
 
     let mut usable = 0;
-    for e in memmap.entries() {
-        log::debug!(
+    for e in memmap {
+        crate::debug!(
             "  {:#014x}-{:#014x} {}",
             e.base,
             e.base + e.length,
-            memmap_kind::name(e.kind)
+            e.kind.name()
         );
-        if e.kind == memmap_kind::USABLE {
+        if e.kind == MemoryKind::Usable {
             usable += e.length;
         }
     }
-    log::info!("memory: {} MiB usable", usable / (1024 * 1024));
+    crate::info!("memory: {} MiB usable", usable / (1024 * 1024));
 
     frame::init(memmap);
     paging::init();

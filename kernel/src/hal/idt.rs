@@ -5,10 +5,7 @@
 //! `isr_common`. That saves all registers into a [`TrapFrame`] and calls
 //! [`trap_dispatch`]. Ring-3 processes (Phase 2) reuse the same frame.
 
-use spin::Lazy;
-use x86_64::VirtAddr;
-use x86_64::registers::control::Cr2;
-use x86_64::structures::idt::InterruptDescriptorTable;
+use super::x86::{self, DescriptorPointer};
 
 core::arch::global_asm!(include_str!(concat!(env!("OUT_DIR"), "/isr_stubs.s")));
 
@@ -130,47 +127,79 @@ const EXCEPTION_NAMES: [&str; 32] = [
     "reserved",
 ];
 
-static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
-    let mut idt = InterruptDescriptorTable::new();
-    let table = unsafe { &isr_table };
-    for (vector, &addr) in table.iter().enumerate() {
-        let addr = VirtAddr::new(addr);
-        // SAFETY: each stub ends in `iretq` after restoring the frame.
-        unsafe {
-            let options = raw_entry(&mut idt, vector).set_handler_addr(addr);
-            if vector as u64 == vector::DOUBLE_FAULT {
-                options.set_stack_index(super::gdt::DOUBLE_FAULT_IST);
-            }
-        }
-    }
-    idt
-});
-
-/// The x86_64 crate types exception entries by handler signature. The stubs
-/// do not use those signatures, so reach every entry as a plain one (all
-/// entries are 16 bytes, laid out in vector order).
-unsafe fn raw_entry(
-    idt: &mut InterruptDescriptorTable,
-    vector: usize,
-) -> &mut x86_64::structures::idt::Entry<x86_64::structures::idt::HandlerFunc> {
-    let base = idt as *mut InterruptDescriptorTable
-        as *mut x86_64::structures::idt::Entry<x86_64::structures::idt::HandlerFunc>;
-    unsafe { &mut *base.add(vector) }
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct Gate {
+    offset_low: u16,
+    selector: u16,
+    ist: u8,
+    attributes: u8,
+    offset_mid: u16,
+    offset_high: u32,
+    _reserved: u32,
 }
 
+impl Gate {
+    const EMPTY: Self = Self {
+        offset_low: 0,
+        selector: 0,
+        ist: 0,
+        attributes: 0,
+        offset_mid: 0,
+        offset_high: 0,
+        _reserved: 0,
+    };
+
+    /// Present, ring-0 interrupt gate (interrupts stay off in the handler).
+    fn interrupt(handler: u64, ist: u8) -> Self {
+        Self {
+            offset_low: handler as u16,
+            selector: super::gdt::KERNEL_CODE,
+            ist,
+            attributes: 0x8e,
+            offset_mid: (handler >> 16) as u16,
+            offset_high: (handler >> 32) as u32,
+            _reserved: 0,
+        }
+    }
+}
+
+#[repr(C, align(16))]
+struct Idt([Gate; 256]);
+
+static IDT: crate::sync::Once<Idt> = crate::sync::Once::new();
+
+/// Builds the table once and loads it on this CPU.
 pub fn init() {
-    IDT.load();
+    let idt = IDT.call_once(|| {
+        let mut idt = Idt([Gate::EMPTY; 256]);
+        let table = unsafe { &*(&raw const isr_table) };
+        for (vector, &handler) in table.iter().enumerate() {
+            let ist = if vector as u64 == vector::DOUBLE_FAULT {
+                super::gdt::DOUBLE_FAULT_IST as u8 + 1
+            } else {
+                0
+            };
+            idt.0[vector] = Gate::interrupt(handler, ist);
+        }
+        idt
+    });
+    let ptr = DescriptorPointer {
+        limit: (size_of::<Idt>() - 1) as u16,
+        base: idt as *const _ as u64,
+    };
+    unsafe { x86::lidt(&ptr) };
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn trap_dispatch(frame: &mut TrapFrame) {
     match frame.vector {
         vector::BREAKPOINT => {
-            log::debug!("breakpoint at {:#x}", frame.rip);
+            crate::debug!("breakpoint at {:#x}", frame.rip);
             crate::ktest_hooks::breakpoint_hit();
         }
         vector::PAGE_FAULT => {
-            let addr = Cr2::read_raw();
+            let addr = x86::read_cr2();
             panic!(
                 "page fault at {addr:#x} ({}{}{}) rip={:#x}\n{frame:#x?}",
                 if frame.error_code & 1 != 0 {
@@ -206,6 +235,6 @@ extern "C" fn trap_dispatch(frame: &mut TrapFrame) {
             "CPU exception {v}: {} (error code {:#x}) rip={:#x}\n{frame:#x?}",
             EXCEPTION_NAMES[v as usize], frame.error_code, frame.rip
         ),
-        v => log::warn!("unexpected interrupt vector {v}"),
+        v => crate::warn!("unexpected interrupt vector {v}"),
     }
 }

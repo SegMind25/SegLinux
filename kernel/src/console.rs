@@ -1,13 +1,13 @@
-//! Text console on the Limine framebuffer, and the `log` backend that writes
-//! to both the serial port and the screen.
+//! Text console on the boot framebuffer, drawn with SegOS's own font.
 
+use crate::font;
 use crate::hal::serial;
-use crate::limine::Framebuffer;
+use crate::sync::SpinLock;
+use bootinfo::{Framebuffer, PixelFormat};
 use core::fmt::{self, Write};
-use spin::Mutex;
 
-const SCALE: usize = 2;
-const CELL: usize = 8 * SCALE;
+const CELL_W: usize = font::WIDTH;
+const CELL_H: usize = font::HEIGHT;
 const FG: u32 = 0x00e6_e6e6;
 const BG: u32 = 0x0010_1418;
 
@@ -21,35 +21,46 @@ pub struct Console {
     col: usize,
     row: usize,
     fg: u32,
+    bg: u32,
+    rgb: bool,
 }
 
 // The framebuffer pointer is only used under the console mutex.
 unsafe impl Send for Console {}
 
-static CONSOLE: Mutex<Option<Console>> = Mutex::new(None);
+static CONSOLE: SpinLock<Option<Console>> = SpinLock::new(None);
 
 pub fn init(fb: &Framebuffer) {
-    if fb.bpp != 32 {
-        log::warn!(
-            "console: framebuffer has {} bpp, only 32 is supported",
-            fb.bpp
-        );
+    if fb.address == 0 || fb.bpp != 32 {
+        crate::warn!("console: no usable framebuffer, serial only");
         return;
     }
     let (width, height) = (fb.width as usize, fb.height as usize);
+    let rgb = fb.format == PixelFormat::Rgbx;
     let mut console = Console {
-        base: fb.address.cast(),
+        base: crate::mm::phys_to_virt(fb.address).cast(),
         pitch: fb.pitch as usize / 4,
         width,
         height,
-        cols: width / CELL,
-        rows: height / CELL,
+        cols: width / CELL_W,
+        rows: height / CELL_H,
         col: 0,
         row: 0,
-        fg: FG,
+        fg: convert(FG, rgb),
+        bg: convert(BG, rgb),
+        rgb,
     };
     console.clear();
     *CONSOLE.lock() = Some(console);
+}
+
+/// 0x00RRGGBB to the framebuffer's byte order.
+fn convert(rgb: u32, swap: bool) -> u32 {
+    if swap {
+        (rgb & 0xff) << 16 | (rgb & 0xff00) | (rgb >> 16) & 0xff
+    } else {
+        rgb
+    }
 }
 
 impl Console {
@@ -60,23 +71,22 @@ impl Console {
     fn clear(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
-                self.pixel(x, y, BG);
+                self.pixel(x, y, self.bg);
             }
         }
     }
 
     fn glyph(&mut self, c: char) {
-        use font8x8::UnicodeFonts;
-        let bitmap = font8x8::BASIC_FONTS.get(c).unwrap_or([0xff; 8]);
-        let (x0, y0) = (self.col * CELL, self.row * CELL);
-        for (dy, bits) in bitmap.iter().enumerate() {
-            for dx in 0..8 {
-                let color = if bits & (1 << dx) != 0 { self.fg } else { BG };
-                for sy in 0..SCALE {
-                    for sx in 0..SCALE {
-                        self.pixel(x0 + dx * SCALE + sx, y0 + dy * SCALE + sy, color);
-                    }
-                }
+        let rows = font::glyph(c);
+        let (x0, y0) = (self.col * CELL_W, self.row * CELL_H);
+        for (dy, bits) in rows.iter().enumerate() {
+            for dx in 0..CELL_W {
+                let color = if bits & (0x80 >> dx) != 0 {
+                    self.fg
+                } else {
+                    self.bg
+                };
+                self.pixel(x0 + dx, y0 + dy, color);
             }
         }
     }
@@ -88,12 +98,12 @@ impl Console {
             return;
         }
         // Scroll one text row up.
-        let row_px = CELL * self.pitch;
+        let row_px = CELL_H * self.pitch;
         let total = self.rows * row_px;
         unsafe { core::ptr::copy(self.base.add(row_px), self.base, total - row_px) };
-        for y in (self.rows - 1) * CELL..self.rows * CELL {
+        for y in (self.rows - 1) * CELL_H..self.rows * CELL_H {
             for x in 0..self.width {
-                self.pixel(x, y, BG);
+                self.pixel(x, y, self.bg);
             }
         }
         self.row = self.rows - 1;
@@ -120,7 +130,7 @@ impl Write for Console {
 
 /// Prints to serial and, once it exists, the screen.
 pub fn print(args: fmt::Arguments) {
-    x86_64::instructions::interrupts::without_interrupts(|| {
+    crate::hal::x86::without_interrupts(|| {
         let _ = serial::SERIAL.lock().write_fmt(args);
         if let Some(console) = CONSOLE.lock().as_mut() {
             let _ = console.write_fmt(args);
@@ -134,7 +144,7 @@ pub fn print_panic(args: fmt::Arguments) {
     if let Some(mut guard) = CONSOLE.try_lock()
         && let Some(console) = guard.as_mut()
     {
-        console.fg = 0x00ff_6060;
+        console.fg = convert(0x00ff_6060, console.rgb);
         let _ = console.write_fmt(args);
     }
 }
@@ -143,36 +153,4 @@ pub fn print_panic(args: fmt::Arguments) {
 macro_rules! kprintln {
     () => { $crate::console::print(format_args!("\n")) };
     ($($arg:tt)*) => { $crate::console::print(format_args!("{}\n", format_args!($($arg)*))) };
-}
-
-struct Logger;
-
-impl log::Log for Logger {
-    fn enabled(&self, _: &log::Metadata) -> bool {
-        true
-    }
-
-    fn log(&self, record: &log::Record) {
-        let level = match record.level() {
-            log::Level::Error => "error",
-            log::Level::Warn => "warn ",
-            log::Level::Info => "info ",
-            log::Level::Debug => "debug",
-            log::Level::Trace => "trace",
-        };
-        print(format_args!("[{level}] {}\n", record.args()));
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: Logger = Logger;
-
-pub fn init_logger() {
-    let _ = log::set_logger(&LOGGER);
-    log::set_max_level(if cfg!(debug_assertions) {
-        log::LevelFilter::Debug
-    } else {
-        log::LevelFilter::Info
-    });
 }

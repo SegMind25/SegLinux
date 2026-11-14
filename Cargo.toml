@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kernel", "xtask"]
+members = ["bootinfo", "boot", "kernel", "xtask"]
 # `cargo build` on the host builds only the build tool; the kernel is built
 # for x86_64-unknown-none by `cargo xtask build`.
 default-members = ["xtask"]
