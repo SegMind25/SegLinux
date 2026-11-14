@@ -8,9 +8,14 @@ jobs:
   kernel:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install QEMU, xorriso and OVMF
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso ovmf
+      - name: Allow KVM (faster QEMU)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Rust toolchain (from rust-toolchain.toml)
         run: rustup show
       - name: Format
@@ -23,7 +28,7 @@ jobs:
         run: cargo xtask test
       - name: Bootable ISO
         run: cargo xtask image --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: segos-iso
           path: target/segos.iso

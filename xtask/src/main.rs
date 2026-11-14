@@ -206,7 +206,13 @@ fn qemu(iso: &Path, bios: bool) -> Command {
         let ovmf = std::env::var("OVMF").unwrap_or_else(|_| "/usr/share/ovmf/OVMF.fd".into());
         cmd.args(["-bios", &ovmf]);
     }
-    if Path::new("/dev/kvm").exists() {
+    // Usable KVM only: CI runners often have /dev/kvm without permission.
+    if std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/kvm")
+        .is_ok()
+    {
         cmd.args(["-enable-kvm", "-cpu", "host"]);
     }
     cmd
