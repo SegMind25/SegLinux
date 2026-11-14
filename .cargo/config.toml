@@ -1,0 +1,9 @@
+[alias]
+xtask = "run --quiet --package xtask --"
+
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "code-model=kernel",
+    "-C", "relocation-model=static",
+    "-C", "force-frame-pointers=yes",
+]

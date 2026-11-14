@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU, xorriso and OVMF
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 xorriso ovmf
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: |
+          cargo clippy -p xtask -- -D warnings
+          cargo clippy -p segkernel --target x86_64-unknown-none -- -D warnings
+      - name: Kernel tests in QEMU
+        run: cargo xtask test
+      - name: Bootable ISO
+        run: cargo xtask image --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: segos-iso
+          path: target/segos.iso
