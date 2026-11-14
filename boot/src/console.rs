@@ -23,7 +23,7 @@ impl Write for ConOut {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let mut buf = [0u16; 128];
         let mut n = 0;
-        let mut flush = |buf: &mut [u16; 128], n: &mut usize| {
+        let flush = |buf: &mut [u16; 128], n: &mut usize| {
             buf[*n] = 0;
             // SAFETY: ConOut is valid while boot services are active and the
             // buffer is NUL-terminated.

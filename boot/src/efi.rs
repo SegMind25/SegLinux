@@ -132,7 +132,6 @@ pub const ALLOCATE_ANY_PAGES: u32 = 0;
 pub const ALLOCATE_MAX_ADDRESS: u32 = 1;
 
 // EFI_MEMORY_TYPE
-pub const RESERVED_MEMORY_TYPE: u32 = 0;
 pub const LOADER_CODE: u32 = 1;
 pub const LOADER_DATA: u32 = 2;
 pub const BOOT_SERVICES_CODE: u32 = 3;
