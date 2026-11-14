@@ -1,0 +1,22 @@
+[package]
+name = "segkernel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "segkernel"
+test = false
+bench = false
+
+[features]
+# Run the in-kernel test suite instead of idling, then exit QEMU.
+ktest = []
+
+[dependencies]
+x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
+spin = "0.10"
+linked_list_allocator = "0.10"
+log = "0.4"
+font8x8 = { version = "0.3", default-features = false, features = ["unicode"] }

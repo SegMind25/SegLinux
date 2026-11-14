@@ -1,0 +1,4 @@
+[toolchain]
+channel = "stable"
+components = ["rust-src", "llvm-tools", "clippy", "rustfmt"]
+targets = ["x86_64-unknown-none"]

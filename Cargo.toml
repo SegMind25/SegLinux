@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = ["kernel", "xtask"]
+# `cargo build` on the host builds only the build tool; the kernel is built
+# for x86_64-unknown-none by `cargo xtask build`.
+default-members = ["xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/SegMind25/SegLinux"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+debug = true
